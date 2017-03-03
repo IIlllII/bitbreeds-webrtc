@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>bitbreeds-webrtc</artifactId>
+        <groupId>com.bitbreeds.webrtc</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>webrtc-example</artifactId>
+
+    <build>
+        <plugins>
+            <!-- Capsule build -->
+            <plugin>
+                <groupId>com.github.chrischristo</groupId>
+                <artifactId>capsule-maven-plugin</artifactId>
+                <version>1.1.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                        <configuration>
+                            <appClass>com.bitbreeds.webrtc.example.SimpleSignalingExample</appClass>
+                            <!--
+                            <caplets>co.paralleluniverse:capsule-daemon:0.2.0</caplets>
+
+                            <manifest>
+                                <entry>
+                                    <key>Daemon-Start-Class</key>
+                                    <value>com.bitbreeds.duelserver.server.ServerBoot</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-Start-Method</key>
+                                    <value>main</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-User</key>
+                                    <value>crackling</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-Cwd</key>
+                                    <value>/Users/crackling/working-dir-capsule</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-Stdout-File</key>
+                                    <value>/Users/crackling/working-dir-capsule/info.log</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-Stderr-File</key>
+                                    <value>/Users/crackling/working-dir-capsule/error.log</value>
+                                </entry>
+                                <entry>
+                                    <key>Daemon-PID-File</key>
+                                    <value>/Users/crackling/working-dir-capsule/duelserver.PID</value>
+                                </entry>
+                            </manifest>
+                            -->
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+
+        <dependency>
+            <groupId>co.paralleluniverse</groupId>
+            <artifactId>capsule</artifactId>
+            <version>1.0.2</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.bitbreeds.webrtc</groupId>
+            <artifactId>webrtc-signaling</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-websocket</artifactId>
+            <version>2.17.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-core</artifactId>
+            <version>2.18-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+</project>
