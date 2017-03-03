@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
@@ -41,10 +42,28 @@ import java.security.GeneralSecurityException;
  */
 public class SimpleSignalingExample {
 
+    /**
+     * Depending on where this is run from different paths can match
+     * @return keystore path
+     */
+    private static String findKeystore() {
+        File a  = new File("./src/test/resources/ws2.jks");
+        File b  = new File("./webrtc-signaling/src/test/resources/ws2.jks");
+        if(a.exists()) {
+            return a.getAbsolutePath();
+        }
+        else if(b.exists()) {
+            return b.getAbsolutePath();
+        }
+        else {
+            throw new IllegalStateException("No keystore at either " + a.getAbsolutePath() + " or " +b.getAbsolutePath());
+        }
+    }
+
     private static KeyStoreInfo keyStoreInfo = new KeyStoreInfo(
-                            "./src/test/resources/ws2.jks",
-                                    "websocket",
-                                    "websocket");
+            findKeystore(),
+            "websocket",
+            "websocket");
 
     /**
      * Application entry point
@@ -52,11 +71,6 @@ public class SimpleSignalingExample {
      * @throws Exception
      */
     public static void main(String... args) throws Exception {
-
-        System.setProperty("com.bitbreeds.keystore","./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias","websocket");
-        System.setProperty("com.bitbreeds.keystore.pass","websocket");
-
         JndiRegistry reg = new JndiRegistry(new JndiContext());
 
         reg.bind("sslContextParameters",sslParameters());

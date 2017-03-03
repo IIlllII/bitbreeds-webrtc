@@ -169,7 +169,7 @@ dataChannel.onmessage = function (e) {
     sts.innerHTML = "ONMESSAGE";
 };
 
-var ws = new WebSocket("ws://ubuntu-mini:8443/incoming");
+var ws = new WebSocket("ws://0.0.0.0:8443/incoming");
 
 ws.onmessage = function(message) {
 
