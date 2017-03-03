@@ -19,7 +19,7 @@ any kind of production use.
 
 ###How to run
 
-class `SimpleSignaling` will start the server with these parameters pointing to the 
+class `SimpleSignalingExample` will start the server with these parameters pointing to the 
 test keystore given.
 
 ```
