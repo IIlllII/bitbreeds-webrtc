@@ -18,14 +18,14 @@ any kind of production use.
 
 
 ###How to run
-####To run locally.
+####Run locally.
 
 Main class `SimpleSignalingExample` will start a websocket server on port 8443.
 
 Then run `./web/index.html` in firefox to connect to the server, share candicates and 
 using WebRTC. If it works it should say _ONMESSAGE_
 
-####To run on a server
+####Run on a server
 If you build webrtc-example, you can start the _webrtc-example-1.0-SNAPSHOT-capsule.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
 
 ```
@@ -46,7 +46,7 @@ The keystore parameters are pretty self explanatory (you need to make an RSA cer
 -Dcom.bitbreeds.keystore.pass=websocket
 ```
 
-####Or
+####Run a complete selenium test
 class `BrowserTest` runs a full test, if you provide a path to firefox,
 like below it will start the server, open the browser and connect. Then end
 once it has opened the WebRTC connection.
