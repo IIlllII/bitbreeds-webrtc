@@ -68,11 +68,4 @@ open /Applications/Firefox.app/
 That log will contain a lot of information needed to debug eventual issues.
 On the server side setting levels in logback-test.xml control logging.
 
-###Issues
-* SCTP implementation is my own hacked together Java version, 
-it should be replaced by the native version used by [libjitsi](https://github.com/jitsi/libjitsi).
-* Signaling does not do ICE more then a bare minimum.
-* The API for an outside application must be created.
-* SCTP implementation is very wasteful (copies a lot of memory).
-* Throughput is bad.
 
