@@ -29,8 +29,8 @@ test keystore given.
 ```
 Then run `./web/index.html` in firefox to connect to the server.
 
-If the server has issues finding the ip, you can supply that
-manually like this.
+If the server has problems finding its ip, you can supply the
+ip to send as a candidate manually like this.
 
 ```
 -Dcom.bitbreeds.ip=192.168.1.5
