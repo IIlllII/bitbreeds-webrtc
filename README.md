@@ -18,22 +18,32 @@ any kind of production use.
 
 
 ###How to run
+####To run locally.
 
-class `SimpleSignalingExample` will start the server with these parameters pointing to the 
-test keystore given.
+Main class `SimpleSignalingExample` will start a websocket server on port 8443.
+
+Then run `./web/index.html` in firefox to connect to the server, share candicates and 
+using WebRTC. If it works it should say _ONMESSAGE_
+
+####To run on a server
+If you build webrtc-example, you can start the _webrtc-example-1.0-SNAPSHOT-capsule.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
 
 ```
--Dcom.bitbreeds.keystore=./webrtc-signaling/src/main/resources/ws2.jks 
--Dcom.bitbreeds.keystore.alias=websocket 
--Dcom.bitbreeds.keystore.pass=websocket
+java -Dcom.bitbreeds.keystore=./ws2.jks -Dcom.bitbreeds.keystore.alias=websocket -Dcom.bitbreeds.keystore.pass=websocket -Dcom.bitbreeds.ip="192.168.1.5" -jar webrtc-example-1.0-SNAPSHOT-capsule.jar
 ```
-Then run `./web/index.html` in firefox to connect to the server.
 
-If the server has problems finding its ip, you can supply the
+If the server has problems finding its own public ip, you can supply the
 ip to send as a candidate manually like this.
 
 ```
 -Dcom.bitbreeds.ip=192.168.1.5
+```
+
+The keystore parameters are pretty self explanatory (you need to make an RSA cert though):
+```
+-Dcom.bitbreeds.keystore=./ws2.jks
+-Dcom.bitbreeds.keystore.alias=websocket
+-Dcom.bitbreeds.keystore.pass=websocket
 ```
 
 ####Or
