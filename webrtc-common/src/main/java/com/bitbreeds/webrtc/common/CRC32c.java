@@ -9,6 +9,7 @@ import java.util.zip.Checksum;
  * and implemented on many Intel chipsets supporting SSE4.2.
  */
 // this code was taken from Apache Hadoop
+// (Since this is the only comment here, I am unsure of the original author)
 final class CRC32c
         implements Checksum
 {
