@@ -291,6 +291,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
                     running = false; //Need to quit channel now
                 }
         }
+        workPool.shutdown();
     }
 
     /**
