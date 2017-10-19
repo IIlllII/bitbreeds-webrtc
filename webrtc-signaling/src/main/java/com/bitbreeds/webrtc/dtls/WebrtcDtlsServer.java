@@ -25,10 +25,10 @@ import org.bouncycastle.crypto.tls.*;
 import org.bouncycastle.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.security.rsa.RSAPrivateCrtKeyImpl;
 
 import java.io.IOException;
 import java.security.KeyPair;
+import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.Vector;
 
 
@@ -132,7 +132,7 @@ public class WebrtcDtlsServer
 
     protected TlsSignerCredentials getRSASignerCredentials() throws IOException {
 
-        RSAPrivateCrtKeyImpl key = (RSAPrivateCrtKeyImpl)(pair.getValue().getPrivate());
+        RSAPrivateCrtKey key = (RSAPrivateCrtKey)(pair.getValue().getPrivate());
         return new DefaultTlsSignerCredentials(context,
                 cert,
                 new RSAKeyParameters(true,key.getModulus(),key.getPrivateExponent()),
