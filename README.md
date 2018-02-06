@@ -2,7 +2,7 @@ bitbreeds-webrtc
 ----------------
 
 ### Goal
-The goal for bitbreeds-webrtc is to make a simple Java API for
+The goal for bitbreeds-webrtc is to eventually make a simple Java API for
 talking directly to one or several browsers or
 other WebRTC peers through an unordered/unreliable or 
 unordered/reliable DataChannel.
@@ -13,9 +13,8 @@ it to be able to act as a client should not be that hard, but
 it is not something I am interested in writing, since I do not need it at this moment.
 
 ### Maturity
-bitbreeds webrtc is not complete and __not__ ready for
-any kind of production use.
-
+bitbreeds webrtc is not even close to complete and __not__ ready for
+any kind serious use.
 
 ### How to run
 #### Run locally.
@@ -47,25 +46,29 @@ The keystore parameters are pretty self explanatory (you need to make an RSA cer
 ```
 
 #### Run a complete selenium test
-class `BrowserTest` runs a full test, if you provide a path to firefox,
+class `BrowserTest` runs a full test, you will need to have firefox installed,
 like below it will start the server, open the browser and connect. Then end
 once it has opened the WebRTC connection.
-```
--Dfirefox.path=/Users/crackling/Firefox.app/Contents/MacOS/firefox-bin
-```
+
 
 ### Debug
 To start firefox with logging, take a look in ./firefox_osx_webrtc_logging.sh: 
 ```
+#!/bin/bash
 dat=`echo ~`
 path="$dat/webrtc_firefox.log"
-export NSPR_LOG_FILE=$path
-export NSPR_LOG_MODULES='signaling:5,mtransport:5,SCTP:5,mediapipeline:9'
+trace="$dat/webrtc_trace.log"
+echo $path
+export WEBRTC_TRACE_FILE=$trace
+export MOZ_LOG_FILE=$path
+export MOZ_LOG='timestamp,sync,jsep:5,rtplogger:5,SCTP:5,signaling:5,mtransport:5,MediaManager:5,webrtc_trace:5'
 export R_LOG_LEVEL=9
-export R_LOG_DESTINATION=stderr
+export R_LOG_VERBOSE=1
 open /Applications/Firefox.app/
 ```
 That log will contain a lot of information needed to debug eventual issues.
 On the server side setting levels in logback-test.xml control logging.
+
+Chrome also has chrome://webrtc-internals, which is great for debugging.
 
 
