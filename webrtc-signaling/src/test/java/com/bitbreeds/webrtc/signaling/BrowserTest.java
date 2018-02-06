@@ -1,11 +1,11 @@
 package com.bitbreeds.webrtc.signaling;
 
+import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.firefox.FirefoxBinary;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
-import org.openqa.selenium.firefox.FirefoxProfile;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -30,34 +30,28 @@ public class BrowserTest {
 
     @Test
     public void testFull() throws Exception {
+        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
+        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
+        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        String firefoxPath = System.getProperty("firefox.path");
-        //OS X * /Firefox.app/Contents/MacOS/firefox
-        System.setProperty("com.bitbreeds.keystore","./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias","websocket");
-        System.setProperty("com.bitbreeds.keystore.pass","websocket");
+        SimpleSignalingExample.main();
 
-        if(firefoxPath != null) {
-            SimpleSignalingExample.main();
+        File fl = new File(".././web/index.html");
 
-            File fl = new File(".././web/index.html");
+        String url = "file://" + fl.getAbsolutePath();
+        System.out.println(url);
+        WebDriverManager.firefoxdriver().setup();
+        WebDriver driver = new FirefoxDriver();
+        driver.get(url);
 
-            String url = "file://" + fl.getAbsolutePath();
-            System.out.println(url);
-            FirefoxBinary binary = new FirefoxBinary(new File(firefoxPath));
-            FirefoxProfile firefoxProfile = new FirefoxProfile();
-            WebDriver driver = new FirefoxDriver(binary, firefoxProfile);
-            driver.get(url);
+        (new WebDriverWait(driver, 20)).until(
+                (ExpectedCondition<Boolean>) d -> {
+                    assert d != null;
+                    return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
+                }
+        );
 
-            (new WebDriverWait(driver, 20)).until(
-                    (ExpectedCondition<Boolean>) d -> {
-                        assert d != null;
-                        return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
-                    }
-            );
-
-            driver.quit();
-        }
+        driver.quit();
 
     }
 

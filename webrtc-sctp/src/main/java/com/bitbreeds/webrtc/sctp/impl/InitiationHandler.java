@@ -60,20 +60,23 @@ public class InitiationHandler implements MessageHandler {
 
         handler.setContext(context);
 
+        int rcwd = SignalUtil.intFromFourBytes(data.getFixed().get(SCTPFixedAttributeType.ARWC).getData());
+        handler.setRcwd(rcwd);
+
         SCTPHeader hdr = new SCTPHeader(
                 header.getDestinationPort(),
                 header.getSourcePort(),
                 SignalUtil.bytesToLong(context.getInitiateTag()),
                 0L);
 
-        /**
+        /*
          * Create fixed attributes
          */
         Map<SCTPFixedAttributeType,SCTPFixedAttribute> attr  = new HashMap<>();
         byte[] initate = SignalUtil.randomBytes(4);
 
         attr.put(INITIATE_TAG,new SCTPFixedAttribute(INITIATE_TAG,initate));
-        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt(WINDOW_CREDIT)));
+        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt(handler.getReceiveBuffer())));
         attr.put(OUTBOUND_STREAMS,
                 new SCTPFixedAttribute(OUTBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
         attr.put(INBOUND_STREAMS,
@@ -83,7 +86,7 @@ public class InitiationHandler implements MessageHandler {
         long tsn = SignalUtil.bytesToLong(data.getFixed().get(INITIAL_TSN).getData());
         handler.getSackCreator().handleTSN(tsn);
 
-        /**
+        /*
          * Create variable attributes
          */
         SCTPAttribute cookie = new SCTPAttribute(
@@ -114,10 +117,6 @@ public class InitiationHandler implements MessageHandler {
         return Optional.of(out);
     }
 
-
-    /**
-     * Cookie
-     */
     private byte[] createCookie( byte[] tag ) {
         long millis = System.currentTimeMillis();
         SecureRandom rd = new SecureRandom();

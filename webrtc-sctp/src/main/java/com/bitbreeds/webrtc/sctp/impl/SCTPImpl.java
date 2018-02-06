@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -59,7 +60,17 @@ public class SCTPImpl implements SCTP  {
     private ReliabilityParameters parameters =  null;
 
     private AtomicLong duplicateCount = new AtomicLong(0);
+
     AtomicLong receivedBytes = new AtomicLong(0L);
+
+    /**
+     * Size left of remore receive buffer
+     */
+    volatile int rcwd = 0;
+
+    public void setRcwd(int rcwd) {
+        this.rcwd = rcwd;
+    }
 
     /**
      * The impl access to write data to the socket
@@ -127,6 +138,14 @@ public class SCTPImpl implements SCTP  {
         this.context = context;
     }
 
+
+    public int getReceiveBuffer() {
+        return writer.getReceiveBufferSize();
+    }
+
+    public int getSendBuffer() {
+        return writer.getSendBufferSize();
+    }
 
     /**
      *
@@ -232,7 +251,7 @@ public class SCTPImpl implements SCTP  {
                 byte[] protocol = SignalUtil.copyRange(msgData,
                         new ByteRange(12+labelLength,12+labelLength+protocolLength));
 
-                /**
+                /*
                  * Store params
                  */
                 parameters = new ReliabilityParameters(
@@ -244,7 +263,7 @@ public class SCTPImpl implements SCTP  {
 
                 logger.info("Updated channel with parameters: " + parameters);
 
-                /**
+                /*
                  * Send ack and do not process anymore
                  */
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
@@ -265,7 +284,7 @@ public class SCTPImpl implements SCTP  {
         if(status != ReceiveService.TsnStatus.DUPLICATE) {
             receivedBytes.getAndAdd(data.getPayload().length);
             if (data.getFlags().isOrdered()) {
-                /**
+                /*
                  *
                  * TODO here we have to do something to ensure ordering
                  *
@@ -307,5 +326,8 @@ public class SCTPImpl implements SCTP  {
         logger.info("Total sent bytes: " + sendService.getSentBytes());
         logger.info("DuplicateCount: " + duplicateCount.get());
         logger.info("RTT: " + heartBeatService.getRttMillis());
+        logger.info("Receive buff: " + getReceiveBuffer());
+        logger.info("Send buff: " + getSendBuffer());
+        logger.info("ARCW: " + rcwd);
     }
 }

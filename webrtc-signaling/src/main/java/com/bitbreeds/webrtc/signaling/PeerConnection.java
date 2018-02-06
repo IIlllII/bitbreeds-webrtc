@@ -9,12 +9,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sdp.MediaDescription;
+import javax.sdp.SdpException;
+import javax.sdp.SdpFactory;
 import javax.sdp.SessionDescription;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
+/*
  * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -38,7 +42,9 @@ public class PeerConnection {
 
     private final static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
 
-    private ConsPStack<IceCandidate> candidates = ConsPStack.empty();
+    private ConsPStack<IceCandidate> remoteCandidates = ConsPStack.empty();
+    private ConsPStack<IceCandidate> localCandidates = ConsPStack.empty();
+    private ConcurrentHashMap<String,DataChannelImpl> channels = new ConcurrentHashMap<>();
     private final Object candidateMutex = new Object();
 
     private KeyStoreInfo keyStoreInfo;
@@ -96,12 +102,22 @@ public class PeerConnection {
         return new DataChannelImpl(this);
     }
 
+
+    /**
+     * @param candidate the received candidate
+     */
+    private void addLocalCandidate(IceCandidate candidate) {
+        synchronized (candidateMutex) {
+            remoteCandidates = remoteCandidates.plus(candidate);
+        }
+    }
+
     /**
      * @param candidate the received candidate
      */
     private void addCandidate(IceCandidate candidate) {
         synchronized (candidateMutex) {
-            candidates = candidates.plus(candidate);
+            remoteCandidates = remoteCandidates.plus(candidate);
         }
     }
 
@@ -119,61 +135,72 @@ public class PeerConnection {
      * @param offer the received offer
      * @return The answer to respond with.
      */
-    public Answer handleOffer(Offer offer) throws Exception {
+    public List<Object> handleOffer(Offer offer) throws Exception {
+
+        SessionDescription sdp = offer.getSdp();
+
+        MediaDescription med = (MediaDescription)sdp.getMediaDescriptions(true).get(0);
+        String pwd = med.getAttribute("ice-pwd");
+        String user = med.getAttribute("ice-ufrag");
+
+        String mid = med.getAttribute("mid");
+
+        this.setRemote(new UserData(user,pwd));
+
+        /*
+         * TODO The below should be defined outside PeerConnection
+         */
+        DataChannelImpl conn = channels.get(user);
+        if(conn == null) {
+            conn = new DataChannelImpl(this);
+
+            //Add handling of input
+            conn.onOpen((i) -> {
+                logger.info("Running onOpen");
+                i.send("I'M SO OPEN!!!");
+            });
+            conn.onMessage((i,j)->{
+                String in = new String(j.getData());
+                logger.debug("Running onMessage: " + in);
+                i.send("ECHO: " + in);
+            });
+            conn.onError((i,j)->{
+                logger.info("Received error",j.getError());
+            });
+
+            channels.put(user,conn);
+
+            new Thread(conn).start();
+        }
+
+        String localAddress = InetAddress.getLocalHost().getHostAddress();
+        String address = System.getProperty("com.bitbreeds.ip",localAddress);
+        logger.info("Adr: {}", address);
 
         String fingerPrint = CertUtil.getCertFingerPrint(
                 keyStoreInfo.getFilePath(),
                 keyStoreInfo.getAlias(),
                 keyStoreInfo.getPassword());
 
-        SessionDescription sdp = offer.getSdp();
-        sdp.setAttribute("fingerprint", fingerPrint);
-        MediaDescription med = (MediaDescription)sdp.getMediaDescriptions(true).get(0);
-        med.setAttribute("fingerprint", fingerPrint);
 
-        String pwd = med.getAttribute("ice-pwd");
-        String user = med.getAttribute("ice-ufrag");
-
-        String cand = med.getAttribute("candidate");
-        List<String> candData = Arrays.asList(cand.split(" "));
-
-        String ip = candData.get(4);
-        String port = candData.get(5);
-
-        this.setRemote(new UserData(user,pwd));
-
-        /**
-         * TODO The below should be defined outside PeerConnection
-         *
-         * This is a huge hack now. Should follow browser API
-         * and create datachannel from the outside.
+        /*
+         * Create candidate
          */
-        DataChannelImpl conn = new DataChannelImpl(this);
+        Random random = new Random();
+        int number = random.nextInt(1000000);
+        IceCandidate candidate = new IceCandidate(BigInteger.valueOf(number),conn.getPort(),address,2122252543L);
 
-        //Add handling of input
-        conn.onOpen(() -> {
-            logger.info("Running onOpen");
-            conn.send("I'M SO OPEN!!!");
-        });
-        conn.onMessage((i)->{
-            String in = new String(i.getData());
-            //logger.info("Running onMessage: " + in);
-            conn.send("ECHO: " + in);
-        });
-        conn.onError((i)->{
-            logger.info("Received error",i.getError());
-        });
+        addLocalCandidate(candidate);
 
-        new Thread(conn).start();
+        SessionDescription answerSdp = SDPUtil.createSDP(
+                candidate,
+                local.getUserName(),
+                local.getPassword(),
+                fingerPrint,
+                mid
+        );
 
-        String localAddress = InetAddress.getLocalHost().getHostAddress();
-        String address = System.getProperty("com.bitbreeds.ip",localAddress);
-        logger.info("Adr: {}", address);
-        med.setAttribute("ice-pwd",local.getPassword());
-        med.setAttribute("ice-ufrag",local.getUserName());
-        med.setAttribute("candidate","1 1 UDP 2122252543 "+address+" "+conn.getPort()+" typ host");
-
-        return new Answer(sdp);
+        return Arrays.asList(new Answer(answerSdp));
     }
 
     /**
@@ -181,7 +208,7 @@ public class PeerConnection {
      * @param answer the answer
      */
     public void handleAnswer(Answer answer) throws Exception {
-        /**
+        /*
          * Not implemented
          */
     }
@@ -192,8 +219,11 @@ public class PeerConnection {
      *
      */
     public void handleIce(IceCandidate ice) throws Exception {
+        logger.info("Candidate received: "+ ice);
         addCandidate(ice);
     }
 
 
+
 }
+

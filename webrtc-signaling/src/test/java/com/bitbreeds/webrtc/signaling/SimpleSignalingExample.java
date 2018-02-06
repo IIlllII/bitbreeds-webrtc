@@ -20,6 +20,7 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Copyright (c) 16/04/16, Jonas Waage
@@ -77,6 +78,8 @@ public class SimpleSignalingExample {
 
         CamelContext ctx = new DefaultCamelContext(reg);
         ctx.addRoutes(new WebsocketRouteNoSSL());
+        ctx.addRoutes(new OutRoute());
+        ctx.addRoutes(new DelayRoute());
         ctx.setUseMDCLogging(true);
         ctx.setTracing(true);
         ctx.start();
@@ -107,11 +110,17 @@ public class SimpleSignalingExample {
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
                     .bean(new PeerConnection(keyStoreInfo))
+                    .split()
+                    .body()
                     .choice()
                     .when(body().isInstanceOf(Answer.class))
                     .process(new AnswerToJSON())
-                    .log("OutputBody: ${body}").to("websocket:0.0.0.0:8443/incoming?sslContextParameters=#sslContextParameters")
-                    .otherwise().log("No response on ICE or answer");
+                    .when(body().isInstanceOf(IceCandidate.class))
+                    .process(new IceCandidateToJSON())
+                    .otherwise().log("No response on ICE or answer")
+                    .end()
+                    .log("OutputBody: ${body}")
+                    .to("websocket:0.0.0.0:8443/incoming?sslContextParameters=#sslContextParameters");
         }
     }
 
@@ -119,21 +128,50 @@ public class SimpleSignalingExample {
      * Websocket to setup webrtc peerconnection without SSL.
      * This is useful for testing, but since it is not encrypted not
      * good for actual signaling.
+     *
      */
     private static class WebsocketRouteNoSSL extends RouteBuilder {
+
         @Override
         public void configure() throws Exception {
             from("websocket:0.0.0.0:8443/incoming")
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
                     .bean(new PeerConnection(keyStoreInfo))
+                    .split()
+                    .body()
                     .choice()
                     .when(body().isInstanceOf(Answer.class))
                     .process(new AnswerToJSON())
-                    .log("OutputBody: ${body}").to("websocket:0.0.0.0:8443/incoming")
-                    .otherwise().log("No response on ICE or answer");
+                    .to("seda:out")
+                    .when(body().isInstanceOf(IceCandidate.class))
+                    .process(new IceCandidateToJSON())
+                    .to("seda:delay")
+                    .end();
         }
     }
+
+    private static class OutRoute extends RouteBuilder {
+
+        @Override
+        public void configure() throws Exception {
+            from("seda:out")
+                    .log("InputBody: ${body}")
+                    .to("websocket:0.0.0.0:8443/incoming");
+        }
+    }
+
+    private static class DelayRoute extends RouteBuilder {
+
+        @Override
+        public void configure() throws Exception {
+            from("seda:delay")
+                    .delay(250)
+                    .log("InputBody: ${body}")
+                    .to("websocket:0.0.0.0:8443/incoming");
+        }
+    }
+
 
     /**
      *

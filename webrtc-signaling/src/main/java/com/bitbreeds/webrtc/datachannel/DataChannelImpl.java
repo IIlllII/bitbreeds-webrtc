@@ -17,10 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
@@ -30,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -58,24 +56,18 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
 
-    final Object mutex = new Object();
-
     private final ReentrantLock lock = new ReentrantLock(true);
 
     private final static Logger logger = LoggerFactory.getLogger(DataChannelImpl.class);
 
     private SCTP sctpService = new SCTPNoopImpl();
 
-    private final int waitMillis = 10000;
-    private final int MTU = 1500;
-    private final int bufferSize = 20000;
-
+    private final static int DEFAULT_WAIT_MILLIS = 10000;
+    private final static int DEFAULT_MTU = 1500;
+    private final static int DEFAULT_BUFFER_SIZE = 20000;
 
     private final DTLSServerProtocol serverProtocol;
     private final DatagramSocket channel;
-
-    private final long sendBufferSize;
-    private final long receiveBufferSize;
 
     private final int port;
 
@@ -83,42 +75,42 @@ public class DataChannelImpl implements Runnable,DataChannel {
     private ConnectionMode mode;
 
     private final TlsServer dtlsServer;
-    private DatagramTransport transport;
+    private volatile DatagramTransport transport;
 
     private final BindingService bindingService = new BindingService();
 
     private SocketAddress sender;
 
-    private final ExecutorService workPool = Executors.newFixedThreadPool(2);
+    private final ExecutorService workPool = Executors.newFixedThreadPool(4);
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final Runnable heartBeat;
     private final Runnable sackSender;
     private final Runnable reSender;
     private final Runnable monitor;
 
-    private Runnable onOpen = () -> {};
-    private Consumer<MessageEvent> onMessage = (i) -> {};
-    private Consumer<ErrorEvent> onError = (i)->{};
+    private static final int RECEIVE_BUFFER_DEFAULT = 6000000;
+    private static final int SEND_BUFFER_DEFAULT = 6000000;
+
+    private Consumer<DataChannel> onOpen = (i) -> {};
+    private BiConsumer<DataChannel,MessageEvent> onMessage = (i,j) -> {};
+    private BiConsumer<DataChannel,ErrorEvent> onError = (i,j)-> {};
 
     private final PeerConnection parent;
 
     public DataChannelImpl(
             PeerConnection parent)
- throws IOException {
+            throws IOException {
         logger.info("Initializing {}",this.getClass().getName());
         this.dtlsServer = new WebrtcDtlsServer(parent.getKeyStoreInfo());
         this.parent = parent;
         this.channel = new DatagramSocket();
-        this.channel.setReceiveBufferSize(16000000);
-        this.receiveBufferSize = this.channel.getReceiveBufferSize();
-        this.channel.setSendBufferSize(16000000);
-        this.sendBufferSize = this.channel.getSendBufferSize();
-        //this.channel.setReuseAddress(true);
+        this.channel.setReceiveBufferSize(RECEIVE_BUFFER_DEFAULT);
+        this.channel.setSendBufferSize(SEND_BUFFER_DEFAULT);
         this.port = channel.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
         this.mode = ConnectionMode.BINDING;
 
-        /**
+        /*
          * Print monitoring information
          */
         this.monitor = () -> {
@@ -133,7 +125,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
             }
         };
 
-        /**
+        /*
          * Create heartbeat message
          */
         this.heartBeat = () ->  {
@@ -149,7 +141,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
             }
         };
 
-        /**
+        /*
          * Acknowledge received data
          */
         this.sackSender = () -> {
@@ -172,7 +164,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
             }
         };
 
-        /**
+        /*
          * Resends non acknowledged sent messages
          */
         this.reSender = () -> {
@@ -211,7 +203,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
         logger.info("Started listening to port: " + port);
         while(running && channel.isBound()) {
 
-            byte[] bt = new byte[bufferSize];
+            byte[] bt = new byte[DEFAULT_BUFFER_SIZE];
 
                 try {
                     if (mode == ConnectionMode.BINDING) {
@@ -245,32 +237,33 @@ public class DataChannelImpl implements Runnable,DataChannel {
                     }
                     else if(mode == ConnectionMode.HANDSHAKE) {
                         Thread.sleep(5);
-                        logger.info("In handshake mode: ");
 
                         if(transport == null) {
                             channel.connect(sender);
 
-                            /**
+                            logger.info("Connecting DTLS mux");
+                            /*
                              * {@link NioUdpTransport} might replace the {@link UDPTransport} here.
                              * @see <a href="https://github.com/RestComm/mediaserver/blob/master/io/rtp/src/main/java/org/mobicents/media/server/impl/srtp/NioUdpTransport.java">NioUdpTransport</a>
                              */
-                            transport = serverProtocol.accept(dtlsServer, new DtlsMuxStunTransport(parent,channel, MTU));
+                            DatagramTransport udpTransport = new UDPTransport(channel, DEFAULT_MTU);
+                            DtlsMuxStunTransport muxStunTransport = new DtlsMuxStunTransport(parent,channel, DEFAULT_MTU);
+                            transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
                         sctpService = new SCTPImpl(this);
-
                         mode = ConnectionMode.TRANSFER;
                         logger.info("-> SCTP mode");
                     }
                     else if(mode == ConnectionMode.TRANSFER) {
-
-                        /**
+                        logger.debug("In SCTP mode");
+                        /*
                          * Here we receive message and put them to a worker thread for handling
                          * If the output of handling the message is a message, then we send those
                          * using the same thread.
                          */
                         byte[] buf = new byte[transport.getReceiveLimit()];
-                        int length = transport.receive(buf, 0, buf.length, waitMillis);
+                        int length = transport.receive(buf, 0, buf.length, DEFAULT_WAIT_MILLIS);
                         if (length >= 0) {
                             byte[] handled = Arrays.copyOf(buf, length);
                             workPool.submit(() -> {
@@ -291,6 +284,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
                     running = false; //Need to quit channel now
                 }
         }
+        logger.info("Shutting down pool");
         workPool.shutdown();
     }
 
@@ -314,6 +308,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
     public void send(String data) {
         send(data,Charset.defaultCharset());
     }
+
 
     /**
      * Data is sent as a SCTPMessage
@@ -379,14 +374,14 @@ public class DataChannelImpl implements Runnable,DataChannel {
      *
      * @param onMessage action to take when receiving a message
      */
-    public void onMessage(Consumer<MessageEvent> onMessage) {
+    public void onMessage(BiConsumer<DataChannel,MessageEvent> onMessage) {
         this.onMessage = onMessage;
     }
 
     /**
      * @param onError action when an error occurs
      */
-    public void onError(Consumer<ErrorEvent> onError) {
+    public void onError(BiConsumer<DataChannel,ErrorEvent> onError) {
         this.onError = onError;
     }
 
@@ -398,7 +393,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
     public void runOnError(final Exception err) {
         workPool.submit(() -> {
             try {
-                onError.accept(new ErrorEvent(err));
+                onError.accept(this,new ErrorEvent(err));
             } catch (Exception e) {
                 logger.error("OnMessage failed",e);
             }
@@ -415,7 +410,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
         logger.debug("Running onOpen callback");
         workPool.submit(() -> {
             try {
-                onOpen.run();
+                onOpen.accept(this);
             } catch (Exception e) {
                 logger.error("OnOpen failed",e);
             }
@@ -429,7 +424,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
     public void runOnMessage(final byte[] data) {
         workPool.submit(() -> {
             try {
-                onMessage.accept(new MessageEvent(data,sender));
+                onMessage.accept(this,new MessageEvent(data,sender));
             } catch (Exception e) {
                 logger.error("OnMessage failed",e);
             }
@@ -441,10 +436,9 @@ public class DataChannelImpl implements Runnable,DataChannel {
      *
      * @param onOpen action to take when connection is open
      */
-    public void onOpen(Runnable onOpen) {
+    public void onOpen(Consumer<DataChannel> onOpen) {
         this.onOpen = onOpen;
     }
-
 
     public void setRunning(boolean running) {
         this.running = running;
@@ -452,6 +446,30 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     public int getPort() {
         return port;
+    }
+
+    @Override
+    public int getReceiveBufferSize() {
+        if(channel != null) {
+            try {
+                return channel.getReceiveBufferSize();
+            } catch (SocketException e) {
+                return RECEIVE_BUFFER_DEFAULT;
+            }
+        }
+        return RECEIVE_BUFFER_DEFAULT;
+    }
+
+    @Override
+    public int getSendBufferSize() {
+        if(channel != null) {
+            try {
+                return channel.getReceiveBufferSize();
+            } catch (SocketException e) {
+                return SEND_BUFFER_DEFAULT;
+            }
+        }
+        return SEND_BUFFER_DEFAULT;
     }
 
 }

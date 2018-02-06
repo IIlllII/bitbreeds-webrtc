@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.sdp.SdpFactory;
 import javax.sdp.SessionDescription;
+import java.math.BigInteger;
 import java.net.InetAddress;
 
 /**
@@ -47,13 +48,11 @@ public class ProcessSignals implements Processor {
                 SessionDescription sdp = factory.createSessionDescription(el.get("sdp").getAsString());
                 logger.info("SDP" + sdp);
                 exchange.getIn().setBody(new Offer(sdp));
-                return;
             }
             else if("answer".equalsIgnoreCase(el.get("type").getAsString())) {
                 SessionDescription sdp = factory.createSessionDescription(el.get("sdp").getAsString());
                 logger.info("SDP" + sdp);
                 exchange.getIn().setBody(new Answer(sdp));
-                return;
             }
         }
         else if(el.get("candidate") != null) {
@@ -62,18 +61,16 @@ public class ProcessSignals implements Processor {
             String[] ice = iceCandidate.split(" ");
 
             IceCandidate can = new IceCandidate(
+                    BigInteger.valueOf(Long.valueOf(ice[0].split(":")[1])),
                     Integer.valueOf(ice[5]),
-                    InetAddress.getByName(ice[4]),
+                    ice[4],
                     Long.valueOf(ice[3]));
             exchange.getIn().setBody(can);
-            return;
-
         }
         else {
             throw new UnsupportedOperationException("unknown type");
         }
 
-        factory.createSessionDescription(ex);
     }
 
 

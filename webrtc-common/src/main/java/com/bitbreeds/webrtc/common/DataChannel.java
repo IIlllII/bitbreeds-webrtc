@@ -23,16 +23,21 @@ package com.bitbreeds.webrtc.common;
  */
 public interface DataChannel {
 
-    public void runOpen();
+    void runOpen();
 
-    public void runOnMessage(byte[] data);
+    void runOnMessage(byte[] data);
 
-    public void runOnError(final Exception err);
+    void runOnError(final Exception err);
 
-    public void send(byte[] data);
+    void send(byte[] data);
 
-    public void send(byte[] data,SCTPPayloadProtocolId id);
+    void send(byte[] data,SCTPPayloadProtocolId id);
 
-    public void send(String data);
+    void send(String data);
+
+    int getReceiveBufferSize();
+
+    int getSendBufferSize();
+
 
 }

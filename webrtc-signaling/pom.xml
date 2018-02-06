@@ -26,18 +26,16 @@
             <version>1.0-SNAPSHOT</version>
         </dependency>
 
-
         <dependency>
             <groupId>javax.sdp</groupId>
             <artifactId>nist-sdp</artifactId>
             <version>1.0</version>
         </dependency>
 
-
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.2.4</version>
+            <version>2.8.2</version>
         </dependency>
 
         <!-- Test deps below here-->
@@ -52,14 +50,20 @@
 
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.56</version>
+            <artifactId>bcprov-ext-debug-jdk15on</artifactId>
+            <version>1.59</version>
         </dependency>
 
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-ext-jdk15on</artifactId>
-            <version>1.55</version>
+            <artifactId>bcprov-debug-jdk15on</artifactId>
+            <version>1.59</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bctls-jdk15on</artifactId>
+            <version>1.59</version>
         </dependency>
 
 
@@ -77,7 +81,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-core</artifactId>
@@ -88,7 +91,14 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
-            <version>2.53.0</version>
+            <version>3.8.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>2.1.0</version>
             <scope>test</scope>
         </dependency>
 

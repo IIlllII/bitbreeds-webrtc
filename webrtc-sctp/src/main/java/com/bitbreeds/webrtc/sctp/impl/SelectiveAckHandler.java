@@ -52,6 +52,9 @@ public class SelectiveAckHandler implements MessageHandler {
         SCTPFixedAttribute num_gap = data.getFixed().get(SCTPFixedAttributeType.NUM_GAP_BLOCKS);
         SCTPFixedAttribute num_dupl = data.getFixed().get(SCTPFixedAttributeType.NUM_DUPLICATE);
 
+        int rcwd = SignalUtil.intFromFourBytes(arcw.getData());
+        handler.setRcwd(rcwd);
+
         long below_this_all_good = SignalUtil.bytesToLong(cum_tsn.getData());
         int gaps = SignalUtil.intFromTwoBytes(num_gap.getData());
         int dupl = SignalUtil.intFromTwoBytes(num_dupl.getData());
@@ -74,7 +77,7 @@ public class SelectiveAckHandler implements MessageHandler {
             duplicates.add(dpl);
         }
 
-        /**
+        /*
          * Get gaps acks and duplicates, and send to handler for processing
          */
         handler.getSendService().updateAcknowledgedTSNS(below_this_all_good,gapAcks,duplicates);

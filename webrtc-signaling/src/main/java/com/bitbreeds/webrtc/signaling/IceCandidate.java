@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
 import javax.sdp.SessionDescription;
+import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 
@@ -27,20 +28,26 @@ import java.net.InetAddress;
 public class IceCandidate {
 
     private final int port;
-    private final InetAddress ip;
+    private final String ip;
     private final long priority;
+    private final BigInteger number;
 
-    public IceCandidate(int port, InetAddress ip, long priority) {
+    public IceCandidate(BigInteger number,int port, String ip, long priority) {
         this.port = port;
         this.ip = ip;
         this.priority = priority;
+        this.number = number;
+    }
+
+    public String candidateString() {
+        return "candidate:"+number+" 1 UDP 2122252543 " + this.getIp() + " " + this.getPort() + " typ host generation 0 ufrag Qhj8 network-cost 50";
     }
 
     public int getPort() {
         return port;
     }
 
-    public InetAddress getIp() {
+    public String getIp() {
         return ip;
     }
 

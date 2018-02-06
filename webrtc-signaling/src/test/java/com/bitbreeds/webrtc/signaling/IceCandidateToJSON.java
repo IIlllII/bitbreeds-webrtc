@@ -1,7 +1,13 @@
-package com.bitbreeds.webrtc.example;
+package com.bitbreeds.webrtc.signaling;
+
+import com.google.gson.JsonObject;
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Copyright (c) 27/06/16, Jonas Waage
+ * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -18,10 +24,24 @@ package com.bitbreeds.webrtc.example;
 
 
 /**
- * Properties to set for keystore and its passwords
+ * Creates JSON from SDP answer to send back to browser
  */
-public class ServerProperties {
-    public final static String KEYSTORE = "com.bitbreeds.keystore";
-    public final static String ALIAS = "com.bitbreeds.keystore.alias";
-    public final static String PASS = "com.bitbreeds.keystore.pass";
+public class IceCandidateToJSON implements Processor {
+
+    private final static Logger logger = LoggerFactory.getLogger(IceCandidateToJSON.class);
+
+    public void process(Exchange exchange) throws Exception {
+        IceCandidate ex = (IceCandidate)exchange.getIn().getBody();
+        JsonObject obj = new JsonObject();
+        obj.addProperty("candidate",ex.candidateString());
+        obj.addProperty("sdpMid","data");
+        obj.addProperty("sdpMLineIndex",0);
+
+        String out = obj.toString();
+        logger.info("Send candidate: " +out) ;
+
+        exchange.getIn().setBody(out);
+    }
+
+
 }

@@ -6,6 +6,7 @@ import com.bitbreeds.webrtc.signaling.BindingService;
 import com.bitbreeds.webrtc.signaling.PeerConnection;
 import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.crypto.tls.AlertDescription;
+import org.bouncycastle.crypto.tls.DTLSServerProtocol;
 import org.bouncycastle.crypto.tls.DatagramTransport;
 import org.bouncycastle.crypto.tls.TlsFatalAlert;
 import org.slf4j.Logger;
@@ -13,9 +14,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.*;
+import java.security.SecureRandom;
 import java.util.Arrays;
 
-/**
+/*
  * Copyright (c) 28/02/2017, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -68,10 +70,10 @@ public class DtlsMuxStunTransport implements DatagramTransport {
     public int receive(byte[] buf, int off, int len, int waitMillis)
             throws IOException
     {
-        socket.setSoTimeout(waitMillis);
+        //socket.setSoTimeout(waitMillis);
         DatagramPacket packet = new DatagramPacket(buf, off, len);
         socket.receive(packet);
-        logger.trace("Socket read msg: {}", Hex.encodeHexString(SignalUtil.copyRange(buf, new ByteRange(0,packet.getLength()))));
+        logger.debug("Socket read msg: {}", Hex.encodeHexString(SignalUtil.copyRange(packet.getData(), new ByteRange(0,packet.getLength()))));
         if(buf.length >= 2 && buf[0] == 0 && buf[1] == 1) {
             SocketAddress currentSender = packet.getSocketAddress();
 
@@ -84,9 +86,11 @@ public class DtlsMuxStunTransport implements DatagramTransport {
                     (InetSocketAddress) currentSender
             );
 
-            logger.trace("Stun packet received, responding with {}",Hex.encodeHexString(out));
+            logger.debug("Stun packet received, responding with {}",Hex.encodeHexString(out));
             this.send(out,0,out.length);
             return 0; //We do not want DTLS to process (not that it will anyway), so we return 0 here.
+        } else {
+            logger.debug("Non stun packet received, returning length");
         }
 
         return packet.getLength();

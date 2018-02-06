@@ -1,22 +1,26 @@
 
 
-var peerConnection = new RTCPeerConnection({iceServers:[],rtcpMuxPolicy:"negotiate"});
+var peerConnection = new RTCPeerConnection();
 
 peerConnection.onicecandidate = function(e) {
     console.log('IceCand: ' + JSON.stringify(e));
-	if (e.candidate) {
-	    var dat = JSON.stringify(e.candidate);
+    if(e.isTrusted === true) {
+        console.log("State: " +dataChannel.readyState);
+        console.log("IceState: " + peerConnection.iceGatheringState);
+    }
+
+	if (peerConnection.iceGatheringState === 'complete') {
         console.log("Candidate: " + JSON.stringify(e.candidate));
-		ws.send(dat);
-		var loc = JSON.stringify(peerConnection.localDescription);
-		console.log(peerConnection.localDescription.sdp);
+        console.log("IceState" + peerConnection.iceGatheringState);
+        var loc = JSON.stringify(peerConnection.localDescription);
+        console.log(peerConnection.localDescription.sdp);
         ws.send(loc);
 	}
 };
 
 
 peerConnection.onsignalingstatechange = function(event) {
-    console.log("signal: " + JSON.stringify(event));
+    console.log("Signal: " + JSON.stringify(event));
 };
 
 peerConnection.onconnectionstatechange = function(event) {
@@ -31,6 +35,14 @@ peerConnection.onconnectionstatechange = function(event) {
     case "closed":
       break;
   }
+};
+
+peerConnection.ondatachannel = function (dt) {
+    console.log("datachannel: " + JSON.stringify(ev))
+};
+
+peerConnection.onidpvalidationerror = function (dt) {
+    console.log("ipvalidationfail: " + JSON.stringify(ev))
 };
 
 peerConnection.onclose = function (ev) {
@@ -59,7 +71,7 @@ peerConnection.onpeeridentity = function(ev) {
 
 
 var dataChannel = peerConnection.createDataChannel("channel",
-    {ordered:false,maxRetransmits:5});
+    {ordered:false});
 
 var sent = 0;
 var received = 0;
@@ -67,7 +79,7 @@ var count = 0;
 
 var logstats=true;
 
-var BUFF_MAX = 0;
+var BUFF_MAX = 1000000;
 
 var logger = window.setInterval(function(){
     if(logstats) {
@@ -119,7 +131,7 @@ dataChannel.onopen = function (e) {
         catch(err) {
             console.log("Error" + err.message);
         }
-    },100);
+    },25);
 
 
      window.setTimeout(
@@ -187,21 +199,26 @@ ws.onmessage = function(message) {
             break;
 
             case 'answer':
-                console.log("Answer received: ");
-                console.log(data.sdp);
-                peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+                console.log("Answer received: " + JSON.stringify(data));
+                console.log("Answer: " + data.sdp);
+                peerConnection.setRemoteDescription(new RTCSessionDescription(data)).then(function (sess) {
+                    console.log("Set remote with success ");
+                }).catch(function(e){
+                    console.log("error setting remote: "+e);
+                });
             break;
         }
     }
 
     if(data.candidate) {
-        peerConnection.addIceCandidate(data.candidate).then(
+        console.log("Received: "+JSON.stringify(data));
+        peerConnection.addIceCandidate(data).then(
             function(candidate){
-                console.log("Adding candidate");
+                console.log("Adding candidate: " + candidate + " " +  JSON.stringify(data));
             }
         ).catch(
-            function(candidate){
-                 console.log("error candidate");
+            function(e){
+                 console.log("error candidate: "+e);
             }
         );
     }
@@ -220,4 +237,4 @@ ws.onopen = function(ev) {
     }).catch(
         function(error) {console.log("Offer Error" + error)}
     );
-}
+};
