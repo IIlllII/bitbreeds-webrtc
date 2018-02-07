@@ -26,7 +26,7 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BrowserTest {
+public class BrowserTestChrome {
 
     @Test
     public void testFull() throws Exception {
@@ -40,8 +40,8 @@ public class BrowserTest {
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
-        WebDriverManager.firefoxdriver().setup();
-        WebDriver driver = new FirefoxDriver();
+        WebDriverManager.chromedriver().setup();
+        WebDriver driver = new ChromeDriver();
         driver.get(url);
 
         (new WebDriverWait(driver, 20)).until(
