@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-/**
+/*
  * Copyright (c) 29/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -16,30 +16,29 @@ package com.bitbreeds.webrtc.sctp.impl;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import com.bitbreeds.webrtc.sctp.model.SCTPFlags;
+import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 
 /**
- * Stores the parts of the payload needed for ordering
+ * Stores data about a received message
  *
- * Only necessary if I care about implementing ordering.
+ * Needed for reassembly of fragmented messages and correct delivery to user.
  */
-public class DataStorage {
+public class DataStorage implements Comparable<DataStorage> {
 
     private final long TSN;
     private final int streamId;
     private final int streamSequence;
-    private final SCTPFlags flags;
+    private final SCTPOrderFlag flags;
     private final SCTPPayloadProtocolId protocolId;
     private final byte[] payload;
 
     public DataStorage(long TSN,
                        int streamId,
                        int streamSequence,
-                       SCTPFlags flags,
+                       SCTPOrderFlag flags,
                        SCTPPayloadProtocolId protocolId,
                        byte[] payload) {
-
         this.TSN = TSN;
         this.streamId = streamId;
         this.streamSequence = streamSequence;
@@ -60,7 +59,7 @@ public class DataStorage {
         return streamSequence;
     }
 
-    public SCTPFlags getFlags() {
+    public SCTPOrderFlag getFlag() {
         return flags;
     }
 
@@ -70,5 +69,18 @@ public class DataStorage {
 
     public byte[] getPayload() {
         return payload;
+    }
+
+    @Override
+    public int compareTo(DataStorage da) {
+        if(this.getTSN() == da.getTSN()) {
+            return 0;
+        }
+        if(TSNUtil.isBelow(this.getTSN(),da.getTSN())) {
+            return -1;
+        }
+        else {
+            return 1;
+        }
     }
 }

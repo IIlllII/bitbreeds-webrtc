@@ -26,7 +26,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
 public class SCTPChunk {
 
     private final SCTPMessageType type ;
-    private final SCTPFlags flags;
+    private final SCTPOrderFlag flags;
     private final int length;
 
     /**
@@ -56,7 +56,7 @@ public class SCTPChunk {
      */
     public SCTPChunk(
             SCTPMessageType type,
-            SCTPFlags flags,
+            SCTPOrderFlag flags,
             int length,
             Map<SCTPFixedAttributeType, SCTPFixedAttribute> fixed,
             Map<SCTPAttributeType, SCTPAttribute> variable,
@@ -156,7 +156,7 @@ public class SCTPChunk {
 
         return new SCTPChunk(
                 type,
-                SCTPFlags.fromValue(flags),
+                SCTPOrderFlag.fromValue(flags),
                 length,
                 fixedAttr,
                 varAttr,
@@ -171,7 +171,7 @@ public class SCTPChunk {
         return type;
     }
 
-    public SCTPFlags getFlags() {
+    public SCTPOrderFlag getFlags() {
         return flags;
     }
 

@@ -3,17 +3,21 @@ package com.bitbreeds.webrtc.sctp.impl;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
-import org.pcollections.HashTreePSet;
+import org.pcollections.HashPMap;
+import org.pcollections.HashTreePMap;
 import org.pcollections.MapPSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
-/**
+/*
  * Copyright (c) 19/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -38,6 +42,9 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * @see <a hred="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP SACK spec</a>
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
  *
+ *
+ * TODO use better datastructures
+ *
  */
 public class ReceiveService {
 
@@ -45,17 +52,22 @@ public class ReceiveService {
     public enum TsnStatus {DUPLICATE,FIRST};
 
     /**
-     * Accepted as a duplicate if within this range,
-     * otherwise new message.
+     * Keeps fragments for reassembly on stream sequence number
      */
-    private static final int TSN_DIFF = 1000000000;
+    private final ConcurrentHashMap<Long,FragmentReAssembler> fragmentsStore = new ConcurrentHashMap<>();
+
+    /**
+     * Ordered datastore
+     */
+    private final ConcurrentHashMap<Long,DataStorage> orderedStore = new ConcurrentHashMap<>();
+
 
     /**
      * A set of received TSNS
      * This uses a persistent collection, which is easy to work with
      * when we need to pull it and create a SACK.
      */
-    protected MapPSet<Long> receivedTSNS = HashTreePSet.empty();
+    private HashPMap<Long,DataStorage> dataStorageMapPSet = HashTreePMap.empty();
 
     /**
      * A list of duplicates since the last SACK
@@ -73,7 +85,19 @@ public class ReceiveService {
      */
     protected volatile long cumulativeTSN = -1L;
 
-    public ReceiveService() {}
+    private final AtomicInteger bufferSize;
+    private final SCTPImpl handler;
+
+    /**
+     * TSN which describes the next expected TSN.
+     * Not needed for non ordered communication
+     */
+    private AtomicLong nextTSN = new AtomicLong(0);
+
+    ReceiveService(SCTPImpl handler,int bufferSize) {
+        this.bufferSize = new AtomicInteger(bufferSize);
+        this.handler = handler;
+    }
 
     /**
      * Data needed to create a SACK
@@ -81,10 +105,15 @@ public class ReceiveService {
     private class SackData {
         final MapPSet<Long> tsns;
         final List<Long> duplicates;
+        final int bufferLeft;
 
-        public SackData(MapPSet<Long> tsns, List<Long> duplicates) {
+        SackData(
+                MapPSet<Long> tsns,
+                List<Long> duplicates,
+                int bufferLeft) {
             this.tsns = tsns;
             this.duplicates = duplicates;
+            this.bufferLeft = bufferLeft;
         }
 
         @Override
@@ -92,35 +121,9 @@ public class ReceiveService {
             return "SackData{" +
                     "tsns=" + tsns +
                     ", duplicates=" + duplicates +
+                    ", bufferLeft=" + bufferLeft +
                     '}';
         }
-    }
-
-    /**
-     *
-     * @param a a TSN
-     * @param b a TSN
-     * @return If the two TSNs are too far apart,the TSN has looped.
-     */
-    private long cmp(long a,long b) {
-        if(Math.abs(a-b) < TSN_DIFF) {
-            return Math.min(a,b);
-        }
-        else {
-           return Math.max(a,b);
-        }
-    }
-
-
-
-    /**
-     *
-     * @param tsn tsn
-     * @param min min tsn given
-     * @return whether we are below the given tsn or too far away.
-     */
-    private boolean isBelow(long tsn,long min) {
-        return tsn < min && Math.abs(tsn-min) < TSN_DIFF;
     }
 
     /**
@@ -131,11 +134,11 @@ public class ReceiveService {
         List<Long> duplicates;
         MapPSet<Long> tsnTmp;
         synchronized (sackMutex) {
-            tsnTmp = receivedTSNS;
+            tsnTmp = MapPSet.from(dataStorageMapPSet);
             duplicates = duplicatesSinceLast;
             duplicatesSinceLast = new ArrayList<>();
         }
-        return new SackData(tsnTmp,duplicates);
+        return new SackData(tsnTmp,duplicates,bufferSize.get());
     }
 
     /**
@@ -144,42 +147,178 @@ public class ReceiveService {
      * @return true if new value, false otherwise
      */
     private boolean updateLowestTSN(long l) {
-        Collection<Long> ls = receivedTSNS.stream()
-                .filter( i -> isBelow(i,l) )
+
+        /*
+         * TODO Possibly move to less hot codepath later
+         */
+        Collection<DataStorage> ls = dataStorageMapPSet.values().stream()
+                .filter( i -> TSNUtil.isBelow(i.getTSN(),l) )
                 .collect(Collectors.toList());
+
+        int sumBuffer = ls.stream()
+                .map(i->i.getPayload().length)
+                .reduce(0,Integer::sum);
+
+        List<Long> keys = ls.stream()
+                .map(DataStorage::getTSN)
+                .collect(Collectors.toList());
+
+        bufferSize.addAndGet(sumBuffer);
 
         synchronized (sackMutex) {
             if(cumulativeTSN == l) {
                 return false;
             }
             else {
-                receivedTSNS = receivedTSNS.minusAll(ls);
+                dataStorageMapPSet = dataStorageMapPSet.minusAll(keys);
                 cumulativeTSN = l;
                 return true;
             }
         }
-    }
 
+    }
 
     /**
      *
-     * @param tsn to evaluate
-     * @return whether the TSN has been received before or not.
+     * @return amount of free buffer in bytes
      */
-    public TsnStatus handleTSN(long tsn) {
-        synchronized (sackMutex) {
-            if(receivedTSNS.contains(tsn) ||
-                    (tsn <= cumulativeTSN && Math.abs(tsn-cumulativeTSN) < TSN_DIFF) ) {
-                duplicatesSinceLast.add(tsn);
-                return TsnStatus.DUPLICATE;
-            }
-            else {
-                receivedTSNS = receivedTSNS.plus(tsn);
-                return TsnStatus.FIRST;
-            }
-        }
+    public int freeBufferSizeInBytes() {
+        return bufferSize.get();
     }
 
+    /**
+     * Receive initial TSN
+     */
+    public void handleReceiveInitialTSN(long tsn) {
+        nextTSN.set(tsn+1);
+        dataStorageMapPSet = dataStorageMapPSet.plus(tsn,
+                new DataStorage(
+                        tsn,
+                        -1,
+                        -1,
+                        null,
+                        null,
+                        new byte[0]));
+    }
+
+    /**
+     * When we receive a new payload, we should attempt to deliver the next stored payloads
+     */
+    private void deliverAsManyOrderedAsPossible() {
+        while(true) {
+            DataStorage storage = orderedStore.remove(nextTSN.get());
+            if(storage == null) {
+                break;
+            }
+            else {
+                if(storage.getFlag().isFragmented()) {
+                    long ssn = storage.getStreamSequence();
+                    FragmentReAssembler frag = fragmentsStore.get(ssn);
+                    if(frag.isComplete()) {
+                        List<byte[]> data = frag.completeOrderedMessage()
+                                .stream()
+                                .map(DataStorage::getPayload)
+                                .collect(Collectors.toList());
+
+                        byte[] msg = SignalUtil.joinBytesArrays(data);
+                        fragmentsStore.remove(ssn);
+                        handler.getDataChannel().runOnMessageOrdered(msg);
+                        nextTSN.set(frag.lastTSN()+1);
+                    }
+                }
+                else {
+                    handler.getDataChannel().runOnMessageOrdered(storage.getPayload());
+                    nextTSN.getAndIncrement();
+                }
+            }
+        }
+
+
+    }
+
+    /**
+     *
+     * @param data data to store and evaluate
+     * @return whether the TSN has been received before or not.
+     */
+    public TsnStatus handleReceive(DataStorage data) {
+        Objects.requireNonNull(data);
+
+        int lgt = data.getPayload().length;
+        int free = freeBufferSizeInBytes();
+
+        if(lgt > free) {
+            throw new FullBufferException("Buffer has " + free + "bytes, received data of size " + lgt + " bytes");
+        }
+
+        TsnStatus status;
+        synchronized (sackMutex) {
+            long tsn = data.getTSN();
+            if(dataStorageMapPSet.containsKey(tsn) ||
+                    (tsn <= cumulativeTSN && Math.abs(tsn-cumulativeTSN) < TSNUtil.TSN_DIFF) ) {
+                duplicatesSinceLast.add(tsn);
+                status = TsnStatus.DUPLICATE;
+            }
+            else {
+                bufferSize.addAndGet(-lgt);
+                dataStorageMapPSet = dataStorageMapPSet.plus(tsn,data);
+                status = TsnStatus.FIRST;
+            }
+        }
+
+        if(!TsnStatus.DUPLICATE.equals(status)) {
+
+            if (SCTPOrderFlag.UNORDERED_UNFRAGMENTED.equals(data.getFlag())) {
+                //Send bytes Immediately to user layer
+                handler.getDataChannel().runOnMessageUnordered(data.getPayload());
+            }
+            else if (SCTPOrderFlag.ORDERED_UNFRAGMENTED.equals(data.getFlag())) {
+                //Use a local TSN == next and deliver immediately if right
+                //Check if next in queue is in fragment store and deliver if they are
+                if(data.getTSN() == nextTSN.get()) {
+                    handler.getDataChannel().runOnMessageOrdered(data.getPayload());
+                    nextTSN.getAndIncrement();
+                }
+                else {
+                    orderedStore.put(data.getTSN(),data);
+                    deliverAsManyOrderedAsPossible();
+                }
+            }
+            else if (data.getFlag().isFragmented()) {
+                long ssn = data.getStreamSequence();
+
+                FragmentReAssembler result = fragmentsStore
+                        .compute(ssn, (seq, frag) -> {
+                                    if (frag != null) {
+                                        return frag.addFragment(data);
+                                    } else {
+                                        return FragmentReAssembler.empty().addFragment(data);
+                                    }
+                                }
+                        );
+
+                if(data.getFlag().isStart() && data.getFlag().isOrdered()) {
+                    orderedStore.put(data.getTSN(),data);
+                }
+
+                if (result.isComplete()) {
+                    if (data.getFlag().isUnordered()) {
+                        List<byte[]> outdata = result.completeOrderedMessage()
+                                .stream()
+                                .map(DataStorage::getPayload)
+                                .collect(Collectors.toList());
+
+                        byte[] msg = SignalUtil.joinBytesArrays(outdata);
+                        fragmentsStore.remove(ssn);
+                        handler.getDataChannel().runOnMessageUnordered(msg);
+                    } else {
+                        deliverAsManyOrderedAsPossible();
+                    }
+                }
+            }
+        }
+        return status;
+    }
 
 
     /**
@@ -187,20 +326,20 @@ public class ReceiveService {
      */
     public Optional<SCTPMessage> createSack(SCTPHeader header ) {
 
-        SackData tsn = getAndSetSackTSNList(); //Pull sack data
+        SackData sackData = getAndSetSackTSNList(); //Pull sack data
 
-        logger.trace("Got sack data: " + tsn);
-        if(tsn.tsns.isEmpty()) {
+        logger.trace("Got sack data: " + sackData);
+        if(sackData.tsns.isEmpty()) {
             return Optional.empty();
         }
 
         //Find the minimum in the relevant window
-        final Long min = tsn.tsns.stream()
-                .reduce(this::cmp)
+        final Long min = sackData.tsns.stream()
+                .reduce(TSNUtil::cmp)
                 .orElseThrow(() -> new IllegalStateException("Should not happen!"));
 
         //Remove all non relevant data. If the tsn flipped this must happen
-        Set<Long> relevant = tsn.tsns.stream().filter(i -> i >= min).collect(Collectors.toSet());
+        Set<Long> relevant = sackData.tsns.stream().filter(i -> i >= min).collect(Collectors.toSet());
 
         //Calculate gap acks from only relevant data.
         List<SackUtil.GapAck> acks = SackUtil.getGapAckList(relevant);
@@ -209,10 +348,10 @@ public class ReceiveService {
 
         boolean updated = updateLowestTSN(lastBeforeGapTsn);
 
-        /**
+        /*
          * No sack needed already at latest
          */
-        if(!updated && acks.size() == 1 && tsn.duplicates.size() == 0) {
+        if(!updated && acks.size() == 1 && sackData.duplicates.size() == 0) {
             return Optional.empty();
         }
 
@@ -226,7 +365,7 @@ public class ReceiveService {
             varData.add(twoBytesFromInt(end));
         }
 
-        for (Long l : tsn.duplicates) {
+        for (Long l : sackData.duplicates) {
             varData.add(longToFourBytes(l));
         }
 
@@ -237,7 +376,7 @@ public class ReceiveService {
 
         SCTPFixedAttribute arcw =
                 new SCTPFixedAttribute(SCTPFixedAttributeType.ARWC,
-                        longToFourBytes(20000));
+                        fourBytesFromInt(sackData.bufferLeft));
 
         SCTPFixedAttribute num_gap =
                 new SCTPFixedAttribute(SCTPFixedAttributeType.NUM_GAP_BLOCKS,
@@ -245,7 +384,7 @@ public class ReceiveService {
 
         SCTPFixedAttribute num_dupl =
                 new SCTPFixedAttribute(SCTPFixedAttributeType.NUM_DUPLICATE,
-                        twoBytesFromInt(tsn.duplicates.size()));
+                        twoBytesFromInt(sackData.duplicates.size()));
 
 
         fixed.put(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK,
@@ -261,7 +400,7 @@ public class ReceiveService {
 
         SCTPChunk sack = new SCTPChunk(
                 SCTPMessageType.SELECTIVE_ACK,
-                SCTPFlags.fromValue((byte)0),
+                SCTPOrderFlag.fromValue((byte)0),
                 4 + sum + data.length,
                 fixed,
                 new HashMap<>(),

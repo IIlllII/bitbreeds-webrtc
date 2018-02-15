@@ -44,7 +44,7 @@ public class CookieEchoHandler implements MessageHandler {
 
         SCTPChunk chunk = new SCTPChunk(
                 SCTPMessageType.COOKIE_ACK,
-                SCTPFlags.fromValue((byte)0),
+                SCTPOrderFlag.fromValue((byte)0),
                 4,
                 new HashMap<>(),
                 new HashMap<>(),

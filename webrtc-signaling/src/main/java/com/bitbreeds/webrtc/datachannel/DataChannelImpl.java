@@ -23,14 +23,17 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-/**
+/*
  * Copyright (c) 16/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -81,12 +84,16 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     private SocketAddress sender;
 
+    private final ExecutorService processPool = Executors.newFixedThreadPool(2);
     private final ExecutorService workPool = Executors.newFixedThreadPool(4);
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final Runnable heartBeat;
     private final Runnable sackSender;
     private final Runnable reSender;
     private final Runnable monitor;
+
+    private final LinkedBlockingQueue<byte[]> orderedQueue = new LinkedBlockingQueue<>();
+    private final Runnable orderedReader;
 
     private static final int RECEIVE_BUFFER_DEFAULT = 6000000;
     private static final int SEND_BUFFER_DEFAULT = 6000000;
@@ -109,6 +116,20 @@ public class DataChannelImpl implements Runnable,DataChannel {
         this.port = channel.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
         this.mode = ConnectionMode.BINDING;
+
+        this.orderedReader = () -> {
+            while(running && channel.isBound()) {
+                try {
+                    byte[] bytes = orderedQueue.poll(2, TimeUnit.SECONDS);
+                    if(bytes != null) {
+                        onMessage.accept(this,new MessageEvent(bytes,sender));
+                    }
+                }
+                catch (Exception e) {
+                    logger.error("Logging error",e);
+                }
+            }
+        };
 
         /*
          * Print monitoring information
@@ -266,7 +287,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
                         int length = transport.receive(buf, 0, buf.length, DEFAULT_WAIT_MILLIS);
                         if (length >= 0) {
                             byte[] handled = Arrays.copyOf(buf, length);
-                            workPool.submit(() -> {
+                            processPool.submit(() -> {
                                 try {
                                     List<byte[]> data = sctpService.handleRequest(handled);
                                     data.forEach(this::putDataOnWire);
@@ -284,8 +305,29 @@ public class DataChannelImpl implements Runnable,DataChannel {
                     running = false; //Need to quit channel now
                 }
         }
-        logger.info("Shutting down pool");
-        workPool.shutdown();
+
+
+        logger.info("Shutting down processPool");
+        try {
+            processPool.shutdown();
+            processPool.awaitTermination(5,TimeUnit.SECONDS);
+            logger.info("Controlled shutdown of processPool finished");
+        }
+        catch (Exception e) {
+            logger.info("Controlled shutdown of processPool failed, due to: ",e);
+            processPool.shutdownNow();
+        }
+
+        logger.info("Shutting down workPool");
+        try{
+            workPool.shutdown();
+            workPool.awaitTermination(5,TimeUnit.SECONDS);
+            logger.info("Controlled shutdown of workPool finished");
+        }
+        catch (Exception e) {
+            logger.info("Controlled shutdown of workPool failed, due to: ",e);
+            workPool.shutdownNow();
+        }
     }
 
     /**
@@ -297,8 +339,10 @@ public class DataChannelImpl implements Runnable,DataChannel {
             new Thread(sackSender).start();
             new Thread(reSender).start();
             new Thread(monitor).start();
+            new Thread(orderedReader).start();
         }
     }
+
 
     /**
      * Data is sent as a SCTPMessage
@@ -406,6 +450,9 @@ public class DataChannelImpl implements Runnable,DataChannel {
      */
     @Override
      public void runOpen() {
+        /*
+         * TODO probably wrong place to do this
+         */
         startThreads(); //On open we should also activate threads
         logger.debug("Running onOpen callback");
         workPool.submit(() -> {
@@ -418,10 +465,10 @@ public class DataChannelImpl implements Runnable,DataChannel {
     }
 
     /**
-     * Submit work based on onMessage
+     * Submit unordered messages
      */
     @Override
-    public void runOnMessage(final byte[] data) {
+    public void runOnMessageUnordered(final byte[] data) {
         workPool.submit(() -> {
             try {
                 onMessage.accept(this,new MessageEvent(data,sender));
@@ -431,6 +478,17 @@ public class DataChannelImpl implements Runnable,DataChannel {
         });
     }
 
+    /**
+     * Submit ordered message
+     */
+    @Override
+    public void runOnMessageOrdered(final byte[] data) {
+        try {
+            orderedQueue.put(data);
+        } catch (Exception e) {
+            logger.error("OnMessage failed", e);
+        }
+    }
 
     /**
      *
@@ -448,28 +506,5 @@ public class DataChannelImpl implements Runnable,DataChannel {
         return port;
     }
 
-    @Override
-    public int getReceiveBufferSize() {
-        if(channel != null) {
-            try {
-                return channel.getReceiveBufferSize();
-            } catch (SocketException e) {
-                return RECEIVE_BUFFER_DEFAULT;
-            }
-        }
-        return RECEIVE_BUFFER_DEFAULT;
-    }
-
-    @Override
-    public int getSendBufferSize() {
-        if(channel != null) {
-            try {
-                return channel.getReceiveBufferSize();
-            } catch (SocketException e) {
-                return SEND_BUFFER_DEFAULT;
-            }
-        }
-        return SEND_BUFFER_DEFAULT;
-    }
 
 }

@@ -53,7 +53,7 @@ public class HeartBeatHandler implements MessageHandler {
 
         SCTPChunk chunk = new SCTPChunk(
                 SCTPMessageType.HEARTBEAT_ACK,
-                SCTPFlags.fromValue((byte)0),
+                SCTPOrderFlag.fromValue((byte)0),
                 4 + sum,
                 new HashMap<>(),
                 variableAttr,

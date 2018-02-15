@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import static com.bitbreeds.webrtc.common.SignalUtil.sign;
 import static com.bitbreeds.webrtc.sctp.model.SCTPFixedAttributeType.*;
 
-/**
+/*
  * Copyright (c) 19/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -45,6 +45,9 @@ import static com.bitbreeds.webrtc.sctp.model.SCTPFixedAttributeType.*;
  * Storage of sent messages for resend.
  * InFlight and buffered counters
  * @see <a href="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP congestion window</a>
+ *
+ * TODO use better datastructures
+ *
  */
 public class SendService {
 
@@ -53,15 +56,40 @@ public class SendService {
     private AtomicLong sentBytes = new AtomicLong(0L);
 
     /**
+     * Size left of remote receive buffer in bytes
+     */
+    private final AtomicInteger remoteReceiveBufferSize = new AtomicInteger(0);
+
+    void setRemoteReceiveBufferSize(int remoteReceiveBufferSize) {
+        this.remoteReceiveBufferSize.set(remoteReceiveBufferSize);
+    }
+
+    private void addToRemoteReceiveBuffer(int sub) {
+        this.remoteReceiveBufferSize.accumulateAndGet(sub,Integer::sum);
+    }
+
+    int getRemoteReceiveBufferSize() {
+        return remoteReceiveBufferSize.get();
+    }
+
+    /**
+     * Calculated retransmission timeout
+     * @see <a href= https://tools.ietf.org/html/rfc4960#section-6.3.1>RTO calc</a>
+     */
+    private volatile int smoothedRTT;
+    private volatile int RTTvariation;
+    private volatile int retransmissionTimeout;
+
+    /**
      * Reference to handler to be able to pull parameters and when needed.
      */
     private final SCTPImpl handler;
 
     /**
      *
-     * @param handler
+     * @param handler reference to coordinator
      */
-    public SendService(SCTPImpl handler) {
+    SendService(SCTPImpl handler) {
         this.handler = handler;
     }
 
@@ -109,7 +137,7 @@ public class SendService {
     /**
      * @return increment TSN
      */
-    public long getNextTSN() {
+    private long getNextTSN() {
         long next = growingTSN.getAndIncrement();
         growingTSN.compareAndSet(Integer.MAX_VALUE,1);
         return next;
@@ -120,7 +148,7 @@ public class SendService {
      * @param tsn tsn for this message
      * @param data data to send
      */
-    public void addMessageToSend(long tsn,byte[] data) {
+    private void addMessageToSend(long tsn,byte[] data) {
         DateTime datePlusMillis = DateTime.now().plusMillis(resendMillis);
         TimeData timeData = new TimeData(datePlusMillis,data);
         synchronized (dataMutex) {
@@ -160,26 +188,32 @@ public class SendService {
     public void updateAcknowledgedTSNS(
             long cumulativeTsnAck,
             List<SackUtil.GapAck> gaps,
-            List<Long> duplicates) {
+            List<Long> duplicates,
+            int remoteBufferSize) {
 
         final HashPMap<Long,TimeData> sent = sentTSNS;
 
         logger.debug("Before removal contains: " + sent);
         logger.debug("Updating acks with cumulative " + cumulativeTsnAck + " and gaps " + gaps );
 
-        /**
+        /*
          * Filter and remove those with TSN below cumulativeTsnAck.
          */
         final Collection<Long> ls = sent.keySet().stream()
                 .filter(j -> j <= cumulativeTsnAck).collect(Collectors.toSet());
 
-        synchronized (dataMutex) {
-            sentTSNS = sentTSNS.minusAll(ls);
+        if(!ls.isEmpty()) {
+            synchronized (dataMutex) {
+                sentTSNS = sentTSNS.minusAll(ls);
+            }
+
+            removeAllAcknowledged(cumulativeTsnAck, gaps);
+            int unprocessedBytes = getOutStandingBytes();
+
+            setRemoteReceiveBufferSize(remoteBufferSize - unprocessedBytes);
+
+            logger.debug("After remove it contains: " + sentTSNS);
         }
-
-        removeAllAcknowledged(cumulativeTsnAck,gaps);
-
-        logger.debug("After remove it contains: " + sentTSNS);
     }
 
 
@@ -190,7 +224,7 @@ public class SendService {
      *
      * <a href=https://tools.ietf.org/html/rfc4960#section-3.3.4>SACK spec</a>
      */
-    protected void removeAllAcknowledged(long cumulativeTsnAck,List<SackUtil.GapAck> gaps) {
+    private void removeAllAcknowledged(long cumulativeTsnAck,List<SackUtil.GapAck> gaps) {
         gaps.forEach(i-> {
             Collection<Long> ls = sentTSNS.keySet().stream()
                     .filter(j ->
@@ -202,6 +236,16 @@ public class SendService {
                 sentTSNS = sentTSNS.minusAll(ls);
             }
         });
+    }
+
+    /**
+     *
+     * @return bytes unprocessed by remote as far as we know
+     */
+    private int getOutStandingBytes() {
+        return sentTSNS.values().stream()
+                .map(d -> d.data.length)
+                .reduce(0, Integer::sum);
     }
 
 
@@ -238,7 +282,7 @@ public class SendService {
 
         SCTPChunk chunk = new SCTPChunk(
                 SCTPMessageType.DATA,
-                SCTPFlags.UNORDERED_UNFRAGMENTED,
+                SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
                 lgt,
                 attr,
                 new HashMap<>(),
@@ -252,7 +296,12 @@ public class SendService {
 
         sentBytes.getAndAdd(data.length);
 
-        /**
+        /*
+         *
+         */
+        this.addToRemoteReceiveBuffer(-chunk.getLength());
+
+        /*
          * Add to resend map
          * Should remove on correct SACK or too large or too long map.
          */

@@ -1,13 +1,7 @@
-package com.bitbreeds.webrtc.sctp.impl;
-
-import com.bitbreeds.webrtc.sctp.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
+package com.bitbreeds.webrtc.sctp.model;
 
 /**
- * Copyright (c) 12/06/16, Jonas Waage
+ * Copyright (c) 08/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -22,32 +16,9 @@ import java.util.Optional;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+public class FullBufferException extends RuntimeException {
 
-/**
- * Creates a response message to a initiation request
- */
-public class HeartBeatAckHandler implements MessageHandler {
-
-    private final static Logger logger = LoggerFactory.getLogger(HeartBeatAckHandler.class);
-
-    @Override
-    public Optional<SCTPMessage> handleMessage(
-            SCTPImpl handler,
-            SCTPContext ctx,
-            SCTPHeader header,
-            SCTPChunk data) {
-
-        logger.debug("Received heartbeat ack: " + data);
-
-        SCTPAttribute info = data.getVariable().get(SCTPAttributeType.HERTBEAT_INFO);
-
-        /*
-         * Should be related to a sent heartbeat so we can measure RTT.
-         */
-        handler.getHeartBeatService().receiveHeartBeatAck(info.getData());
-
-        return Optional.empty();
+    public FullBufferException(String message) {
+        super(message);
     }
-
-
 }

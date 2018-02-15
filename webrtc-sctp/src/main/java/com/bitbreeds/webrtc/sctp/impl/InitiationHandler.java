@@ -40,12 +40,6 @@ public class InitiationHandler implements MessageHandler {
      */
     private final static int INIT_STREAMS = 65535;
 
-    /**
-     * Advertised Receiver Window Credit
-     * @see <a href="https://tools.ietf.org/html/rfc4960#section-3.3.2">SCTP spec</a>
-     */
-    private final static int WINDOW_CREDIT = 1000000;
-
     @Override
     public Optional<SCTPMessage> handleMessage(
             SCTPImpl handler,
@@ -60,8 +54,11 @@ public class InitiationHandler implements MessageHandler {
 
         handler.setContext(context);
 
-        int rcwd = SignalUtil.intFromFourBytes(data.getFixed().get(SCTPFixedAttributeType.ARWC).getData());
-        handler.setRcwd(rcwd);
+        /*
+         * Set initial remote buffersize
+         */
+        int remoteBufferSize = SignalUtil.intFromFourBytes(data.getFixed().get(SCTPFixedAttributeType.ARWC).getData());
+        handler.getSender().setRemoteReceiveBufferSize(remoteBufferSize);
 
         SCTPHeader hdr = new SCTPHeader(
                 header.getDestinationPort(),
@@ -76,15 +73,15 @@ public class InitiationHandler implements MessageHandler {
         byte[] initate = SignalUtil.randomBytes(4);
 
         attr.put(INITIATE_TAG,new SCTPFixedAttribute(INITIATE_TAG,initate));
-        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt(handler.getReceiveBuffer())));
+        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt(handler.getReceiver().freeBufferSizeInBytes())));
         attr.put(OUTBOUND_STREAMS,
                 new SCTPFixedAttribute(OUTBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
         attr.put(INBOUND_STREAMS,
                 new SCTPFixedAttribute(INBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
-        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getSendService().getFirstTSN())));
+        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getSender().getFirstTSN())));
 
         long tsn = SignalUtil.bytesToLong(data.getFixed().get(INITIAL_TSN).getData());
-        handler.getSackCreator().handleTSN(tsn);
+        handler.getReceiver().handleReceiveInitialTSN(tsn);
 
         /*
          * Create variable attributes
@@ -107,7 +104,7 @@ public class InitiationHandler implements MessageHandler {
 
         SCTPChunk chunk = new SCTPChunk(
                 SCTPMessageType.INITIATION_ACK,
-                SCTPFlags.fromValue((byte)0),
+                SCTPOrderFlag.fromValue((byte)0),
                 chunkSize,
                 attr,
                 variableAttr,

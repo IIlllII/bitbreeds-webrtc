@@ -30,7 +30,7 @@ public class ReliabilityParameters {
     private final byte[] label;
     private final byte[] protocol;
 
-    public ReliabilityParameters(
+    ReliabilityParameters(
             int parameter,
             DataChannelType type,
             DataChannelPriority priority,

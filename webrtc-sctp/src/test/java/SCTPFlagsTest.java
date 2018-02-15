@@ -1,4 +1,4 @@
-import com.bitbreeds.webrtc.sctp.model.SCTPFlags;
+import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
@@ -24,15 +24,15 @@ public class SCTPFlagsTest {
     @Test
     public void testSctpFlagsOrdered() {
 
-        assertFalse(SCTPFlags.UNORDERED_END_FRAGMENT.isOrdered());
-        assertFalse(SCTPFlags.UNORDERED_MIDDLE_FRAGMENT.isOrdered());
-        assertFalse(SCTPFlags.UNORDERED_START_FRAGMENT.isOrdered());
-        assertFalse(SCTPFlags.UNORDERED_UNFRAGMENTED.isOrdered());
+        assertFalse(SCTPOrderFlag.UNORDERED_END_FRAGMENT.isOrdered());
+        assertFalse(SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT.isOrdered());
+        assertFalse(SCTPOrderFlag.UNORDERED_START_FRAGMENT.isOrdered());
+        assertFalse(SCTPOrderFlag.UNORDERED_UNFRAGMENTED.isOrdered());
 
-        assertTrue(SCTPFlags.ORDERED_END_FRAGMENT.isOrdered());
-        assertTrue(SCTPFlags.ORDERED_MIDDLE_FRAGMENT.isOrdered());
-        assertTrue(SCTPFlags.ORDERED_START_FRAGMENT.isOrdered());
-        assertTrue(SCTPFlags.ORDERED_UNFRAGMENTED.isOrdered());
+        assertTrue(SCTPOrderFlag.ORDERED_END_FRAGMENT.isOrdered());
+        assertTrue(SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT.isOrdered());
+        assertTrue(SCTPOrderFlag.ORDERED_START_FRAGMENT.isOrdered());
+        assertTrue(SCTPOrderFlag.ORDERED_UNFRAGMENTED.isOrdered());
 
     }
 

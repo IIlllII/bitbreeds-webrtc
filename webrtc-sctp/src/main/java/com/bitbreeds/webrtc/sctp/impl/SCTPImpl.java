@@ -13,13 +13,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
-/**
+/*
  * Copyright (c) 19/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -47,7 +46,6 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * TODO implement shutdown messages
  * TODO implement proper congestion control (HUGE!!!)
  * TODO figure out why transfer is slow (BIG!!)
- *
  * TODO implement JMX hooks, so transfer parameters can be adjusted at runtime
  *
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
@@ -61,16 +59,12 @@ public class SCTPImpl implements SCTP  {
 
     private AtomicLong duplicateCount = new AtomicLong(0);
 
-    AtomicLong receivedBytes = new AtomicLong(0L);
+    private AtomicLong receivedBytes = new AtomicLong(0L);
 
-    /**
-     * Size left of remore receive buffer
-     */
-    volatile int rcwd = 0;
+    private static int DEFAULT_BUFFER_SIZE = 160000;
 
-    public void setRcwd(int rcwd) {
-        this.rcwd = rcwd;
-    }
+    private final int localBufferSize = DEFAULT_BUFFER_SIZE;
+
 
     /**
      * The impl access to write data to the socket
@@ -80,15 +74,15 @@ public class SCTPImpl implements SCTP  {
 
     /**
      * Handles received messages and sending if acknowledgements.
-     * Also handles buffering of received messages.
+     * Also handles buffering of received messages and presentation to app layer.
      */
-    private final ReceiveService sackCreator = new ReceiveService();
+    private final ReceiveService receiver = new ReceiveService(this,localBufferSize);
 
     /**
      * Handles sending of messages and reception of acknowledgements.
-     * Also handles buffering of sent messages.
+     * Also handles buffering of sent messages and picture of remote state.
      */
-    private final SendService sendService = new SendService(this);
+    private final SendService sender = new SendService(this);
 
 
     private final HeartBeatService heartBeatService = new HeartBeatService();
@@ -111,7 +105,7 @@ public class SCTPImpl implements SCTP  {
      */
     private final Map<SCTPMessageType,MessageHandler> handlerMap = createHandlerMap();
 
-    Map<SCTPMessageType,MessageHandler> createHandlerMap() {
+    private Map<SCTPMessageType,MessageHandler> createHandlerMap() {
         HashMap<SCTPMessageType, MessageHandler> map = new HashMap<>();
         map.put(SCTPMessageType.INITIATION,new InitiationHandler());
         map.put(SCTPMessageType.COOKIE_ECHO,new CookieEchoHandler());
@@ -122,12 +116,12 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
-    public ReceiveService getSackCreator() {
-        return sackCreator;
+    public ReceiveService getReceiver() {
+        return receiver;
     }
 
-    public SendService getSendService() {
-        return sendService;
+    public SendService getSender() {
+        return sender;
     }
 
     public HeartBeatService getHeartBeatService() {
@@ -139,14 +133,6 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-    public int getReceiveBuffer() {
-        return writer.getReceiveBufferSize();
-    }
-
-    public int getSendBuffer() {
-        return writer.getSendBufferSize();
-    }
-
     /**
      *
      * @param data payload to send
@@ -154,7 +140,7 @@ public class SCTPImpl implements SCTP  {
      */
     public byte[] createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
 
-        return sendService.createPayloadMessage(data,ppid,SCTPUtil.baseHeader(context));
+        return sender.createPayloadMessage(data,ppid,SCTPUtil.baseHeader(context));
     }
 
 
@@ -166,7 +152,7 @@ public class SCTPImpl implements SCTP  {
         if(context == null) {
             return new byte[]{};
         }
-        Optional<SCTPMessage> message = sackCreator.createSack(SCTPUtil.baseHeader(context));
+        Optional<SCTPMessage> message = receiver.createSack(SCTPUtil.baseHeader(context));
         return message.map(SCTPMessage::toBytes).orElse(new byte[]{});
     }
 
@@ -176,7 +162,7 @@ public class SCTPImpl implements SCTP  {
      */
     @Override
     public List<byte[]> getMessagesForResend() {
-        return sendService.getMessagesForResend();
+        return sender.getMessagesForResend();
     }
 
 
@@ -232,7 +218,7 @@ public class SCTPImpl implements SCTP  {
      */
     protected void runOnMessage(DataStorage data) {
 
-        /**
+        /*
          * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
          */
         if(parameters == null && data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
@@ -276,38 +262,14 @@ public class SCTPImpl implements SCTP  {
             }
         }
 
-        logger.trace("Flags: " + data.getFlags() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence() );
+        logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence() );
         logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
         logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-        ReceiveService.TsnStatus status = sackCreator.handleTSN(data.getTSN());
-        if(status != ReceiveService.TsnStatus.DUPLICATE) {
-            receivedBytes.getAndAdd(data.getPayload().length);
-            if (data.getFlags().isOrdered()) {
-                /*
-                 *
-                 * TODO here we have to do something to ensure ordering
-                 *
-                 * Stream identifier and stream sequence must be used.
-                 *
-                 * Messages could be 'stored' until the correct sequence
-                 * number is received, or maybe we can rely on resend for that?
-                 *
-                 * Must be careful not to add TSN if I mean to drop the
-                 * message and rely on resend...
-                 *
-                 * Drop
-                 *
-                 */
-                this.writer.runOnMessage(data.getPayload());
-            } else {
-                this.writer.runOnMessage(data.getPayload());
-            }
-        }
-        else {
+        ReceiveService.TsnStatus status = receiver.handleReceive(data);
+        if(status == ReceiveService.TsnStatus.DUPLICATE) {
             duplicateCount.incrementAndGet();
         }
-
 
     }
 
@@ -317,17 +279,20 @@ public class SCTPImpl implements SCTP  {
      */
     public void runMonitoring() {
         logger.info("---------------------------------------------");
-        logger.info("Size received: " + sackCreator.receivedTSNS.size());
-        logger.info("Size sent: " + sendService.sentTSNS.size());
-        logger.info("CumulativeReceivedTSN: " + sackCreator.cumulativeTSN);
-        logger.info("MyTsn: " + sendService.growingTSN.get());
-        logger.info("Duplicates: " + sackCreator.duplicatesSinceLast.size());
+        logger.info("Size sent: " + sender.sentTSNS.size());
+        logger.info("CumulativeReceivedTSN: " + receiver.cumulativeTSN);
+        logger.info("MyTsn: " + sender.growingTSN.get());
+        logger.info("Duplicates: " + receiver.duplicatesSinceLast.size());
         logger.info("Total received bytes: " + receivedBytes.get());
-        logger.info("Total sent bytes: " + sendService.getSentBytes());
+        logger.info("Total sent bytes: " + sender.getSentBytes());
         logger.info("DuplicateCount: " + duplicateCount.get());
         logger.info("RTT: " + heartBeatService.getRttMillis());
-        logger.info("Receive buff: " + getReceiveBuffer());
-        logger.info("Send buff: " + getSendBuffer());
-        logger.info("ARCW: " + rcwd);
+        logger.info("Remote buffer: " + sender.getRemoteReceiveBufferSize());
+        logger.info("Local buffer: " + receiver.freeBufferSizeInBytes());
+    }
+
+    @Override
+    public DataChannel getDataChannel() {
+        return writer;
     }
 }

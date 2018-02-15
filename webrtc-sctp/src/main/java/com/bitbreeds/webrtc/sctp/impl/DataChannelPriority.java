@@ -35,8 +35,7 @@ public enum DataChannelPriority {
     }
 
     public static DataChannelPriority fromInt(int bt) {
-        return Arrays.asList(values())
-                .stream()
+        return Arrays.stream(values())
                 .filter(i -> i.priority == bt)
                 .findFirst().orElse(NOT_SET);
     }

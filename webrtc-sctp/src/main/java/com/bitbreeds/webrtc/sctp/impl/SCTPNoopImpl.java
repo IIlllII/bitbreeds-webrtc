@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
+import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 
 import java.util.Collections;
@@ -53,4 +54,9 @@ public class SCTPNoopImpl implements SCTP {
 
     @Override
     public void runMonitoring() {}
+
+    @Override
+    public DataChannel getDataChannel() {
+        return null;
+    }
 }

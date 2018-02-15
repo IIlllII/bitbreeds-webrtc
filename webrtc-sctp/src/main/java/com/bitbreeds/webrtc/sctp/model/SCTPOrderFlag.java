@@ -56,7 +56,7 @@ import java.util.Arrays;
  a multi-fragment user message, as summarized in the following table:
  */
 
-public enum SCTPFlags {
+public enum SCTPOrderFlag {
 
     UNORDERED_UNFRAGMENTED(4+2+1),
     UNORDERED_START_FRAGMENT(4+2),
@@ -69,7 +69,7 @@ public enum SCTPFlags {
 
     private int byteRep;
 
-    SCTPFlags(int byteRep) {
+    SCTPOrderFlag(int byteRep) {
         this.byteRep = byteRep;
     }
 
@@ -78,18 +78,35 @@ public enum SCTPFlags {
      * @param b byte to convert
      * @return flagenum from bytes;
      */
-    public static SCTPFlags fromValue(int b) {
+    public static SCTPOrderFlag fromValue(int b) {
         return Arrays.asList(values()).stream()
                 .filter(i->i.byteRep == b)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No flag combination has value: "+ b));
     }
 
-    /**
-     * @return ordered flag is set
-     */
     public boolean isOrdered() {
         return (byteRep & (byte)4) == 0;
+    }
+
+    public boolean isUnordered() {
+        return !isOrdered();
+    }
+
+    public boolean isStart() {
+        return this.equals(UNORDERED_START_FRAGMENT) || this.equals(ORDERED_START_FRAGMENT);
+    }
+
+    public boolean isMiddle() {
+        return this.equals(UNORDERED_MIDDLE_FRAGMENT) || this.equals(ORDERED_MIDDLE_FRAGMENT);
+    }
+
+    public boolean isEnd() {
+        return this.equals(UNORDERED_END_FRAGMENT) || this.equals(ORDERED_END_FRAGMENT);
+    }
+
+    public boolean isFragmented() {
+        return !this.equals(UNORDERED_UNFRAGMENTED) && !this.equals(ORDERED_UNFRAGMENTED);
     }
 
     /**

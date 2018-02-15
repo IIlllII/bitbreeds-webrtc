@@ -118,7 +118,7 @@ public class HeartBeatService {
 
         SCTPChunk heartBeat = new SCTPChunk(
                 SCTPMessageType.HEARTBEAT,
-                SCTPFlags.fromValue((byte)0),
+                SCTPOrderFlag.fromValue((byte)0),
                 4+sum,
                 new HashMap<>(),
                 variableAttr,

@@ -1,13 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.sctp.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
-
 /**
- * Copyright (c) 12/06/16, Jonas Waage
+ * Copyright (c) 14/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -21,33 +15,40 @@ import java.util.Optional;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public class TSNUtil {
+
+    /**
+     * Accepted as a duplicate if within this range,
+     * otherwise new message.
+     */
+    static final int TSN_DIFF = 1000000000;
 
 
-/**
- * Creates a response message to a initiation request
- */
-public class HeartBeatAckHandler implements MessageHandler {
-
-    private final static Logger logger = LoggerFactory.getLogger(HeartBeatAckHandler.class);
-
-    @Override
-    public Optional<SCTPMessage> handleMessage(
-            SCTPImpl handler,
-            SCTPContext ctx,
-            SCTPHeader header,
-            SCTPChunk data) {
-
-        logger.debug("Received heartbeat ack: " + data);
-
-        SCTPAttribute info = data.getVariable().get(SCTPAttributeType.HERTBEAT_INFO);
-
-        /*
-         * Should be related to a sent heartbeat so we can measure RTT.
-         */
-        handler.getHeartBeatService().receiveHeartBeatAck(info.getData());
-
-        return Optional.empty();
+    /**
+     *
+     * @param a a TSN
+     * @param b a TSN
+     * @return distance, if the two TSNs are too far apart,the TSN has looped.
+     */
+    static long cmp(long a,long b) {
+        if(Math.abs(a-b) < TSN_DIFF) {
+            return Math.min(a,b);
+        }
+        else {
+            return Math.max(a,b);
+        }
     }
 
+
+
+    /**
+     *
+     * @param tsn tsn
+     * @param min min tsn given
+     * @return whether we are below the given tsn or too far away.
+     */
+     static boolean isBelow(long tsn,long min) {
+        return tsn < min && Math.abs(tsn-min) < TSN_DIFF;
+    }
 
 }

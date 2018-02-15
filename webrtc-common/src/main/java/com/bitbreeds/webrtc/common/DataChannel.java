@@ -25,7 +25,9 @@ public interface DataChannel {
 
     void runOpen();
 
-    void runOnMessage(byte[] data);
+    void runOnMessageUnordered(byte[] data);
+
+    void runOnMessageOrdered(byte[] data);
 
     void runOnError(final Exception err);
 
@@ -34,10 +36,5 @@ public interface DataChannel {
     void send(byte[] data,SCTPPayloadProtocolId id);
 
     void send(String data);
-
-    int getReceiveBufferSize();
-
-    int getSendBufferSize();
-
 
 }
