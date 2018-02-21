@@ -277,7 +277,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
-                        sctpService = new SCTPImpl(this);
+                        sctpService = new SCTPImpl(this,1000);
                         mode = ConnectionMode.TRANSFER;
                         logger.info("-> SCTP mode");
                     }
