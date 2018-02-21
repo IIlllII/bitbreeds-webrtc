@@ -19,6 +19,9 @@ package com.bitbreeds.webrtc.sctp.impl;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 
+import javax.xml.crypto.Data;
+import java.util.Objects;
+
 /**
  * Stores data about a received message
  *
@@ -72,11 +75,24 @@ public class DataStorage implements Comparable<DataStorage> {
     }
 
     @Override
-    public int compareTo(DataStorage da) {
-        if(this.getTSN() == da.getTSN()) {
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DataStorage that = (DataStorage) o;
+        return TSN == that.TSN;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(TSN);
+    }
+
+    @Override
+    public int compareTo(DataStorage dataStorage) {
+        if(this.getTSN() == dataStorage.getTSN()) {
             return 0;
         }
-        if(TSNUtil.isBelow(this.getTSN(),da.getTSN())) {
+        if(TSNUtil.isBelow(this.getTSN(),dataStorage.getTSN())) {
             return -1;
         }
         else {

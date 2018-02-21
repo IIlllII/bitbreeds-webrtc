@@ -62,7 +62,7 @@ public class SackUtil {
 
 
     public static List<GapAck> getGapAckList(Set<Long> received) {
-        List<Long> ls = received.stream().collect(Collectors.toList());
+        List<Long> ls = new ArrayList<>(received);
 
         if(ls.isEmpty()) {
             return new ArrayList<>();

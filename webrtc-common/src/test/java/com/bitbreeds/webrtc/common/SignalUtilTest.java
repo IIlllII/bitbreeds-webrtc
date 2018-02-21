@@ -5,7 +5,9 @@ import org.apache.commons.codec.binary.Hex;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.List;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -128,6 +130,11 @@ public class SignalUtilTest {
         assertTrue(Arrays.equals(mac,compMac));
     }
 
+    @Test
+    public void testSplit() {
+        List<byte[]> res = SignalUtil.split(new byte[]{0,0,0,3,3,3,5},3);
+        assertArrayEquals(Arrays.asList(new byte[]{0,0,0},new byte[]{3,3,3},new byte[]{5}).toArray(),res.toArray());
+    }
 
     @Test
     public void testLongConv() {

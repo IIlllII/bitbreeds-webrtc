@@ -9,10 +9,8 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -59,11 +57,10 @@ public class SCTPImpl implements SCTP  {
 
     private AtomicLong duplicateCount = new AtomicLong(0);
 
-    private AtomicLong receivedBytes = new AtomicLong(0L);
-
     private static int DEFAULT_BUFFER_SIZE = 160000;
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
+
 
 
     /**
@@ -87,11 +84,14 @@ public class SCTPImpl implements SCTP  {
 
     private final HeartBeatService heartBeatService = new HeartBeatService();
 
+    private final int MTU;
+
     /**
      *
      * @param writer interface to socket
      */
-    public SCTPImpl(DataChannel writer) {
+    public SCTPImpl(DataChannel writer,int MTU) {
+        this.MTU = MTU;
         this.writer = writer;
     }
 
@@ -138,9 +138,8 @@ public class SCTPImpl implements SCTP  {
      * @param data payload to send
      * @return create message with payload to send
      */
-    public byte[] createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
-
-        return sender.createPayloadMessage(data,ppid,SCTPUtil.baseHeader(context));
+    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
+        return sender.createPayloadMessage(data,ppid,SCTPUtil.baseHeader(context),false);
     }
 
 
@@ -165,6 +164,12 @@ public class SCTPImpl implements SCTP  {
         return sender.getMessagesForResend();
     }
 
+    /**
+     * @return Bytes in window
+     */
+    public int initialCongestionWindow() {
+        return Math.min(4*MTU, Math.max (2*MTU, 4380));
+    }
 
     /**
      * @return heartbeat message
@@ -255,22 +260,21 @@ public class SCTPImpl implements SCTP  {
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
                 this.writer.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
                 logger.debug("Sending ack: "+ Hex.encodeHexString(ack));
-                return;
             }
             else {
                 throw new IllegalArgumentException("PPID " +SCTPPayloadProtocolId.WEBRTC_DCEP + " should be sent with " + DataChannelMessageType.OPEN);
             }
         }
+        else {
+            logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence());
+            logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
+            logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-        logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence() );
-        logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
-        logger.trace("Data as string: " + new String(data.getPayload()) + ":");
-
-        ReceiveService.TsnStatus status = receiver.handleReceive(data);
-        if(status == ReceiveService.TsnStatus.DUPLICATE) {
-            duplicateCount.incrementAndGet();
+            ReceiveService.TsnStatus status = receiver.handleReceive(data);
+            if (status == ReceiveService.TsnStatus.DUPLICATE) {
+                duplicateCount.incrementAndGet();
+            }
         }
-
     }
 
 
@@ -283,7 +287,8 @@ public class SCTPImpl implements SCTP  {
         logger.info("CumulativeReceivedTSN: " + receiver.cumulativeTSN);
         logger.info("MyTsn: " + sender.growingTSN.get());
         logger.info("Duplicates: " + receiver.duplicatesSinceLast.size());
-        logger.info("Total received bytes: " + receivedBytes.get());
+        logger.info("Total received bytes: " + receiver.getReceivedBytes());
+        logger.info("Total delivered bytes to user: " + receiver.getDeliveredBytes());
         logger.info("Total sent bytes: " + sender.getSentBytes());
         logger.info("DuplicateCount: " + duplicateCount.get());
         logger.info("RTT: " + heartBeatService.getRttMillis());

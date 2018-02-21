@@ -5,6 +5,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.CRC32;
@@ -309,6 +310,18 @@ public class SignalUtil {
             throw new ArrayIndexOutOfBoundsException("Range.b must be smaller then array length "+bytes.length+", was: " + range.b);
         }
         return Arrays.copyOfRange(bytes,range.a,range.b);
+    }
+
+    public static List<byte[]> split(byte[] data,int chunkSize) {
+        if(chunkSize < 1) {
+            throw new IllegalArgumentException("Bad chunkzize " + chunkSize);
+        }
+        ArrayList<byte[]> split = new ArrayList<>();
+        for(int i=0; i < data.length; i = i+chunkSize) {
+            byte[] out = SignalUtil.copyRange(data, new ByteRange(i,Math.min(i+chunkSize,data.length)));
+            split.add(out);
+        }
+        return split;
     }
 
 

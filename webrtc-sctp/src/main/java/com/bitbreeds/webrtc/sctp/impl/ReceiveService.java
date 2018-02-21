@@ -3,14 +3,13 @@ package com.bitbreeds.webrtc.sctp.impl;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
-import org.pcollections.HashPMap;
-import org.pcollections.HashTreePMap;
-import org.pcollections.MapPSet;
+import org.pcollections.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -51,16 +50,9 @@ public class ReceiveService {
     private static final Logger logger = LoggerFactory.getLogger(ReceiveService.class);
     public enum TsnStatus {DUPLICATE,FIRST};
 
-    /**
-     * Keeps fragments for reassembly on stream sequence number
-     */
-    private final ConcurrentHashMap<Long,FragmentReAssembler> fragmentsStore = new ConcurrentHashMap<>();
+    private AtomicLong receivedBytes = new AtomicLong(0L);
 
-    /**
-     * Ordered datastore
-     */
-    private final ConcurrentHashMap<Long,DataStorage> orderedStore = new ConcurrentHashMap<>();
-
+    private AtomicLong deliveredBytes = new AtomicLong(0L);
 
     /**
      * A set of received TSNS
@@ -68,6 +60,9 @@ public class ReceiveService {
      * when we need to pull it and create a SACK.
      */
     private HashPMap<Long,DataStorage> dataStorageMapPSet = HashTreePMap.empty();
+
+    private final SortedSet<DataStorage> fragmentSet = new TreeSet<>();
+
 
     /**
      * A list of duplicates since the last SACK
@@ -103,12 +98,12 @@ public class ReceiveService {
      * Data needed to create a SACK
      */
     private class SackData {
-        final MapPSet<Long> tsns;
+        final Set<Long> tsns;
         final List<Long> duplicates;
         final int bufferLeft;
 
         SackData(
-                MapPSet<Long> tsns,
+                Set<Long> tsns,
                 List<Long> duplicates,
                 int bufferLeft) {
             this.tsns = tsns;
@@ -128,13 +123,16 @@ public class ReceiveService {
 
     /**
      *
-     * @return list of received messages for batch sacking
+     * @return iterate list of received messages for batch sacking
      */
     private SackData getAndSetSackTSNList() {
         List<Long> duplicates;
-        MapPSet<Long> tsnTmp;
+        Set<Long> tsnTmp;
         synchronized (sackMutex) {
-            tsnTmp = MapPSet.from(dataStorageMapPSet);
+            tsnTmp = dataStorageMapPSet.values().stream()
+                .map(DataStorage::getTSN)
+                .collect(Collectors.toSet());
+
             duplicates = duplicatesSinceLast;
             duplicatesSinceLast = new ArrayList<>();
         }
@@ -155,15 +153,9 @@ public class ReceiveService {
                 .filter( i -> TSNUtil.isBelow(i.getTSN(),l) )
                 .collect(Collectors.toList());
 
-        int sumBuffer = ls.stream()
-                .map(i->i.getPayload().length)
-                .reduce(0,Integer::sum);
-
         List<Long> keys = ls.stream()
                 .map(DataStorage::getTSN)
                 .collect(Collectors.toList());
-
-        bufferSize.addAndGet(sumBuffer);
 
         synchronized (sackMutex) {
             if(cumulativeTSN == l) {
@@ -191,20 +183,25 @@ public class ReceiveService {
      */
     public void handleReceiveInitialTSN(long tsn) {
         nextTSN.set(tsn+1);
-        dataStorageMapPSet = dataStorageMapPSet.plus(tsn,
-                new DataStorage(
-                        tsn,
-                        -1,
-                        -1,
-                        null,
-                        null,
-                        new byte[0]));
+        DataStorage ds = new DataStorage(
+                tsn,
+                -1,
+                -1,
+                null,
+                null,
+                new byte[0]);
+        dataStorageMapPSet = dataStorageMapPSet.plus(tsn, ds);
     }
+
+
+
+
 
     /**
      * When we receive a new payload, we should attempt to deliver the next stored payloads
      */
     private void deliverAsManyOrderedAsPossible() {
+        /*
         while(true) {
             DataStorage storage = orderedStore.remove(nextTSN.get());
             if(storage == null) {
@@ -222,19 +219,78 @@ public class ReceiveService {
 
                         byte[] msg = SignalUtil.joinBytesArrays(data);
                         fragmentsStore.remove(ssn);
+                        deliveredBytes.addAndGet(msg.length);
                         handler.getDataChannel().runOnMessageOrdered(msg);
                         nextTSN.set(frag.lastTSN()+1);
                     }
                 }
                 else {
+                    deliveredBytes.addAndGet(storage.getPayload().length);
                     handler.getDataChannel().runOnMessageOrdered(storage.getPayload());
                     nextTSN.getAndIncrement();
                 }
             }
         }
+        */
+    }
+
+    private final Object fragMutex = new Object();
+
+    /**
+     *
+     */
+    private void deliverUnorderedReceivedFragmented() {
+
+        List<FragmentReAssembler> completes = new ArrayList<>();
+
+        synchronized (fragMutex) {
+
+            FragmentReAssembler reAssembler = FragmentReAssembler.empty();
+
+            for (DataStorage in : fragmentSet) {
+                if (in.getFlag().isFragmented()) {
+                    if (in.getFlag().isStart()) {
+                        reAssembler = FragmentReAssembler.empty().addFragment(in);
+                    } else if (in.getFlag().isMiddle()) {
+                        reAssembler = reAssembler.addFragment(in);
+                    } else if (in.getFlag().isEnd()) {
+                        reAssembler = reAssembler.addFragment(in);
+                        if (reAssembler.isComplete()) {
+                            completes.add(reAssembler);
+                            reAssembler = FragmentReAssembler.empty();
+                        }
+                    } else {
+                        //Flag illegal packet, mark and kill entire fragment
+                        throw new IllegalStateException("Bad packet");
+                    }
+                }
+            }
+
+            Set<DataStorage> toRemove = completes.stream()
+                    .flatMap(i->i.completeOrderedMessage().stream())
+                    .collect(Collectors.toSet());
+
+            fragmentSet.removeAll(toRemove);
+        }
+
+        completes.forEach(i-> {
+                    List<byte[]> data = i.completeOrderedMessage()
+                            .stream().map(DataStorage::getPayload)
+                            .collect(Collectors.toList());
+
+                    byte[] msg = SignalUtil.joinBytesArrays(data);
+                    handler.getDataChannel().runOnMessageUnordered(msg);
+                    bufferSize.addAndGet(msg.length);
+                }
+        );
+
 
 
     }
+
+
+
+
 
     /**
      *
@@ -245,10 +301,12 @@ public class ReceiveService {
         Objects.requireNonNull(data);
 
         int lgt = data.getPayload().length;
+        receivedBytes.addAndGet(lgt);
+
         int free = freeBufferSizeInBytes();
 
         if(lgt > free) {
-            throw new FullBufferException("Buffer has " + free + "bytes, received data of size " + lgt + " bytes");
+            throw new FullBufferException("ReceiveBuffer has " + free + "bytes, received data of size " + lgt + " bytes");
         }
 
         TsnStatus status;
@@ -260,7 +318,6 @@ public class ReceiveService {
                 status = TsnStatus.DUPLICATE;
             }
             else {
-                bufferSize.addAndGet(-lgt);
                 dataStorageMapPSet = dataStorageMapPSet.plus(tsn,data);
                 status = TsnStatus.FIRST;
             }
@@ -268,65 +325,52 @@ public class ReceiveService {
 
         if(!TsnStatus.DUPLICATE.equals(status)) {
 
-            if (SCTPOrderFlag.UNORDERED_UNFRAGMENTED.equals(data.getFlag())) {
+            if (!data.getFlag().isFragmented()) {
                 //Send bytes Immediately to user layer
+                deliveredBytes.addAndGet(data.getPayload().length);
                 handler.getDataChannel().runOnMessageUnordered(data.getPayload());
+            } else {
+                synchronized (fragmentSet) {
+                    bufferSize.addAndGet(-lgt);
+                    fragmentSet.add(data);
+                }
+                deliverUnorderedReceivedFragmented();
             }
-            else if (SCTPOrderFlag.ORDERED_UNFRAGMENTED.equals(data.getFlag())) {
+
+            /*
+            else if (data.getFlag().isOrdered()) {
                 //Use a local TSN == next and deliver immediately if right
                 //Check if next in queue is in fragment store and deliver if they are
                 if(data.getTSN() == nextTSN.get()) {
+                    deliveredBytes.addAndGet(data.getPayload().length);
                     handler.getDataChannel().runOnMessageOrdered(data.getPayload());
                     nextTSN.getAndIncrement();
+                    data.setDelivered();
                 }
                 else {
-                    orderedStore.put(data.getTSN(),data);
-                    deliverAsManyOrderedAsPossible();
+                    //orderedStore.put(data.getTSN(),data);
+                    //deliverAsManyOrderedAsPossible();
                 }
-            }
-            else if (data.getFlag().isFragmented()) {
-                long ssn = data.getStreamSequence();
-
-                FragmentReAssembler result = fragmentsStore
-                        .compute(ssn, (seq, frag) -> {
-                                    if (frag != null) {
-                                        return frag.addFragment(data);
-                                    } else {
-                                        return FragmentReAssembler.empty().addFragment(data);
-                                    }
-                                }
-                        );
-
-                if(data.getFlag().isStart() && data.getFlag().isOrdered()) {
-                    orderedStore.put(data.getTSN(),data);
-                }
-
-                if (result.isComplete()) {
-                    if (data.getFlag().isUnordered()) {
-                        List<byte[]> outdata = result.completeOrderedMessage()
-                                .stream()
-                                .map(DataStorage::getPayload)
-                                .collect(Collectors.toList());
-
-                        byte[] msg = SignalUtil.joinBytesArrays(outdata);
-                        fragmentsStore.remove(ssn);
-                        handler.getDataChannel().runOnMessageUnordered(msg);
-                    } else {
-                        deliverAsManyOrderedAsPossible();
-                    }
-                }
-            }
+            }*/
         }
         return status;
     }
 
+
+    public long getDeliveredBytes() {
+        return deliveredBytes.get();
+    }
+
+    public long getReceivedBytes() {
+        return receivedBytes.get();
+    }
 
     /**
      * @return attempt to create a SCTP SACK message.
      */
     public Optional<SCTPMessage> createSack(SCTPHeader header ) {
 
-        SackData sackData = getAndSetSackTSNList(); //Pull sack data
+        SackData sackData = getAndSetSackTSNList();//Pull sack data
 
         logger.trace("Got sack data: " + sackData);
         if(sackData.tsns.isEmpty()) {
@@ -339,7 +383,9 @@ public class ReceiveService {
                 .orElseThrow(() -> new IllegalStateException("Should not happen!"));
 
         //Remove all non relevant data. If the tsn flipped this must happen
-        Set<Long> relevant = sackData.tsns.stream().filter(i -> i >= min).collect(Collectors.toSet());
+        Set<Long> relevant = sackData.tsns.stream()
+                .filter(i -> i >= min)
+                .collect(Collectors.toSet());
 
         //Calculate gap acks from only relevant data.
         List<SackUtil.GapAck> acks = SackUtil.getGapAckList(relevant);

@@ -59,7 +59,7 @@ public interface SCTP {
      * @param id protocol
      * @return the payload message to send.
      */
-    byte[] createPayloadMessage(byte[] data, SCTPPayloadProtocolId id);
+    List<byte[]> createPayloadMessage(byte[] data, SCTPPayloadProtocolId id);
 
     /**
      * Log useful monitoring values.
