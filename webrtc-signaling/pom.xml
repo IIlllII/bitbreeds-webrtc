@@ -47,24 +47,26 @@
             <scope>test</scope>
         </dependency>
 
-
+<!--
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-ext-debug-jdk15on</artifactId>
             <version>1.59</version>
         </dependency>
-
+-->
+        
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-debug-jdk15on</artifactId>
             <version>1.59</version>
         </dependency>
 
-        <dependency>
+
+        <!--<dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bctls-jdk15on</artifactId>
             <version>1.59</version>
-        </dependency>
+        </dependency>-->
 
 
         <dependency>

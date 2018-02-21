@@ -1,5 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
  * <p>
@@ -16,4 +18,55 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 public class Buffered {
+
+    private final DataStorage data;
+    private final BufferedState bufferState;
+    private final DeliveredState deliverState;
+
+    public Buffered(
+            DataStorage data,
+            BufferedState state,
+            DeliveredState deliverState) {
+        this.data = data;
+        this.bufferState = state;
+        this.deliverState = deliverState;
+    }
+
+    public DataStorage getData() {
+        return data;
+    }
+
+    public BufferedState getState() {
+        return bufferState;
+    }
+
+
+    public boolean canBeOverwritten() {
+        return BufferedState.FINISHED.equals(bufferState) && DeliveredState.DELIVERED.equals(deliverState);
+    }
+
+    public Buffered acknowledge() {
+        //Control transition
+        return new Buffered(data,BufferedState.ACKED,deliverState);
+    }
+
+    public Buffered finish() {
+        return new Buffered(data,BufferedState.FINISHED,deliverState);
+    }
+
+    public Buffered deliver() {
+        return new Buffered(data,bufferState,DeliveredState.DELIVERED);
+    }
+
+    public boolean readyForUnorderedDelivery() {
+        return DeliveredState.READY.equals(deliverState) && getData().getFlag().isUnordered();
+    }
+
+    public boolean readyForOrderedDelivery() {
+        return DeliveredState.READY.equals(deliverState) && getData().getFlag().isOrdered();
+    }
+
+    public boolean isDelivered() {
+        return DeliveredState.DELIVERED.equals(deliverState);
+    }
 }

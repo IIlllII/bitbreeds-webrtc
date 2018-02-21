@@ -1,5 +1,9 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+
+import java.util.Objects;
+
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
  * <p>
@@ -16,4 +20,27 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 public class Deliverable {
+    private final DataStorage data;
+
+    public Deliverable(DataStorage data) {
+        this.data = data;
+    }
+
+    public DataStorage getData() {
+        return data;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Deliverable that = (Deliverable) o;
+        return Objects.equals(data, that.data);
+    }
+
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(data);
+    }
 }

@@ -32,6 +32,10 @@ public class TimeData {
         this.data = data;
     }
 
+    public TimeData updateTime(DateTime next) {
+        return new TimeData(next,data);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

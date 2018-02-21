@@ -1,9 +1,11 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
+import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
+import javafx.util.Pair;
 import org.apache.commons.codec.binary.Hex;
 import org.joda.time.DateTime;
 import org.pcollections.HashPMap;
@@ -55,6 +57,8 @@ public class SendService {
 
     private AtomicLong sentBytes = new AtomicLong(0L);
 
+    private AtomicInteger streamSeq = new AtomicInteger(1);
+
     /**
      * Size left of remote receive buffer in bytes
      */
@@ -81,9 +85,16 @@ public class SendService {
     private volatile int retransmissionTimeout;
 
     /**
-     * Reference to handler to be able to pull parameters and when needed.
+     * Reference to handler to be able to pull parameters when needed.
      */
     private final SCTPImpl handler;
+    private final AtomicInteger cwnd;
+
+    /**
+     * Max packets in one go
+     */
+    private final static int MAX_BURST = 4;
+
 
     /**
      *
@@ -91,6 +102,7 @@ public class SendService {
      */
     SendService(SCTPImpl handler) {
         this.handler = handler;
+        cwnd = new AtomicInteger(handler.initialCongestionWindow());
     }
 
     /**
@@ -156,6 +168,17 @@ public class SendService {
         }
     }
 
+    /**
+     * Current bytes inflight
+     * @return TODO use better impl
+     */
+    public int bytesInflight() {
+        return sentTSNS.values()
+                .stream()
+                .map(i->i.data.length)
+                .reduce(0,Integer::sum);
+    }
+
 
     /**
      * This decides what messages are to be resent.
@@ -168,15 +191,21 @@ public class SendService {
      * @return list of data that should be sent again since no ack has been received
      */
     public List<byte[]> getMessagesForResend() {
-        List<Long> forResend = sentTSNS.entrySet().stream()
+        Map<Long,TimeData> forResend = sentTSNS.entrySet().stream()
                 .filter( i -> DateTime.now().isAfter(i.getValue().time))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+                .collect(Collectors.toMap(
+                        i->i.getKey(),
+                        j->j.getValue().updateTime(DateTime.now().plusSeconds(5)))); //backoff should ne added
 
-        logger.debug("Got these TSNs for resend {}",forResend);
+        if(!forResend.isEmpty()) {
+            logger.debug("Got these TSNs for resend {}", forResend);
+        }
 
-        return sentTSNS.values().stream()
-                .filter( i -> DateTime.now().isAfter(i.time))
+        synchronized (dataMutex) {
+            sentTSNS = sentTSNS.plusAll(forResend);
+        }
+
+        return forResend.values().stream()
                 .map(i->i.data)
                 .collect(Collectors.toList());
     }
@@ -249,6 +278,58 @@ public class SendService {
     }
 
 
+    private int nextSSN() {
+        return streamSeq.getAndUpdate(i -> i >= Short.MAX_VALUE ? 1 : i+1);
+    }
+
+
+    private final static int MAX_DATA_CHUNKSIZE = 1024;
+
+    /**
+     *
+     * @param data payload to send
+     * @return create message with payload to send
+     */
+    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid,SCTPHeader base,boolean order) {
+
+        if(data.length <= MAX_DATA_CHUNKSIZE) {
+            return Collections.singletonList(
+                    createPayloadMessage(data,ppid,base,SCTPOrderFlag.UNORDERED_UNFRAGMENTED,0)
+            );
+        }
+        else {
+            List<byte[]> dataSplit = SignalUtil.split(data,MAX_DATA_CHUNKSIZE);
+            List<byte[]> outPut = new ArrayList<>();
+
+            int ssn = nextSSN();
+
+            outPut.add(createPayloadMessage(
+                    dataSplit.get(0),
+                    ppid,
+                    base,
+                    order ? SCTPOrderFlag.ORDERED_START_FRAGMENT : SCTPOrderFlag.UNORDERED_START_FRAGMENT,
+                    ssn));
+
+            for(int i = 1; i < dataSplit.size()-1 ; i++) {
+                outPut.add(createPayloadMessage(
+                        dataSplit.get(i),
+                        ppid,
+                        base,
+                        order ? SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT : SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT,
+                        ssn));
+            }
+
+            outPut.add(createPayloadMessage(
+                    dataSplit.get(dataSplit.size()-1),
+                    ppid,
+                    base,
+                    order ? SCTPOrderFlag.ORDERED_END_FRAGMENT : SCTPOrderFlag.UNORDERED_END_FRAGMENT,
+                    ssn));
+
+            return outPut;
+        }
+    }
+
 
     /**
      *
@@ -260,7 +341,9 @@ public class SendService {
     public byte[] createPayloadMessage(
             byte[] data,
             SCTPPayloadProtocolId ppid,
-            SCTPHeader header) {
+            SCTPHeader header,
+            SCTPOrderFlag flag,
+            int ssn) {
 
         logger.debug("Creating payload");
 
@@ -269,7 +352,7 @@ public class SendService {
         Map<SCTPFixedAttributeType,SCTPFixedAttribute> attr  = new HashMap<>();
         attr.put(TSN,new SCTPFixedAttribute(TSN, SignalUtil.longToFourBytes(myTSN)));
         attr.put(STREAM_IDENTIFIER_S,new SCTPFixedAttribute(STREAM_IDENTIFIER_S,SignalUtil.twoBytesFromInt(0)));
-        attr.put(STREAM_SEQUENCE_NUMBER,new SCTPFixedAttribute(STREAM_SEQUENCE_NUMBER,SignalUtil.twoBytesFromInt(0)));
+        attr.put(STREAM_SEQUENCE_NUMBER,new SCTPFixedAttribute(STREAM_SEQUENCE_NUMBER,SignalUtil.twoBytesFromInt(ssn)));
         attr.put(PROTOCOL_IDENTIFIER,new SCTPFixedAttribute(PROTOCOL_IDENTIFIER,new byte[]{0,0,0,sign(ppid.getId())}));
 
         int fixed = attr.values().stream()
@@ -282,7 +365,7 @@ public class SendService {
 
         SCTPChunk chunk = new SCTPChunk(
                 SCTPMessageType.DATA,
-                SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
+                flag,
                 lgt,
                 attr,
                 new HashMap<>(),

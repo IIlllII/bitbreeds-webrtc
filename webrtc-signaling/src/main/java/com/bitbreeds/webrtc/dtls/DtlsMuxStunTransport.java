@@ -70,7 +70,7 @@ public class DtlsMuxStunTransport implements DatagramTransport {
     public int receive(byte[] buf, int off, int len, int waitMillis)
             throws IOException
     {
-        //socket.setSoTimeout(waitMillis);
+        socket.setSoTimeout(waitMillis);
         DatagramPacket packet = new DatagramPacket(buf, off, len);
         socket.receive(packet);
         logger.debug("Socket read msg: {}", Hex.encodeHexString(SignalUtil.copyRange(packet.getData(), new ByteRange(0,packet.getLength()))));

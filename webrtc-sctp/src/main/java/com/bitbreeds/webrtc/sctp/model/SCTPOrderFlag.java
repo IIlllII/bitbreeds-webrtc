@@ -109,6 +109,10 @@ public enum SCTPOrderFlag {
         return !this.equals(UNORDERED_UNFRAGMENTED) && !this.equals(ORDERED_UNFRAGMENTED);
     }
 
+    public boolean isUnFragmented() {
+        return this.equals(UNORDERED_UNFRAGMENTED) || this.equals(ORDERED_UNFRAGMENTED);
+    }
+
     /**
      * @return Byte representation of enum
      */

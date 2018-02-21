@@ -7,7 +7,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.bitbreeds.webrtc" level="INFO"/>
+    <logger name="com.bitbreeds.webrtc" level="DEBUG"/>
 
     <root level="DEBUG">
         <appender-ref ref="STDOUT" />

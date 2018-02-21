@@ -48,8 +48,8 @@ public class SCTPNoopImpl implements SCTP {
     }
 
     @Override
-    public byte[] createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
-        return new byte[0];
+    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
+        return Collections.emptyList();
     }
 
     @Override
