@@ -29,7 +29,7 @@ import static org.junit.Assert.assertEquals;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class ReceiveBufferTest {
+public class ReceiveBufferUnorderedUnfragmentedTest {
 
     private DataStorage makeDs(long tsn,byte[] data) {
         return new DataStorage(tsn,
@@ -47,7 +47,7 @@ public class ReceiveBufferTest {
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
-        assertEquals(Collections.singletonList(new Deliverable(ds)),del);
+        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1)),del);
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(2,sack.getCumulativeTSN());
@@ -149,7 +149,7 @@ public class ReceiveBufferTest {
         assertEquals(4,del3.size());
 
         List<byte[]> data = del3.stream()
-                .map(i->i.getData().getPayload())
+                .map(Deliverable::getData)
                 .collect(Collectors.toList());
 
         assertArrayEquals(new byte[]{0,0,0},data.get(0));
@@ -181,4 +181,8 @@ public class ReceiveBufferTest {
         buffer.store(makeDs(9,new byte[]{0,1,2}));
 
     }
+
+
+
+
 }

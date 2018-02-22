@@ -2,13 +2,12 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SackUtil;
+import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.DataStorage;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
@@ -32,49 +31,9 @@ import java.util.Set;
  * <a href="https://tools.ietf.org/html/rfc4960#section-6.2.1">SCTP sack</a>
  * <a href="https://tools.ietf.org/html/rfc2581#section-4.2">TCP congestion control</a>
  *
+ * Todo Must handle TSN rollover, but not now initially
  *
  *
- * Initial state
- * -------------------------
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -------------------------
- *
- * receive TSN 17  with 17 % 8 = 1
- *
- * -------------------------
- * 0
- * -
- * 17 + data, RECEIVED
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -
- * 0
- * -------------------------
- *
- *
- * Must handle TSN rollover, but not now initially
  *
  */
 public class ReceiveBuffer {
@@ -130,19 +89,6 @@ public class ReceiveBuffer {
         }
     }
 
-    private int posFromTSN(long tsn) {
-       return (int)(tsn % buffer.length);
-    }
-
-    private Buffered getBuffered(long tsn) {
-        return buffer[posFromTSN(tsn)];
-    }
-
-    private void setBuffered(long tsn,Buffered buffered) {
-        buffer[posFromTSN(tsn)] = buffered;
-    }
-
-
     /**
      * @return sack data for creating complete SACK
      */
@@ -158,6 +104,85 @@ public class ReceiveBuffer {
         return data;
     }
 
+
+    /**
+     *
+     * @return get messages for next layer
+     */
+    public List<Deliverable> getMessagesForDelivery() {
+        List<Deliverable> dl = new ArrayList<>();
+        synchronized (lock) {
+            int diff = (int)(maxReceivedTSN - lowestDelivered);
+            for (int i = 1; i<=diff ;i++) {
+                long tsn = lowestDelivered+i;
+                Buffered bf = getBuffered(tsn);
+                if(bf != null) {
+                    if(bf.readyForUnorderedDelivery()) {
+                        if (bf.getData().getFlag().isUnFragmented()) {
+                            dl.add(new Deliverable(bf.getData().getPayload(),1));
+                            setBuffered(tsn, bf.deliver());
+                        }
+                        else {
+                            if(bf.getData().getFlag().isStart()) {
+                                finishFragment(bf).ifPresent(dl::add);
+                            }
+                        }
+                    } else {
+                        //Todo handle ordered stuff
+                    }
+                }
+            }
+            updateLowestDelivered(dl);
+        }
+        return dl;
+    }
+
+    /**
+     *
+     * Update lowest deliverable, so we can use it for calc later
+     * @param deliverables current deliverables
+     */
+    private void updateLowestDelivered(List<Deliverable> deliverables) {
+        int fragments = deliverables.stream()
+                .map(Deliverable::getOriginalFragmentNumber)
+                .reduce(0,Integer::sum);
+
+        for (int i = 1; i <= fragments; i++) {
+            Buffered vf = getBuffered(lowestDelivered + i);
+            if (vf != null && vf.isDelivered()) {
+                lowestDelivered++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    /**
+     * Retrieve position from TSN
+     * @param tsn to get position for
+     * @return position
+     */
+    private int posFromTSN(long tsn) {
+        return (int)(tsn % buffer.length);
+    }
+
+    /**
+     *
+     * @param tsn to get buffered data for
+     * @return buffered data for tsn, null if no data
+     */
+    private Buffered getBuffered(long tsn) {
+        return buffer[posFromTSN(tsn)];
+    }
+
+    /**
+     *
+     * @param tsn to set buffered data for
+     * @param buffered data
+     */
+    private void setBuffered(long tsn,Buffered buffered) {
+        buffer[posFromTSN(tsn)] = buffered;
+    }
 
     /**
      * Not thread safe, must happen in lock
@@ -211,43 +236,56 @@ public class ReceiveBuffer {
     }
 
 
+
+    private void setDelivered(List<Long> tsns) {
+        tsns.forEach(dlTsn -> {
+                    Buffered xs = getBuffered(dlTsn);
+                    setBuffered(dlTsn,xs.deliver());
+                }
+        );
+    }
+
+    private Deliverable fromTsns(List<Long> tsns) {
+        List<byte[]> data = tsns.stream()
+                .map(this::getBuffered)
+                .map(j->(j.getData()).getPayload())
+                .collect(Collectors.toList());
+        return new Deliverable(SignalUtil.joinBytesArrays(data),data.size());
+    }
+
+
     /**
      *
-     * @return sack data
+     * @param start the start fragment
+     * @return deliverable defragmented message
      */
-    public List<Deliverable> getMessagesForDelivery() {
-        List<Deliverable> dl = new ArrayList<>();
-        synchronized (lock) {
-            int diff = (int)(maxReceivedTSN - lowestDelivered);
-            for (int i = 1; i<=diff ;i++) {
-                long tsn = lowestDelivered+i;
-                Buffered bf = getBuffered(tsn);
-                if(bf != null) {
-                    if(bf.readyForUnorderedDelivery()) {
-                        if (bf.getData().getFlag().isUnFragmented()) {
-                            dl.add(new Deliverable(bf.getData()));
-                            setBuffered(tsn, bf.deliver());
-                        }
-                        else {
-                            //Handle defrag
-                        }
-                    } else {
-                        //Handle ordered
-                    }
-                }
-            }
-            for (int i = 1; i < dl.size(); i++) {
-                Buffered vf = getBuffered(lowestDelivered + i);
-                if (vf != null && vf.isDelivered()) {
-                    lowestDelivered++;
-                } else {
-                    break;
-                }
-            }
-
-
+    private Optional<Deliverable> finishFragment(Buffered start) {
+        if(!start.getData().getFlag().isStart()) {
+            return Optional.empty();
         }
-        return dl;
+        else {
+            long tsn = start.getData().getTSN();
+            List<Long> good = new ArrayList<>();
+            good.add(tsn);
+
+            for (long i = tsn + 1; i <= maxReceivedTSN; i++) {
+                Buffered next = getBuffered(i);
+                if (next != null && !next.canBeOverwritten()) {
+                    DataStorage ds = next.getData();
+                    if(ds.getFlag().isMiddle()) {
+                        good.add(ds.getTSN());
+                    } else if(ds.getFlag().isEnd()) {
+                        good.add(ds.getTSN());
+                        Deliverable del = fromTsns(good);
+                        setDelivered(good);
+                        return Optional.of(del);
+                    }
+                } else {
+                    return Optional.empty();
+                }
+            }
+            return Optional.empty();
+        }
     }
 
 
