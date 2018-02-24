@@ -41,7 +41,9 @@ public class ReceiveBufferFragmentationTest {
 
     @Test
     public void testReceiveFragmented() {
-        ReceiveBuffer buffer = new ReceiveBuffer(6,100,1);
+        ReceiveBuffer buffer = new ReceiveBuffer(6,100);
+
+        buffer.setInitialTSN(1);
 
         DataStorage start = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
         DataStorage mid = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
@@ -80,7 +82,9 @@ public class ReceiveBufferFragmentationTest {
 
     @Test
     public void wrappedFragmedted() {
-        ReceiveBuffer buffer = new ReceiveBuffer(6,100,1);
+        ReceiveBuffer buffer = new ReceiveBuffer(6,100);
+
+        buffer.setInitialTSN(1);
 
         DataStorage uf = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
         DataStorage uf1 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);

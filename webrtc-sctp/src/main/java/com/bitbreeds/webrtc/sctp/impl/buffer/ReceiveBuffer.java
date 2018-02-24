@@ -1,15 +1,12 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.DataStorage;
-import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
+/*
  * Copyright (c) 19/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -25,19 +22,15 @@ import java.util.stream.Collectors;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
 /**
  * Buffer to store SCTP messages for delivery defrag and creation of SACK
  * <a href="https://tools.ietf.org/html/rfc4960#section-6.2.1">SCTP sack</a>
  * <a href="https://tools.ietf.org/html/rfc2581#section-4.2">TCP congestion control</a>
  *
- * Todo Must handle TSN rollover, but not now initially
- *
- *
+ * TODO Must handle TSN and Stream Sequence id rollover
  *
  */
 public class ReceiveBuffer {
-
 
     private final Object lock = new Object();
     private final Buffered[] buffer;
@@ -51,16 +44,54 @@ public class ReceiveBuffer {
 
     private List<Long> duplicates;
 
-    public ReceiveBuffer(int bufferSize,int capacity, long initialTSN) {
+    private long receivedBytes = 0;
+    private long deliveredBytes = 0;
+    private boolean initialReceived = false;
+
+    private Map<Integer,Integer> orderedStreams = new HashMap<>();
+
+    public ReceiveBuffer(int bufferSize,int capacity) {
         if(bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer must be above 0, is " + bufferSize);
         }
+        if(capacity <= 0) {
+            throw new IllegalArgumentException("Capacity must be above 0, is " + bufferSize);
+        }
         this.buffer = new Buffered[bufferSize];
         this.capacity = capacity;
-        this.cumulativeTSN = initialTSN;
-        this.maxReceivedTSN = initialTSN;
-        this.lowestDelivered = initialTSN;
+        this.cumulativeTSN = -1;
+        this.maxReceivedTSN = -1;
+        this.lowestDelivered = -1;
         this.duplicates = new ArrayList<>();
+    }
+
+    /**
+     *
+     * These getters are for monitoring, and can not be fully trusted.
+     */
+    public long getReceivedBytes() {
+        return receivedBytes;
+    }
+
+    public long getDeliveredBytes() {
+        return deliveredBytes;
+    }
+
+    public long getCumulativeTSN() {
+        return cumulativeTSN;
+    }
+
+    public long getCapacity() {
+        return capacity;
+    }
+
+    public void setInitialTSN(long initialTSN) {
+        synchronized (lock) {
+            this.cumulativeTSN = initialTSN;
+            this.maxReceivedTSN = initialTSN;
+            this.lowestDelivered = initialTSN;
+            this.initialReceived = true;
+        }
     }
 
     /**
@@ -71,11 +102,15 @@ public class ReceiveBuffer {
     public void store(DataStorage data) {
         int position = posFromTSN(data.getTSN());
         synchronized (lock) {
+            if(!initialReceived) {
+                throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
+            }
             Buffered old = buffer[position];
             if(old == null || old.canBeOverwritten()) {
                 buffer[position] = new Buffered(data,BufferedState.RECEIVED,DeliveredState.READY);
                 this.maxReceivedTSN = Math.max(this.maxReceivedTSN,data.getTSN());
                 this.capacity -= data.getPayload().length;
+                this.receivedBytes += data.getPayload().length;
             }
             else if(data.getTSN() == old.getData().getTSN()){
                 duplicates.add(data.getTSN());
@@ -84,7 +119,14 @@ public class ReceiveBuffer {
                 /*
                  * Only malicious implementations should hit this unless we use a very small buffer
                  */
-                throw new OutOfBufferSpaceError("Can not store since out og buffer space");
+                List<Buffered> bad = Arrays.stream(buffer)
+                        .filter(i -> i != null && !i.canBeOverwritten())
+                        .collect(Collectors.toList());
+
+                throw new OutOfBufferSpaceError("Can not store since out of buffer space: "
+                + "Buffer " + bad
+                + "Capacity: " + this.capacity
+                + "TSN: " + this.cumulativeTSN);
             }
         }
     }
@@ -116,25 +158,69 @@ public class ReceiveBuffer {
             for (int i = 1; i<=diff ;i++) {
                 long tsn = lowestDelivered+i;
                 Buffered bf = getBuffered(tsn);
-                if(bf != null) {
-                    if(bf.readyForUnorderedDelivery()) {
+                if (bf != null) {
+                    if (bf.readyForUnorderedDelivery()) {
                         if (bf.getData().getFlag().isUnFragmented()) {
-                            dl.add(new Deliverable(bf.getData().getPayload(),1));
+                            dl.add(new Deliverable(bf.getData().getPayload(), 1));
                             setBuffered(tsn, bf.deliver());
-                        }
-                        else {
-                            if(bf.getData().getFlag().isStart()) {
-                                finishFragment(bf).ifPresent(dl::add);
+                        } else {
+                            if (bf.getData().getFlag().isStart()) {
+                                finishFragment(bf)
+                                        .ifPresent(dl::add);
                             }
                         }
-                    } else {
-                        //Todo handle ordered stuff
+                    } else if (bf.readyForOrderedDelivery()) {
+                        if (bf.getData().getFlag().isUnFragmented()) {
+                            receiveUnfragmentedBuffered(bf)
+                                    .ifPresent(deliverable -> {
+                                        dl.add(deliverable);
+                                        setBuffered(tsn, bf.deliver());
+                                    });
+                        } else {
+                            if (bf.getData().getFlag().isStart()) {
+                                if (nextInStream(bf.getData())) {
+                                    finishFragment(bf)
+                                            .ifPresent(dl::add);
+                                }
+                            }
+                        }
                     }
                 }
             }
             updateLowestDelivered(dl);
+            int sum = dl.stream()
+                    .map(i -> i.getData().length)
+                    .reduce(0, Integer::sum);
+
+            this.deliveredBytes += sum;
+            this.capacity += sum;
         }
         return dl;
+    }
+
+
+    /*
+     *
+     * @param ds
+     * @return
+     */
+    private boolean nextInStream(DataStorage ds) {
+        Integer sq = orderedStreams.get(ds.getStreamId());
+        return sq == null || sq+1 == ds.getStreamSequence();
+    }
+
+    /*
+     *
+     * @param buffered data
+     * @return
+     */
+    private Optional<Deliverable> receiveUnfragmentedBuffered(Buffered buffered) {
+        if(nextInStream(buffered.getData())) {
+            setBuffered(buffered.getData().getTSN(), buffered.deliver());
+            orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence());
+            return Optional.of(new Deliverable(buffered.getData().getPayload(),1));
+        }
+        return Optional.empty();
     }
 
     /**

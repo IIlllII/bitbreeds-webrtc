@@ -270,10 +270,7 @@ public class SCTPImpl implements SCTP  {
             logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
             logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-            ReceiveService.TsnStatus status = receiver.handleReceive(data);
-            if (status == ReceiveService.TsnStatus.DUPLICATE) {
-                duplicateCount.incrementAndGet();
-            }
+            receiver.handleReceive(data);
         }
     }
 
@@ -284,16 +281,15 @@ public class SCTPImpl implements SCTP  {
     public void runMonitoring() {
         logger.info("---------------------------------------------");
         logger.info("Size sent: " + sender.sentTSNS.size());
-        logger.info("CumulativeReceivedTSN: " + receiver.cumulativeTSN);
+        logger.info("CumulativeReceivedTSN: " + receiver.getCumulativeTSN());
         logger.info("MyTsn: " + sender.growingTSN.get());
-        logger.info("Duplicates: " + receiver.duplicatesSinceLast.size());
         logger.info("Total received bytes: " + receiver.getReceivedBytes());
         logger.info("Total delivered bytes to user: " + receiver.getDeliveredBytes());
         logger.info("Total sent bytes: " + sender.getSentBytes());
         logger.info("DuplicateCount: " + duplicateCount.get());
         logger.info("RTT: " + heartBeatService.getRttMillis());
         logger.info("Remote buffer: " + sender.getRemoteReceiveBufferSize());
-        logger.info("Local buffer: " + receiver.freeBufferSizeInBytes());
+        logger.info("Local buffer: " + receiver.getBufferCapacity());
     }
 
     @Override

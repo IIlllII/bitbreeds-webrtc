@@ -73,7 +73,7 @@ public class InitiationHandler implements MessageHandler {
         byte[] initate = SignalUtil.randomBytes(4);
 
         attr.put(INITIATE_TAG,new SCTPFixedAttribute(INITIATE_TAG,initate));
-        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt(handler.getReceiver().freeBufferSizeInBytes())));
+        attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt((int)handler.getReceiver().getBufferCapacity())));
         attr.put(OUTBOUND_STREAMS,
                 new SCTPFixedAttribute(OUTBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
         attr.put(INBOUND_STREAMS,

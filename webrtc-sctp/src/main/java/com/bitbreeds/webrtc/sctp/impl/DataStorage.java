@@ -20,6 +20,7 @@ import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 
 import javax.xml.crypto.Data;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -98,5 +99,17 @@ public class DataStorage implements Comparable<DataStorage> {
         else {
             return 1;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "DataStorage{" +
+                "TSN=" + TSN +
+                ", streamId=" + streamId +
+                ", streamSequence=" + streamSequence +
+                ", flags=" + flags +
+                ", protocolId=" + protocolId +
+                ", payloadSize=" + payload.length +
+                '}';
     }
 }

@@ -69,4 +69,13 @@ public class Buffered {
     public boolean isDelivered() {
         return DeliveredState.DELIVERED.equals(deliverState);
     }
+
+    @Override
+    public String toString() {
+        return "Buffered{" +
+                "data=" + data +
+                ", bufferState=" + bufferState +
+                ", deliverState=" + deliverState +
+                '}';
+    }
 }
