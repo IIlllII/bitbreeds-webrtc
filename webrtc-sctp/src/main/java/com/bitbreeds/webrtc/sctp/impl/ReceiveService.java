@@ -6,17 +6,10 @@ import com.bitbreeds.webrtc.sctp.impl.buffer.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.buffer.ReceiveBuffer;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.model.*;
-import org.pcollections.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
@@ -93,7 +86,7 @@ public class ReceiveService {
     /**
      * @param data data to store and evaluate
      */
-    public void handleReceive(DataStorage data) {
+    public void handleReceive(ReceivedData data) {
         Objects.requireNonNull(data);
         buffer.store(data);
         List<Deliverable> deliverables = buffer.getMessagesForDelivery();

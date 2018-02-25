@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 
@@ -30,16 +30,16 @@ import static org.junit.Assert.assertEquals;
  */
 public class ReceiveBufferOrderedUnfragmentedTest {
 
-    private DataStorage makeDsStream1(long tsn, int ssn, byte[] data) {
-        return new DataStorage(tsn,
+    private ReceivedData makeDsStream1(long tsn, int ssn, byte[] data) {
+        return new ReceivedData(tsn,
                 1,
                 ssn,
                 SCTPOrderFlag.ORDERED_UNFRAGMENTED,
                 SCTPPayloadProtocolId.WEBRTC_BINARY,data);
     }
 
-    private DataStorage makeDsStream2(long tsn,int ssn,byte[] data) {
-        return new DataStorage(tsn,
+    private ReceivedData makeDsStream2(long tsn, int ssn, byte[] data) {
+        return new ReceivedData(tsn,
                 2,
                 ssn,
                 SCTPOrderFlag.ORDERED_UNFRAGMENTED,
@@ -52,7 +52,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
-        DataStorage ds = makeDsStream1(2,1,new byte[]{0,1,2});
+        ReceivedData ds = makeDsStream1(2,1,new byte[]{0,1,2});
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();

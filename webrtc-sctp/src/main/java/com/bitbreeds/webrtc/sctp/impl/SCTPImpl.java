@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -221,7 +220,7 @@ public class SCTPImpl implements SCTP  {
      * Run the onMessage callback
      * @param data input to callback
      */
-    protected void runOnMessage(DataStorage data) {
+    protected void runOnMessage(ReceivedData data) {
 
         /*
          * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>

@@ -52,7 +52,7 @@ public class PayloadHandler implements MessageHandler {
         int proto = SignalUtil.intFromFourBytes(data.getFixed().get(PROTOCOL_IDENTIFIER).getData());
         SCTPPayloadProtocolId ppid = SCTPPayloadProtocolId.fromValue(proto);
 
-        DataStorage storage = new DataStorage(tsn,streamId,sequence,data.getFlags(),ppid,data.getRest());
+        ReceivedData storage = new ReceivedData(tsn,streamId,sequence,data.getFlags(),ppid,data.getRest());
 
         handler.runOnMessage(storage);
 

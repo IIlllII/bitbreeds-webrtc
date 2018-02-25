@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
@@ -17,45 +17,43 @@ import com.bitbreeds.webrtc.sctp.impl.DataStorage;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class Buffered {
+public class BufferedReceived {
 
-    private final DataStorage data;
-    private final BufferedState bufferState;
+    private final ReceivedData data;
+    private final ReceiveBufferedState bufferState;
     private final DeliveredState deliverState;
 
-    public Buffered(
-            DataStorage data,
-            BufferedState state,
+    public BufferedReceived(
+            ReceivedData data,
+            ReceiveBufferedState state,
             DeliveredState deliverState) {
         this.data = data;
         this.bufferState = state;
         this.deliverState = deliverState;
     }
 
-    public DataStorage getData() {
+    public ReceivedData getData() {
         return data;
     }
 
-    public BufferedState getState() {
+    public ReceiveBufferedState getState() {
         return bufferState;
     }
 
-
     public boolean canBeOverwritten() {
-        return BufferedState.FINISHED.equals(bufferState) && DeliveredState.DELIVERED.equals(deliverState);
+        return ReceiveBufferedState.FINISHED.equals(bufferState) && DeliveredState.DELIVERED.equals(deliverState);
     }
 
-    public Buffered acknowledge() {
-        //Control transition
-        return new Buffered(data,BufferedState.ACKED,deliverState);
+    public BufferedReceived acknowledge() {
+        return new BufferedReceived(data, ReceiveBufferedState.ACKED,deliverState);
     }
 
-    public Buffered finish() {
-        return new Buffered(data,BufferedState.FINISHED,deliverState);
+    public BufferedReceived finish() {
+        return new BufferedReceived(data, ReceiveBufferedState.FINISHED,deliverState);
     }
 
-    public Buffered deliver() {
-        return new Buffered(data,bufferState,DeliveredState.DELIVERED);
+    public BufferedReceived deliver() {
+        return new BufferedReceived(data,bufferState,DeliveredState.DELIVERED);
     }
 
     public boolean readyForUnorderedDelivery() {
@@ -72,7 +70,7 @@ public class Buffered {
 
     @Override
     public String toString() {
-        return "Buffered{" +
+        return "BufferedReceived{" +
                 "data=" + data +
                 ", bufferState=" + bufferState +
                 ", deliverState=" + deliverState +

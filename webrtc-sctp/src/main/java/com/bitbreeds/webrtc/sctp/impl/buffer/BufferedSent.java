@@ -1,6 +1,8 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
+
+import java.time.LocalDateTime;
 
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
@@ -17,57 +19,35 @@ import com.bitbreeds.webrtc.sctp.impl.DataStorage;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BufferedReceived {
+public class BufferedSent {
 
-    private final DataStorage data;
-    private final BufferedState bufferState;
-    private final DeliveredState deliverState;
+    private final ReceivedData data;
+    private final SendBufferedState bufferState;
+    private final LocalDateTime lastSendTime;
 
-    public BufferedReceived(
-            DataStorage data,
-            BufferedState state,
-            DeliveredState deliverState) {
+    public BufferedSent(
+            ReceivedData data,
+            SendBufferedState state,
+            LocalDateTime lastSendTime) {
         this.data = data;
         this.bufferState = state;
-        this.deliverState = deliverState;
+        this.lastSendTime = lastSendTime;
     }
 
-    public DataStorage getData() {
-        return data;
+    public static BufferedSent buffer(ReceivedData data) {
+        return new BufferedSent(data,SendBufferedState.STORED,null);
     }
-
-    public BufferedState getState() {
-        return bufferState;
-    }
-
 
     public boolean canBeOverwritten() {
-        return BufferedState.FINISHED.equals(bufferState) && DeliveredState.DELIVERED.equals(deliverState);
+        return SendBufferedState.ACKNOWLEDGED.equals(bufferState);
     }
 
-    public BufferedReceived acknowledge() {
-        //Control transition
-        return new BufferedReceived(data,BufferedState.ACKED,deliverState);
+    public BufferedSent acknowledge() {
+        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime);
     }
 
-    public BufferedReceived finish() {
-        return new BufferedReceived(data,BufferedState.FINISHED,deliverState);
-    }
-
-    public BufferedReceived deliver() {
-        return new BufferedReceived(data,bufferState,DeliveredState.DELIVERED);
-    }
-
-    public boolean readyForUnorderedDelivery() {
-        return DeliveredState.READY.equals(deliverState) && getData().getFlag().isUnordered();
-    }
-
-    public boolean readyForOrderedDelivery() {
-        return DeliveredState.READY.equals(deliverState) && getData().getFlag().isOrdered();
-    }
-
-    public boolean isDelivered() {
-        return DeliveredState.DELIVERED.equals(deliverState);
+    public BufferedSent send() {
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now());
     }
 
     @Override
@@ -75,7 +55,6 @@ public class BufferedReceived {
         return "BufferedReceived{" +
                 "data=" + data +
                 ", bufferState=" + bufferState +
-                ", deliverState=" + deliverState +
                 '}';
     }
 }

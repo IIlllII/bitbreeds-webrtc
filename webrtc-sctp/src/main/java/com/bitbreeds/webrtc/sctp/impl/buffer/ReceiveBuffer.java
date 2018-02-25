@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public class ReceiveBuffer {
 
     private final Object lock = new Object();
-    private final Buffered[] buffer;
+    private final BufferedReceived[] buffer;
     private int capacity;
 
     private long cumulativeTSN;
@@ -55,9 +55,9 @@ public class ReceiveBuffer {
             throw new IllegalArgumentException("Buffer must be above 0, is " + bufferSize);
         }
         if(capacity <= 0) {
-            throw new IllegalArgumentException("Capacity must be above 0, is " + bufferSize);
+            throw new IllegalArgumentException("Capacity must be above 0, is " + capacity);
         }
-        this.buffer = new Buffered[bufferSize];
+        this.buffer = new BufferedReceived[bufferSize];
         this.capacity = capacity;
         this.cumulativeTSN = -1;
         this.maxReceivedTSN = -1;
@@ -99,15 +99,15 @@ public class ReceiveBuffer {
      *
      * @param data data to store
      */
-    public void store(DataStorage data) {
+    public void store(ReceivedData data) {
         int position = posFromTSN(data.getTSN());
         synchronized (lock) {
             if(!initialReceived) {
                 throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
             }
-            Buffered old = buffer[position];
+            BufferedReceived old = buffer[position];
             if(old == null || old.canBeOverwritten()) {
-                buffer[position] = new Buffered(data,BufferedState.RECEIVED,DeliveredState.READY);
+                buffer[position] = new BufferedReceived(data, ReceiveBufferedState.RECEIVED,DeliveredState.READY);
                 this.maxReceivedTSN = Math.max(this.maxReceivedTSN,data.getTSN());
                 this.capacity -= data.getPayload().length;
                 this.receivedBytes += data.getPayload().length;
@@ -119,7 +119,7 @@ public class ReceiveBuffer {
                 /*
                  * Only malicious implementations should hit this unless we use a very small buffer
                  */
-                List<Buffered> bad = Arrays.stream(buffer)
+                List<BufferedReceived> bad = Arrays.stream(buffer)
                         .filter(i -> i != null && !i.canBeOverwritten())
                         .collect(Collectors.toList());
 
@@ -157,7 +157,7 @@ public class ReceiveBuffer {
             int diff = (int)(maxReceivedTSN - lowestDelivered);
             for (int i = 1; i<=diff ;i++) {
                 long tsn = lowestDelivered+i;
-                Buffered bf = getBuffered(tsn);
+                BufferedReceived bf = getBuffered(tsn);
                 if (bf != null) {
                     if (bf.readyForUnorderedDelivery()) {
                         if (bf.getData().getFlag().isUnFragmented()) {
@@ -204,7 +204,7 @@ public class ReceiveBuffer {
      * @param ds
      * @return
      */
-    private boolean nextInStream(DataStorage ds) {
+    private boolean nextInStream(ReceivedData ds) {
         Integer sq = orderedStreams.get(ds.getStreamId());
         return sq == null || sq+1 == ds.getStreamSequence();
     }
@@ -214,7 +214,7 @@ public class ReceiveBuffer {
      * @param buffered data
      * @return
      */
-    private Optional<Deliverable> receiveUnfragmentedBuffered(Buffered buffered) {
+    private Optional<Deliverable> receiveUnfragmentedBuffered(BufferedReceived buffered) {
         if(nextInStream(buffered.getData())) {
             setBuffered(buffered.getData().getTSN(), buffered.deliver());
             orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence());
@@ -234,7 +234,7 @@ public class ReceiveBuffer {
                 .reduce(0,Integer::sum);
 
         for (int i = 1; i <= fragments; i++) {
-            Buffered vf = getBuffered(lowestDelivered + i);
+            BufferedReceived vf = getBuffered(lowestDelivered + i);
             if (vf != null && vf.isDelivered()) {
                 lowestDelivered++;
             } else {
@@ -257,7 +257,7 @@ public class ReceiveBuffer {
      * @param tsn to get buffered data for
      * @return buffered data for tsn, null if no data
      */
-    private Buffered getBuffered(long tsn) {
+    private BufferedReceived getBuffered(long tsn) {
         return buffer[posFromTSN(tsn)];
     }
 
@@ -266,7 +266,7 @@ public class ReceiveBuffer {
      * @param tsn to set buffered data for
      * @param buffered data
      */
-    private void setBuffered(long tsn,Buffered buffered) {
+    private void setBuffered(long tsn,BufferedReceived buffered) {
         buffer[posFromTSN(tsn)] = buffered;
     }
 
@@ -279,7 +279,7 @@ public class ReceiveBuffer {
         long newCumulativeTSN = cumulativeTSN;
         long diff = this.maxReceivedTSN - cumulativeTSN;
         for (int i = 1; i <= diff; i++) {
-            Buffered bf = getBuffered(this.cumulativeTSN + i);
+            BufferedReceived bf = getBuffered(this.cumulativeTSN + i);
             if (bf != null && !bf.canBeOverwritten()) {
                 newCumulativeTSN++;
             } else {
@@ -296,7 +296,7 @@ public class ReceiveBuffer {
         long diff = newCumulativeTSN - cumulativeTSN;
         for (int i = 0; i < diff; i++) {
             long tsn = this.cumulativeTSN + i;
-            Buffered bf = getBuffered(tsn);
+            BufferedReceived bf = getBuffered(tsn);
             if(bf != null) {
                 setBuffered(tsn, bf.finish());
             }
@@ -312,7 +312,7 @@ public class ReceiveBuffer {
         int diff = (int) (maxReceivedTSN - cumulativeTSN);
         for (int i = 1; i <= diff; i++) {
             long tsn = cumulativeTSN + i;
-            Buffered bf = getBuffered(tsn);
+            BufferedReceived bf = getBuffered(tsn);
             if (bf != null && !bf.canBeOverwritten()) {
                 data.add(bf.getData().getTSN());
                 setBuffered(tsn,bf.acknowledge());
@@ -325,7 +325,7 @@ public class ReceiveBuffer {
 
     private void setDelivered(List<Long> tsns) {
         tsns.forEach(dlTsn -> {
-                    Buffered xs = getBuffered(dlTsn);
+                    BufferedReceived xs = getBuffered(dlTsn);
                     setBuffered(dlTsn,xs.deliver());
                 }
         );
@@ -345,7 +345,7 @@ public class ReceiveBuffer {
      * @param start the start fragment
      * @return deliverable defragmented message
      */
-    private Optional<Deliverable> finishFragment(Buffered start) {
+    private Optional<Deliverable> finishFragment(BufferedReceived start) {
         if(!start.getData().getFlag().isStart()) {
             return Optional.empty();
         }
@@ -355,9 +355,9 @@ public class ReceiveBuffer {
             good.add(tsn);
 
             for (long i = tsn + 1; i <= maxReceivedTSN; i++) {
-                Buffered next = getBuffered(i);
+                BufferedReceived next = getBuffered(i);
                 if (next != null && !next.canBeOverwritten()) {
-                    DataStorage ds = next.getData();
+                    ReceivedData ds = next.getData();
                     if(ds.getFlag().isMiddle()) {
                         good.add(ds.getTSN());
                     } else if(ds.getFlag().isEnd()) {

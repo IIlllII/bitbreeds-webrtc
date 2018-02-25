@@ -1,7 +1,5 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
-
 import java.util.Arrays;
 import java.util.Objects;
 

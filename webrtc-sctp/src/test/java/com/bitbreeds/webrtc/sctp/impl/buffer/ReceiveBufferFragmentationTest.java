@@ -2,14 +2,12 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SetUtil;
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -31,8 +29,8 @@ import static org.junit.Assert.assertEquals;
  */
 public class ReceiveBufferFragmentationTest {
 
-    private DataStorage makeFrag(long tsn,byte[] data,SCTPOrderFlag flag) {
-        return new DataStorage(tsn,
+    private ReceivedData makeFrag(long tsn, byte[] data, SCTPOrderFlag flag) {
+        return new ReceivedData(tsn,
                 0,
                 0,
                 flag,
@@ -45,10 +43,10 @@ public class ReceiveBufferFragmentationTest {
 
         buffer.setInitialTSN(1);
 
-        DataStorage start = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
-        DataStorage mid = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        DataStorage mid2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        DataStorage end = makeFrag(5,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
+        ReceivedData start = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
+        ReceivedData mid = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData mid2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData end = makeFrag(5,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
 
         buffer.store(start);
         buffer.store(mid2);
@@ -86,14 +84,14 @@ public class ReceiveBufferFragmentationTest {
 
         buffer.setInitialTSN(1);
 
-        DataStorage uf = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
-        DataStorage uf1 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
-        DataStorage uf2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf1 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
 
-        DataStorage start = makeFrag(5,new byte[]{0},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
-        DataStorage mid = makeFrag(6,new byte[]{1},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        DataStorage mid2 = makeFrag(7,new byte[]{2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        DataStorage end = makeFrag(8,new byte[]{3},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
+        ReceivedData start = makeFrag(5,new byte[]{0},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
+        ReceivedData mid = makeFrag(6,new byte[]{1},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData mid2 = makeFrag(7,new byte[]{2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData end = makeFrag(8,new byte[]{3},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
 
         buffer.store(uf);
         buffer.store(uf1);

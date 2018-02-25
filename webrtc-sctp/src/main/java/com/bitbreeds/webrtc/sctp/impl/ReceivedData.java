@@ -19,8 +19,6 @@ package com.bitbreeds.webrtc.sctp.impl;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 
-import javax.xml.crypto.Data;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -28,7 +26,7 @@ import java.util.Objects;
  *
  * Needed for reassembly of fragmented messages and correct delivery to user.
  */
-public class DataStorage implements Comparable<DataStorage> {
+public class ReceivedData implements Comparable<ReceivedData> {
 
     private final long TSN;
     private final int streamId;
@@ -37,12 +35,12 @@ public class DataStorage implements Comparable<DataStorage> {
     private final SCTPPayloadProtocolId protocolId;
     private final byte[] payload;
 
-    public DataStorage(long TSN,
-                       int streamId,
-                       int streamSequence,
-                       SCTPOrderFlag flags,
-                       SCTPPayloadProtocolId protocolId,
-                       byte[] payload) {
+    public ReceivedData(long TSN,
+                        int streamId,
+                        int streamSequence,
+                        SCTPOrderFlag flags,
+                        SCTPPayloadProtocolId protocolId,
+                        byte[] payload) {
         this.TSN = TSN;
         this.streamId = streamId;
         this.streamSequence = streamSequence;
@@ -79,7 +77,7 @@ public class DataStorage implements Comparable<DataStorage> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        DataStorage that = (DataStorage) o;
+        ReceivedData that = (ReceivedData) o;
         return TSN == that.TSN;
     }
 
@@ -89,7 +87,7 @@ public class DataStorage implements Comparable<DataStorage> {
     }
 
     @Override
-    public int compareTo(DataStorage dataStorage) {
+    public int compareTo(ReceivedData dataStorage) {
         if(this.getTSN() == dataStorage.getTSN()) {
             return 0;
         }
@@ -103,7 +101,7 @@ public class DataStorage implements Comparable<DataStorage> {
 
     @Override
     public String toString() {
-        return "DataStorage{" +
+        return "ReceivedData{" +
                 "TSN=" + TSN +
                 ", streamId=" + streamId +
                 ", streamSequence=" + streamSequence +

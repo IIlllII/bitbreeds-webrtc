@@ -1,11 +1,10 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.sctp.impl.DataStorage;
+import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,8 +30,8 @@ import static org.junit.Assert.assertEquals;
  */
 public class ReceiveBufferUnorderedUnfragmentedTest {
 
-    private DataStorage makeDs(long tsn,byte[] data) {
-        return new DataStorage(tsn,
+    private ReceivedData makeDs(long tsn, byte[] data) {
+        return new ReceivedData(tsn,
                 0,
                 0,
                 SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
@@ -45,7 +44,7 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
-        DataStorage ds = makeDs(2,new byte[]{0,1,2});
+        ReceivedData ds = makeDs(2,new byte[]{0,1,2});
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
