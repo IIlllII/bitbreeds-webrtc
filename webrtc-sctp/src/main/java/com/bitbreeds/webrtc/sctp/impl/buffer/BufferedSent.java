@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
+import com.bitbreeds.webrtc.sctp.impl.SendData;
 
 import java.time.LocalDateTime;
 
@@ -21,21 +22,20 @@ import java.time.LocalDateTime;
  */
 public class BufferedSent {
 
-    private final ReceivedData data;
+    private final SendData data;
     private final SendBufferedState bufferState;
     private final LocalDateTime lastSendTime;
+    private final long tsn;
 
-    public BufferedSent(
-            ReceivedData data,
-            SendBufferedState state,
-            LocalDateTime lastSendTime) {
+    public BufferedSent(SendData data, SendBufferedState bufferState, LocalDateTime lastSendTime, long tsn) {
         this.data = data;
-        this.bufferState = state;
+        this.bufferState = bufferState;
         this.lastSendTime = lastSendTime;
+        this.tsn = tsn;
     }
 
-    public static BufferedSent buffer(ReceivedData data) {
-        return new BufferedSent(data,SendBufferedState.STORED,null);
+    public static BufferedSent buffer(SendData data,long tsn) {
+        return new BufferedSent(data,SendBufferedState.STORED,null,tsn);
     }
 
     public boolean canBeOverwritten() {
@@ -43,18 +43,32 @@ public class BufferedSent {
     }
 
     public BufferedSent acknowledge() {
-        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime);
+        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime,tsn);
     }
 
     public BufferedSent send() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now());
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn);
+    }
+
+    public SendData getData() {
+        return data;
+    }
+
+    public long getTsn() {
+        return tsn;
+    }
+
+    public LocalDateTime getLastSendTime() {
+        return lastSendTime;
     }
 
     @Override
     public String toString() {
-        return "BufferedReceived{" +
+        return "BufferedSent{" +
                 "data=" + data +
                 ", bufferState=" + bufferState +
+                ", lastSendTime=" + lastSendTime +
+                ", tsn=" + tsn +
                 '}';
     }
 }

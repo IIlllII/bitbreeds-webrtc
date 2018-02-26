@@ -1,8 +1,10 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
+import com.bitbreeds.webrtc.sctp.impl.SendData;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /*
  * Copyright (c) 19/02/2018, Jonas Waage
@@ -25,33 +27,56 @@ import java.util.*;
  * <a href="https://tools.ietf.org/html/rfc4960#section-6.2.1">SCTP sack</a>
  * <a href="https://tools.ietf.org/html/rfc2581#section-4.2">TCP congestion control</a>
  *
- * TODO Must handle TSN and Stream Sequence id rollover
+ * Buffer for sent messages
+ * Responsibilities:
+ * - Assigning TSN
+ * - Ensuring we have a finite send buffer
+ * - Ensuring we overhold max inflight
+ * - Ensure resend if message is never acked
  *
  */
 public class SendBuffer {
 
     private final Object lock = new Object();
 
-    private final Queue<BufferedSent> buffered = new ArrayDeque<>();
-    private final HashMap<Long,BufferedSent> inFlight = new HashMap<>();
+    private final Queue<BufferedSent> queue = new ArrayDeque<>();
+    private Map<Long,BufferedSent> inFlight = new HashMap<>();
 
     private final static int DEFAULT_MAX_INFLIGHT = 5;
     private final int maxInflight;
 
     private int capacity;
 
-    int TSN;
+    private long localTSN = 1;
+
+    private long remoteBufferSize;
+    private long remoteCumulativeTSN;
+    private boolean remoteIsInitialized = false;
 
     public SendBuffer(int capacity) {
         this(capacity,DEFAULT_MAX_INFLIGHT);
     }
 
-    public SendBuffer(int capacity,int maxInflight) {
+    public SendBuffer(
+            int capacity,
+            int maxInflight
+    ) {
         if(capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be above 0, is " + capacity);
         }
         this.maxInflight = maxInflight;
         this.capacity = capacity;
+    }
+
+
+    public void initializeRemote(int remoteBufferSize, int remoteCumulativeTSN) {
+        synchronized (lock) {
+            if (!remoteIsInitialized) {
+                this.remoteBufferSize = remoteBufferSize;
+                this.remoteCumulativeTSN = remoteCumulativeTSN;
+                this.remoteIsInitialized = true;
+            }
+        }
     }
 
 
@@ -62,55 +87,79 @@ public class SendBuffer {
 
     /**
      *
-     * Buffer a message for sending
+     * Buffer a message for sending and move as many messages to inflight as possible
      *
      * @param data data to store
      */
-    public void buffer(ReceivedData data) {
+    public void buffer(SendData data) {
+        if(!remoteIsInitialized) {
+            throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
+        }
         synchronized (lock) {
             if(capacity - data.getPayload().length < 0) {
                 throw new OutOfBufferSpaceError("Send buffer is full, message was dropped");
             }
-
-            int canFly = maxInflight - inFlight.size();
-            if(canFly <= 0) {
-                BufferedSent buffer = BufferedSent.buffer(data);
-                buffered.add(buffer);
-            }
-
-            else {
-                BufferedSent buffer = BufferedSent.buffer(data);
-                BufferedSent sent = buffer.send();
-                //
-                inFlight.put(data.getTSN(),sent);
-            }
-
-
+            capacity -= data.getPayload().length;
+            queue.add(BufferedSent.buffer(data,localTSN++));
         }
     }
 
+
+    public int getInflightSize() {
+        return inFlight.size();
+    }
+
     /**
-     * Remove packets acknowledged in sack from inflight
-     * @param sack
+     * Remove packets acknowledged in sack from inflight.
+     *
+     * Set remote buffer size.
+     *
+     * @param sack acknowledgement
      */
     public void receiveSack(SackData sack) {
         synchronized (lock) {
-
+            if(sack.getCumulativeTSN() > remoteCumulativeTSN) {
+                remoteBufferSize = sack.getBufferLeft();
+                remoteCumulativeTSN = sack.getCumulativeTSN();
+            }
+            inFlight = inFlight.values().stream()
+                    .filter(i->!acknowledged(sack,i))
+                    .collect(Collectors.toMap(BufferedSent::getTsn, i->i));
 
         }
     }
 
+    private boolean acknowledged(SackData data,BufferedSent inFlight) {
+        return data.getCumulativeTSN() >= inFlight.getTsn() ||
+                data.getTsns().contains(inFlight.getTsn());
+    }
+
+
     /**
-     * Get data to send to remote peer
      *
-     * Move queued data to inflight, or ensure timed out inflight will be resent.
+     * Move messages to inflight
      *
-     * Ensure send ordering is correct (lowest TSN first, resend first)
-     *
-     * @return sack data for creating complete SACK
+     * @return messages to put on wire
      */
-    public SendData getDataToSend() {
-        throw new UnsupportedOperationException();
+    public List<BufferedSent> getDataToSend() {
+        ArrayList<BufferedSent> toSend = new ArrayList<>();
+        synchronized (lock) {
+            while (!queue.isEmpty() && canFly(queue.element())) {
+                BufferedSent buff = queue.remove();
+                inFlight.put(buff.getTsn(), buff.send());
+                toSend.add(buff);
+            }
+        }
+        return toSend;
+    }
+
+
+    /**
+     * @return whether max inflight and remote buffer allows sending or not
+     */
+    private boolean canFly(BufferedSent data) {
+        return maxInflight - inFlight.size() > 0
+                && remoteBufferSize > data.getData().getPayload().length;
     }
 
 

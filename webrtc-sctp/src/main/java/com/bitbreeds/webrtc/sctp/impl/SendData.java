@@ -1,4 +1,7 @@
-package com.bitbreeds.webrtc.sctp.impl.buffer;
+package com.bitbreeds.webrtc.sctp.impl;
+
+import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 
 /**
  * Copyright (c) 24/02/2018, Jonas Waage
@@ -15,5 +18,41 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+
 public class SendData {
+
+    private final int streamId;
+    private final int streamSequence;
+    private final SCTPOrderFlag flags;
+    private final SCTPPayloadProtocolId protocolId;
+    private final byte[] payload;
+
+    public SendData(int streamId, int streamSequence, SCTPOrderFlag flags, SCTPPayloadProtocolId protocolId, byte[] payload) {
+        this.streamId = streamId;
+        this.streamSequence = streamSequence;
+        this.flags = flags;
+        this.protocolId = protocolId;
+        this.payload = payload;
+    }
+
+    public int getStreamId() {
+        return streamId;
+    }
+
+    public int getStreamSequence() {
+        return streamSequence;
+    }
+
+    public SCTPOrderFlag getFlags() {
+        return flags;
+    }
+
+    public SCTPPayloadProtocolId getProtocolId() {
+        return protocolId;
+    }
+
+    public byte[] getPayload() {
+        return payload;
+    }
 }
