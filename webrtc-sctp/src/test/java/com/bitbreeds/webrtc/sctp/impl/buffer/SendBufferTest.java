@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SetUtil;
 import com.bitbreeds.webrtc.sctp.impl.DataToSend;
 import com.bitbreeds.webrtc.sctp.impl.SendData;
@@ -30,8 +31,8 @@ import static org.junit.Assert.assertEquals;
 public class SendBufferTest {
 
 
-    private SendData makeData() {
-        return new SendData(0,0, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, SCTPPayloadProtocolId.WEBRTC_BINARY,
+    private SendData makeData(long tsn) {
+        return new SendData(tsn,0,0, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, SCTPPayloadProtocolId.WEBRTC_BINARY,
                 new byte[] {0,0,0,0,0,0,1,1,1,1,1});
     }
 
@@ -41,9 +42,9 @@ public class SendBufferTest {
 
         buffer.initializeRemote(1000,1);
 
-        buffer.buffer(makeData());
-        buffer.buffer(makeData());
-        buffer.buffer(makeData());
+        buffer.buffer(makeData(1));
+        buffer.buffer(makeData(2));
+        buffer.buffer(makeData(3));
 
         List<BufferedSent> toSend = buffer.getDataToSend();
 
@@ -60,9 +61,9 @@ public class SendBufferTest {
 
         buffer.initializeRemote(1000,1);
 
-        buffer.buffer(makeData());
-        buffer.buffer(makeData());
-        buffer.buffer(makeData());
+        buffer.buffer(makeData(1));
+        buffer.buffer(makeData(2));
+        buffer.buffer(makeData(3));
 
         List<BufferedSent> toSend = buffer.getDataToSend();
 
@@ -71,12 +72,12 @@ public class SendBufferTest {
         assertEquals(2,toSend.get(1).getTsn());
         assertEquals(3,toSend.get(2).getTsn());
 
-        SackData sack = new SackData(1L, SetUtil.newHashSet(3L), Collections.emptyList(),750);
+        SackData sack = new SackData(1L, SackUtil.getGapAckList(SetUtil.newHashSet(3L)), Collections.emptyList(),750);
         buffer.receiveSack(sack);
 
         assertEquals(1,buffer.getInflightSize());
 
-        buffer.buffer(makeData());
+        buffer.buffer(makeData(4));
 
         List<BufferedSent> nextSend = buffer.getDataToSend();
         assertEquals(1,nextSend.size());
@@ -89,7 +90,7 @@ public class SendBufferTest {
         buffer.initializeRemote(1000,1);
 
         for(int i=0; i<100; i++) {
-            buffer.buffer(makeData());
+            buffer.buffer(makeData(i+1));
         }
     }
 

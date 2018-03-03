@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
+import com.bitbreeds.webrtc.common.GapAck;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.buffer.Deliverable;
@@ -137,12 +138,12 @@ public class ReceiveService {
         SackData sackData = getAndSetSackTSNList();//Pull sack data
 
         //Calculate gap acks from only relevant data.
-        List<SackUtil.GapAck> acks = SackUtil.getGapAckList(sackData.getTsns());
+        List<GapAck> acks = sackData.getTsns();
 
         List<byte[]> varData = new ArrayList<>();
 
         for(int i = 1; i<acks.size(); i++) {
-            SackUtil.GapAck ack = acks.get(i);
+            GapAck ack = acks.get(i);
             int start = (int)(ack.start - sackData.getCumulativeTSN());
             int end = (int)(ack.end - sackData.getCumulativeTSN());
             varData.add(twoBytesFromInt(start));

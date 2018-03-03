@@ -5,6 +5,7 @@ import org.junit.Test;
 import java.util.HashSet;
 import java.util.List;
 
+import static com.bitbreeds.webrtc.common.SackUtil.getGapAckList;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -38,13 +39,13 @@ public class SackUtilTest {
 
         ls.add(10L);
 
-        List<SackUtil.GapAck> ackList = SackUtil.getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(ls);
 
         assertEquals(3,ackList.size());
 
-        SackUtil.GapAck a = ackList.get(0);
-        SackUtil.GapAck b = ackList.get(1);
-        SackUtil.GapAck c = ackList.get(2);
+        GapAck a = ackList.get(0);
+        GapAck b = ackList.get(1);
+        GapAck c = ackList.get(2);
 
         assertEquals(a.start,0L);
         assertEquals(a.end,4L);
@@ -62,7 +63,7 @@ public class SackUtilTest {
     public void testGapAckGenEmpty() {
         HashSet<Long> ls = new HashSet<>();
 
-        List<SackUtil.GapAck> ackList = SackUtil.getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(ls);
 
         assertEquals(0,ackList.size());
     }
@@ -79,11 +80,11 @@ public class SackUtilTest {
         ls.add(4L);
 
 
-        List<SackUtil.GapAck> ackList = SackUtil.getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(ls);
 
         assertEquals(1,ackList.size());
 
-        SackUtil.GapAck a = ackList.get(0);
+        GapAck a = ackList.get(0);
 
         assertEquals(a.start,0L);
         assertEquals(a.end,4L);
@@ -95,11 +96,11 @@ public class SackUtilTest {
         HashSet<Long> ls = new HashSet<>();
         ls.add(0L);
 
-        List<SackUtil.GapAck> ackList = SackUtil.getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(ls);
 
         assertEquals(1,ackList.size());
 
-        SackUtil.GapAck a = ackList.get(0);
+        GapAck a = ackList.get(0);
 
         assertEquals(a.start,0L);
         assertEquals(a.end,0L);
@@ -114,13 +115,13 @@ public class SackUtilTest {
         ls.add(10L);
         ls.add(20L);
 
-        List<SackUtil.GapAck> ackList = SackUtil.getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(ls);
 
         assertEquals(3,ackList.size());
 
-        SackUtil.GapAck a = ackList.get(0);
-        SackUtil.GapAck b = ackList.get(1);
-        SackUtil.GapAck c = ackList.get(2);
+        GapAck a = ackList.get(0);
+        GapAck b = ackList.get(1);
+        GapAck c = ackList.get(2);
 
         assertEquals(a.start,0L);
         assertEquals(a.end,0L);

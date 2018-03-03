@@ -1,5 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.common.GapAck;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -21,14 +23,14 @@ import java.util.Set;
  */
 
 public class SackData {
-    private final Set<Long> tsns;
+    private final List<GapAck> tsns;
     private final List<Long> duplicates;
     private final int bufferLeft;
     private final long cumulativeTSN;
 
-    SackData(
+    public SackData(
             long cumulativeTSN,
-            Set<Long> tsns,
+            List<GapAck> tsns,
             List<Long> duplicates,
             int bufferLeft) {
         this.tsns = tsns;
@@ -37,7 +39,7 @@ public class SackData {
         this.cumulativeTSN = cumulativeTSN;
     }
 
-    public Set<Long> getTsns() {
+    public List<GapAck> getTsns() {
         return tsns;
     }
 

@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.common.GapAck;
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.impl.SendData;
 
@@ -46,8 +47,6 @@ public class SendBuffer {
     private final int maxInflight;
 
     private int capacity;
-
-    private long localTSN = 1;
 
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
@@ -100,7 +99,7 @@ public class SendBuffer {
                 throw new OutOfBufferSpaceError("Send buffer is full, message was dropped");
             }
             capacity -= data.getPayload().length;
-            queue.add(BufferedSent.buffer(data,localTSN++));
+            queue.add(BufferedSent.buffer(data,data.getTsn()));
         }
     }
 
@@ -131,9 +130,16 @@ public class SendBuffer {
 
     private boolean acknowledged(SackData data,BufferedSent inFlight) {
         return data.getCumulativeTSN() >= inFlight.getTsn() ||
-                data.getTsns().contains(inFlight.getTsn());
+                inGapAck(data.getTsns(),inFlight.getTsn());
     }
 
+
+    private boolean inGapAck(List<GapAck> acks,long inflightTSN) {
+        return acks.stream()
+                .reduce(false,
+                        (a,b) -> b.inRange(inflightTSN),
+                        (a,b) -> a || b);
+    }
 
     /**
      *

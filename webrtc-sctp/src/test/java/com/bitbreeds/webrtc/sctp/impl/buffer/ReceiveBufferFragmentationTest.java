@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SetUtil;
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
@@ -56,7 +57,7 @@ public class ReceiveBufferFragmentationTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(2,sack.getCumulativeTSN());
-        assertEquals(sack.getTsns(), SetUtil.newHashSet(4L));
+        assertEquals(sack.getTsns(), SackUtil.getGapAckList(SetUtil.newHashSet(4L)));
         assertEquals(sack.getDuplicates(),Collections.emptyList());
 
         buffer.store(mid);
@@ -66,7 +67,7 @@ public class ReceiveBufferFragmentationTest {
 
         SackData sack2 = buffer.getSackDataToSend();
         assertEquals(4,sack2.getCumulativeTSN());
-        assertEquals(sack2.getTsns(), Collections.emptySet());
+        assertEquals(sack2.getTsns(), Collections.emptyList());
         assertEquals(sack2.getDuplicates(),Collections.emptyList());
 
         buffer.store(end);

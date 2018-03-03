@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 
@@ -117,7 +118,7 @@ public class ReceiveBuffer {
             }
             else {
                 /*
-                 * Only malicious implementations should hit this unless we use a very small buffer
+                 * Only malicious implementations should hit this unless a very small buffer is used
                  */
                 List<BufferedReceived> bad = Arrays.stream(buffer)
                         .filter(i -> i != null && !i.canBeOverwritten())
@@ -140,7 +141,11 @@ public class ReceiveBuffer {
             long newCumulativeTSN = findNewCumulativeTSN();
             updateCumulativeTSN(newCumulativeTSN);
             Set<Long> received = getReceived();
-            data = new SackData(newCumulativeTSN,received,duplicates,capacity);
+            data = new SackData(
+                    newCumulativeTSN,
+                    SackUtil.getGapAckList(received),
+                    duplicates,
+                    capacity);
             duplicates = new ArrayList<>();
         }
         return data;

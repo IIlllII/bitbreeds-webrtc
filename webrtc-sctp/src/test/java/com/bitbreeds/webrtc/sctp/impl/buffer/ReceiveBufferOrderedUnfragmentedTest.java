@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
@@ -60,7 +61,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(2,sack.getCumulativeTSN());
-        assertEquals(sack.getTsns(),Collections.emptySet());
+        assertEquals(sack.getTsns(),Collections.emptyList());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 
@@ -83,7 +84,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(5,sack.getCumulativeTSN());
-        assertEquals(sack.getTsns(),Collections.emptySet());
+        assertEquals(sack.getTsns(),Collections.emptyList());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 
@@ -104,7 +105,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(3,sack.getCumulativeTSN());
-        assertEquals( Stream.of(5L).collect(Collectors.toSet()),sack.getTsns());
+        assertEquals( SackUtil.getGapAckList(Stream.of(5L).collect(Collectors.toSet())),sack.getTsns());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 
@@ -126,7 +127,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(3,sack.getCumulativeTSN());
-        assertEquals( Stream.of(5L,6L).collect(Collectors.toSet()),sack.getTsns());
+        assertEquals( SackUtil.getGapAckList(Stream.of(5L,6L).collect(Collectors.toSet())),sack.getTsns());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 
@@ -148,7 +149,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(3,sack.getCumulativeTSN());
-        assertEquals(Collections.emptySet(),sack.getTsns());
+        assertEquals(Collections.emptyList(),sack.getTsns());
         assertEquals(Stream.of(3L,2L).collect(Collectors.toList()),sack.getDuplicates());
     }
 
@@ -198,7 +199,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
         SackData sack3 = buffer.getSackDataToSend();
 
         assertEquals(9,sack3.getCumulativeTSN());
-        assertEquals(Collections.emptySet(),sack3.getTsns());
+        assertEquals(Collections.emptyList(),sack3.getTsns());
         assertEquals(Collections.emptyList(),sack3.getDuplicates());
     }
 

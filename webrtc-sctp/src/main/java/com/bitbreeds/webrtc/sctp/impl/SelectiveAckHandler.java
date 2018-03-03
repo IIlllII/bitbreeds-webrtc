@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.ByteRange;
+import com.bitbreeds.webrtc.common.GapAck;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
@@ -58,14 +59,14 @@ public class SelectiveAckHandler implements MessageHandler {
         int gaps = SignalUtil.intFromTwoBytes(num_gap.getData());
         int dupl = SignalUtil.intFromTwoBytes(num_dupl.getData());
 
-        List<SackUtil.GapAck> gapAcks = new ArrayList<>(gaps);
+        List<GapAck> gapAcks = new ArrayList<>(gaps);
         ByteRange rng = new ByteRange(0,2);
         for(int i = 0; i<gaps; i++) {
             int a = SignalUtil.intFromTwoBytes(SignalUtil.copyRange(data.getRest(),rng));
             rng = rng.plus(2);
             int b = SignalUtil.intFromTwoBytes(SignalUtil.copyRange(data.getRest(),rng));
             rng = rng.plus(2);
-            gapAcks.add(new SackUtil.GapAck(a,b));
+            gapAcks.add(new GapAck(a,b));
         }
 
         List<Long> duplicates = new ArrayList<>(dupl);

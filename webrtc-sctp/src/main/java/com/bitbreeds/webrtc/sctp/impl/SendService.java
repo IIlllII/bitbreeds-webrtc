@@ -1,9 +1,8 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.ByteRange;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.common.SackUtil;
-import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.common.*;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SendBuffer;
 import com.bitbreeds.webrtc.sctp.model.*;
 import javafx.util.Pair;
 import org.apache.commons.codec.binary.Hex;
@@ -59,6 +58,10 @@ public class SendService {
 
     private AtomicInteger streamSeq = new AtomicInteger(1);
 
+    private final Object tsnLock = new Object();
+
+    private long localTSN = 1;
+
     /**
      * Size left of remote receive buffer in bytes
      */
@@ -76,13 +79,6 @@ public class SendService {
         return remoteReceiveBufferSize.get();
     }
 
-    /**
-     * Calculated retransmission timeout
-     * @see <a href= https://tools.ietf.org/html/rfc4960#section-6.3.1>RTO calc</a>
-     */
-    private volatile int smoothedRTT;
-    private volatile int RTTvariation;
-    private volatile int retransmissionTimeout;
 
     /**
      * Reference to handler to be able to pull parameters when needed.
@@ -95,6 +91,8 @@ public class SendService {
      */
     private final static int MAX_BURST = 4;
 
+    private final static int DEFAULT_BUFFER_SIZE = 1000000;
+    private final SendBuffer sendBuffer;
 
     /**
      *
@@ -103,6 +101,7 @@ public class SendService {
     SendService(SCTPImpl handler) {
         this.handler = handler;
         cwnd = new AtomicInteger(handler.initialCongestionWindow());
+        sendBuffer = new SendBuffer(DEFAULT_BUFFER_SIZE);
     }
 
     /**
@@ -139,6 +138,29 @@ public class SendService {
 
 
     /**
+     *
+     * TODO only needs a range in return, fix later
+     *
+     * @param num number of tsns needed
+     * @return sequential list of tsns needed.
+     */
+    public List<Long> getTsnGroup(int num) {
+        synchronized (tsnLock) {
+            ArrayList<Long> ar = new ArrayList<>(num);
+            for (int i = 0; i < num; i++) {
+                ar.add(localTSN++);
+            }
+            return ar;
+        }
+    }
+
+    public Long getSingleTSN() {
+        synchronized (tsnLock) {
+            return localTSN++;
+        }
+    }
+
+    /**
      * @return first TSN
      */
     public long getFirstTSN() {
@@ -168,16 +190,6 @@ public class SendService {
         }
     }
 
-    /**
-     * Current bytes inflight
-     * @return TODO use better impl
-     */
-    public int bytesInflight() {
-        return sentTSNS.values()
-                .stream()
-                .map(i->i.data.length)
-                .reduce(0,Integer::sum);
-    }
 
 
     /**
@@ -216,9 +228,12 @@ public class SendService {
      */
     public void updateAcknowledgedTSNS(
             long cumulativeTsnAck,
-            List<SackUtil.GapAck> gaps,
+            List<GapAck> gaps,
             List<Long> duplicates,
             int remoteBufferSize) {
+
+
+        sendBuffer.receiveSack(new SackData(cumulativeTsnAck,gaps,duplicates,remoteBufferSize));
 
         final HashPMap<Long,TimeData> sent = sentTSNS;
 
@@ -253,7 +268,7 @@ public class SendService {
      *
      * <a href=https://tools.ietf.org/html/rfc4960#section-3.3.4>SACK spec</a>
      */
-    private void removeAllAcknowledged(long cumulativeTsnAck,List<SackUtil.GapAck> gaps) {
+    private void removeAllAcknowledged(long cumulativeTsnAck,List<GapAck> gaps) {
         gaps.forEach(i-> {
             Collection<Long> ls = sentTSNS.keySet().stream()
                     .filter(j ->
