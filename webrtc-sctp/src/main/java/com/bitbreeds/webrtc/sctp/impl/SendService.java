@@ -164,18 +164,11 @@ public class SendService {
      * @return first TSN
      */
     public long getFirstTSN() {
-        growingTSN.set(1);
-        return growingTSN.get();
+        synchronized (tsnLock) {
+            return localTSN;
+        }
     }
 
-    /**
-     * @return increment TSN
-     */
-    private long getNextTSN() {
-        long next = growingTSN.getAndIncrement();
-        growingTSN.compareAndSet(Integer.MAX_VALUE,1);
-        return next;
-    }
 
 
     /**
@@ -206,7 +199,7 @@ public class SendService {
         Map<Long,TimeData> forResend = sentTSNS.entrySet().stream()
                 .filter( i -> DateTime.now().isAfter(i.getValue().time))
                 .collect(Collectors.toMap(
-                        i->i.getKey(),
+                        Map.Entry::getKey,
                         j->j.getValue().updateTime(DateTime.now().plusSeconds(5)))); //backoff should ne added
 
         if(!forResend.isEmpty()) {
@@ -309,12 +302,16 @@ public class SendService {
 
         if(data.length <= MAX_DATA_CHUNKSIZE) {
             return Collections.singletonList(
-                    createPayloadMessage(data,ppid,base,SCTPOrderFlag.UNORDERED_UNFRAGMENTED,0)
+                    createPayloadMessage(data,ppid,base,SCTPOrderFlag.UNORDERED_UNFRAGMENTED,0,getSingleTSN())
             );
         }
         else {
+
+
             List<byte[]> dataSplit = SignalUtil.split(data,MAX_DATA_CHUNKSIZE);
             List<byte[]> outPut = new ArrayList<>();
+
+            List<Long> TSNs = getTsnGroup(dataSplit.size());
 
             int ssn = nextSSN();
 
@@ -323,7 +320,7 @@ public class SendService {
                     ppid,
                     base,
                     order ? SCTPOrderFlag.ORDERED_START_FRAGMENT : SCTPOrderFlag.UNORDERED_START_FRAGMENT,
-                    ssn));
+                    ssn,TSNs.get(0)));
 
             for(int i = 1; i < dataSplit.size()-1 ; i++) {
                 outPut.add(createPayloadMessage(
@@ -331,7 +328,7 @@ public class SendService {
                         ppid,
                         base,
                         order ? SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT : SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT,
-                        ssn));
+                        ssn,TSNs.get(i)));
             }
 
             outPut.add(createPayloadMessage(
@@ -339,7 +336,8 @@ public class SendService {
                     ppid,
                     base,
                     order ? SCTPOrderFlag.ORDERED_END_FRAGMENT : SCTPOrderFlag.UNORDERED_END_FRAGMENT,
-                    ssn));
+                    ssn,
+                    TSNs.get(dataSplit.size()-1)));
 
             return outPut;
         }
@@ -358,11 +356,10 @@ public class SendService {
             SCTPPayloadProtocolId ppid,
             SCTPHeader header,
             SCTPOrderFlag flag,
-            int ssn) {
+            int ssn,
+            long myTSN) {
 
         logger.debug("Creating payload");
-
-        long myTSN = getNextTSN();
 
         Map<SCTPFixedAttributeType,SCTPFixedAttribute> attr  = new HashMap<>();
         attr.put(TSN,new SCTPFixedAttribute(TSN, SignalUtil.longToFourBytes(myTSN)));
