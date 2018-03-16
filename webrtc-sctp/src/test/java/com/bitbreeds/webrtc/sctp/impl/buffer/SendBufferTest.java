@@ -31,9 +31,9 @@ import static org.junit.Assert.assertEquals;
 public class SendBufferTest {
 
 
-    private SendData makeData(long tsn) {
-        return new SendData(tsn,0,0, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, SCTPPayloadProtocolId.WEBRTC_BINARY,
-                new byte[] {0,0,0,0,0,0,1,1,1,1,1});
+    private List<SendData> makeData(long tsn) {
+        return Collections.singletonList(new SendData(tsn,0,0, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, SCTPPayloadProtocolId.WEBRTC_BINARY,
+                new byte[] {0,0,0,0,0,0,1,1,1,1,1}));
     }
 
     @Test

@@ -37,7 +37,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
  * Responsible for creating a heartbeat.
  * Responsible for handling heartbeat ack data.
  * Responsible for holding data derived from heartbeats.
- *
+ * <p>
  * TODO implement shutdown if lots of missing heartbeats.
  */
 public class HeartBeatService {
@@ -49,7 +49,7 @@ public class HeartBeatService {
      */
     private volatile long rttMillis = -1L;
 
-    private HashPMap<UUID,DateTime> rttMap = HashTreePMap.empty();
+    private HashPMap<UUID, DateTime> rttMap = HashTreePMap.empty();
 
     private final Object mutex = new Object();
 
@@ -62,15 +62,14 @@ public class HeartBeatService {
     public void receiveHeartBeatAck(byte[] heartBeatInfo) {
 
         UUID uuid = new UUID(
-                bytesToLong(copyRange(heartBeatInfo,new ByteRange(0,8))),
-                bytesToLong(copyRange(heartBeatInfo,new ByteRange(8,16))));
+                bytesToLong(copyRange(heartBeatInfo, new ByteRange(0, 8))),
+                bytesToLong(copyRange(heartBeatInfo, new ByteRange(8, 16))));
 
         DateTime time = rttMap.get(uuid);
-        if(time == null) {
+        if (time == null) {
             throw new IllegalArgumentException("Ack with unkown uuid: " + uuid + " map contains: " + rttMap);
-        }
-        else {
-            rttMillis = DateTime.now().getMillis()-time.getMillis();
+        } else {
+            rttMillis = DateTime.now().getMillis() - time.getMillis();
             synchronized (mutex) {
                 rttMap = rttMap.minus(uuid);
             }
@@ -111,15 +110,15 @@ public class HeartBeatService {
 
         Map<SCTPAttributeType, SCTPAttribute> variableAttr = new HashMap<>();
         variableAttr.put(SCTPAttributeType.HERTBEAT_INFO,
-                new SCTPAttribute(SCTPAttributeType.HERTBEAT_INFO,heartBeatInfo));
+                new SCTPAttribute(SCTPAttributeType.HERTBEAT_INFO, heartBeatInfo));
 
         int sum = variableAttr.values().stream()
                 .map(SCTPAttribute::getLength).reduce(0, Integer::sum);
 
         SCTPChunk heartBeat = new SCTPChunk(
                 SCTPMessageType.HEARTBEAT,
-                SCTPOrderFlag.fromValue((byte)0),
-                4+sum,
+                SCTPOrderFlag.fromValue((byte) 0),
+                4 + sum,
                 new HashMap<>(),
                 variableAttr,
                 new byte[]{});
@@ -127,7 +126,7 @@ public class HeartBeatService {
 
         SCTPMessage out = SCTPUtil.addChecksum(msg);
         synchronized (mutex) {
-         rttMap = rttMap.plus(id, DateTime.now());
+            rttMap = rttMap.plus(id, DateTime.now());
         }
         return out;
     }

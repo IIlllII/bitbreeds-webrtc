@@ -162,7 +162,7 @@ public class PeerConnection {
             conn.onMessage((i,j)->{
                 String in = new String(j.getData());
                 logger.debug("Running onMessage: " + in);
-                i.send("ECHO: " + in);
+                i.send("echo-" + in);
             });
             conn.onError((i,j)->{
                 logger.info("Received error",j.getError());

@@ -7,6 +7,7 @@ import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
+import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.signaling.*;
 import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.crypto.tls.DTLSServerProtocol;
@@ -23,6 +24,7 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -104,6 +106,8 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     private final PeerConnection parent;
 
+    private final Random rd = new Random();
+
     public DataChannelImpl(
             PeerConnection parent)
             throws IOException {
@@ -153,11 +157,12 @@ public class DataChannelImpl implements Runnable,DataChannel {
             while(running && channel.isBound()) {
                 try {
                     Thread.sleep(5000);
-                    byte[] beat = sctpService.createHeartBeat();
-                    logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat));
-                    processPool.submit(()->
-                            putDataOnWire(beat)
-                    );
+                    sctpService.createHeartBeat().ifPresent(beat -> {
+                        logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
+                        processPool.submit(() ->
+                                putDataOnWire(beat.getPayload())
+                        );
+                    });
                 } catch (Exception e) {
                     logger.error("HeartBeat error: ",e);
                 }
@@ -166,21 +171,23 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
         /*
          * Acknowledge received data
+         * TODO remove, not needed anymore
          */
         this.sackSender = () -> {
             while(running && channel.isBound()) {
                 try {
                     Thread.sleep(1); //sleep to not go ham on cpu
                     logger.trace("Creating sack:");
-                    byte[] sack = sctpService.createSackMessage();
-                    if(sack.length > 0) {
-                        logger.trace("Sending sack: " + Hex.encodeHexString(sack));
-                        processPool.submit(()->
-                                putDataOnWire(sack)
-                        );
-                    } else {
-                        logger.trace("Already on latest sack, no send");
-                    }
+                    sctpService.createSackMessage().ifPresent(sack -> {
+                        if (sack.getPayload().length > 0) {
+                            logger.trace("Sending sack: " + Hex.encodeHexString(sack.getPayload()));
+                            processPool.submit(() ->
+                                    putDataOnWire(sack.getPayload())
+                            );
+                        } else {
+                            logger.trace("Already on latest sack, no send");
+                        }
+                    });
 
                 } catch (Exception e) {
                     logger.error("Sack error: ",e);
@@ -190,20 +197,21 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
         /*
          * Resends non acknowledged sent messages
+         * TODO remove not needed anymore
          */
         this.reSender = () -> {
             while(running && channel.isBound() && !channel.isClosed()) {
                 try {
                     Thread.sleep(1000);
-                    List<byte[]> msgs = sctpService.getMessagesForResend();
+                    List<WireRepresentation> msgs = sctpService.getMessagesForResend();
                     if (!msgs.isEmpty()) {
                         msgs.forEach(i ->
                                 {
                                     try {
                                         Thread.sleep(1); //Sleep to let others work a bit
-                                        logger.debug("Resending data: " + Hex.encodeHexString(i));
+                                        logger.debug("Resending data: " + Hex.encodeHexString(i.getPayload()));
                                         processPool.submit(()-> {
-                                            putDataOnWire(i);
+                                            putDataOnWire(i.getPayload());
                                         });
                                     } catch (InterruptedException e) {
                                         logger.error("Resend error: ",e);
@@ -272,7 +280,7 @@ public class DataChannelImpl implements Runnable,DataChannel {
                              * {@link NioUdpTransport} might replace the {@link UDPTransport} here.
                              * @see <a href="https://github.com/RestComm/mediaserver/blob/master/io/rtp/src/main/java/org/mobicents/media/server/impl/srtp/NioUdpTransport.java">NioUdpTransport</a>
                              */
-                            DatagramTransport udpTransport = new UDPTransport(channel, DEFAULT_MTU);
+                            //DatagramTransport udpTransport = new UDPTransport(channel, DEFAULT_MTU);
                             DtlsMuxStunTransport muxStunTransport = new DtlsMuxStunTransport(parent,channel, DEFAULT_MTU);
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
@@ -294,8 +302,8 @@ public class DataChannelImpl implements Runnable,DataChannel {
                             byte[] handled = Arrays.copyOf(buf, length);
                             processPool.submit(() -> {
                                 try {
-                                    List<byte[]> data = sctpService.handleRequest(handled);
-                                    data.forEach(this::putDataOnWire);
+                                    List<WireRepresentation> data = sctpService.handleRequest(handled);
+                                    data.forEach(i->putDataOnWire(i.getPayload()));
                                 } catch (Exception e) {
                                     logger.error("Failed handling message: ", e);
                                 }
@@ -341,8 +349,8 @@ public class DataChannelImpl implements Runnable,DataChannel {
     private void startThreads() {
         if(started.compareAndSet(false,true)) {
             new Thread(heartBeat).start();
-            new Thread(sackSender).start();
-            new Thread(reSender).start();
+            //new Thread(sackSender).start();
+            //new Thread(reSender).start();
             new Thread(monitor).start();
             new Thread(orderedReader).start();
         }
@@ -388,9 +396,9 @@ public class DataChannelImpl implements Runnable,DataChannel {
             /*
              * Payload can be fragmented if more then 1024 bytes
              */
-            List<byte[]> out = sctpService.createPayloadMessage(data, ppid);
+            List<WireRepresentation> out = sctpService.bufferForSending(data, ppid,0);
             processPool.submit(() ->
-                out.forEach(this::putDataOnWire)
+                out.forEach(i->putDataOnWire(i.getPayload()))
             );
         }
         else {
@@ -401,13 +409,15 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
 
 
+
     /**
      * The method to call to send data.
      * Uses a fair lock to ensure thread safety and avoid starvation
      *
      * @param out data to send
      */
-    private void putDataOnWire(byte[] out) {
+    @Override
+    public void putDataOnWire(byte[] out) {
         logger.trace("Sending: " + Hex.encodeHexString(out));
         lock.lock();
         try {

@@ -12,7 +12,6 @@
     <artifactId>webrtc-sctp</artifactId>
 
     <dependencies>
-
         <dependency>
             <groupId>com.bitbreeds.webrtc</groupId>
             <artifactId>webrtc-common</artifactId>

@@ -4,6 +4,9 @@ import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedReceived;
+import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedSent;
+import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -12,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
@@ -54,13 +58,9 @@ public class SCTPImpl implements SCTP  {
 
     private ReliabilityParameters parameters =  null;
 
-    private AtomicLong duplicateCount = new AtomicLong(0);
-
     private static int DEFAULT_BUFFER_SIZE = 160000;
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
-
-
 
     /**
      * The impl access to write data to the socket
@@ -79,7 +79,6 @@ public class SCTPImpl implements SCTP  {
      * Also handles buffering of sent messages and picture of remote state.
      */
     private final SendService sender = new SendService(this);
-
 
     private final HeartBeatService heartBeatService = new HeartBeatService();
 
@@ -132,13 +131,20 @@ public class SCTPImpl implements SCTP  {
     }
 
 
+
+
     /**
      *
      * @param data payload to send
-     * @return create message with payload to send
+     * @return messages to send now
      */
-    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
-        return sender.createPayloadMessage(data,ppid,SCTPUtil.baseHeader(context),false);
+    public List<WireRepresentation> bufferForSending(byte[] data,SCTPPayloadProtocolId ppid,Integer stream) {
+
+        List<BufferedSent> toSend = sender.bufferForSending(data,ppid,stream,SCTPUtil.baseHeader(context));
+
+        return toSend.stream()
+                .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
+                .collect(Collectors.toList());
     }
 
 
@@ -146,12 +152,12 @@ public class SCTPImpl implements SCTP  {
     /**
      * @return message with acks
      */
-    public byte[] createSackMessage() {
+    public Optional<WireRepresentation> createSackMessage() {
         if(context == null) {
-            return new byte[]{};
+            return Optional.empty();
         }
         Optional<SCTPMessage> message = receiver.createSack(SCTPUtil.baseHeader(context));
-        return message.map(SCTPMessage::toBytes).orElse(new byte[]{});
+        return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
     }
 
 
@@ -159,55 +165,59 @@ public class SCTPImpl implements SCTP  {
      * @return messages to resend
      */
     @Override
-    public List<byte[]> getMessagesForResend() {
-        return sender.getMessagesForResend();
-    }
+    public List<WireRepresentation> getMessagesForResend() {
 
-    /**
-     * @return Bytes in window
-     */
-    public int initialCongestionWindow() {
-        return Math.min(4*MTU, Math.max (2*MTU, 4380));
+        return sender.getMessagesForResend();
     }
 
     /**
      * @return heartbeat message
      */
     @Override
-    public byte[] createHeartBeat() {
-        return heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes();
+    public Optional<WireRepresentation> createHeartBeat() {
+        return Optional.of(new WireRepresentation(
+                heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes(),
+                SCTPMessageType.HEARTBEAT));
     }
 
 
     /**
-     * Handle message and create a response
+     * Handle message and create a immediate response if needed
      * @param input the incoming message
      * @return a byte response, an empty array is equal to no response.
      */
-    public List<byte[]> handleRequest(byte[] input) {
+    public List<WireRepresentation> handleRequest(byte[] input) {
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
         logger.debug("Input Parsed: " + inFullMessage );
-
         logger.debug("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
 
         return inChunks.stream()
-                .map(chunk -> {
-                    MessageHandler handler = handlerMap.get(chunk.getType());
-                    if (handler != null) {
-
-                        Optional<SCTPMessage> out = handler.handleMessage(this, context, inHdr, chunk);
-                        return out.map(i -> SCTPUtil.addChecksum(i).toBytes()).orElse(new byte[]{});
-                    } else {
-                        logger.warn("Not handled messagetype: " + chunk.getType());
-                        return new byte[]{};
-                    }
-                }).collect(Collectors.toList());
+                .map(i->handleChunk(i,inHdr))
+                .flatMap(i->i)
+                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes(),i.getChunks().get(0).getType()))
+                .collect(Collectors.toList());
     }
 
+    /**
+     *
+     * @param chunk chunk data
+     * @param hdr hdr of chunk
+     * @return handle chunk by finding correct processing in handlermap
+     */
+    private Stream<SCTPMessage> handleChunk(SCTPChunk chunk, SCTPHeader hdr) {
+        MessageHandler handler = handlerMap.get(chunk.getType());
+        if (handler != null) {
+            Optional<SCTPMessage> out = handler.handleMessage(this, context, hdr, chunk);
+            return out.map(Stream::of).orElse(Stream.empty());
+        } else {
+            logger.warn("Not handled messagetype: " + chunk.getType());
+            return Stream.empty();
+        }
+    }
 
     /**
      * Run the open callback
@@ -279,15 +289,15 @@ public class SCTPImpl implements SCTP  {
      */
     public void runMonitoring() {
         logger.info("---------------------------------------------");
-        logger.info("Size sent: " + sender.sentTSNS.size());
+        logger.info("Inflight: " + sender.inflightMessages());
         logger.info("CumulativeReceivedTSN: " + receiver.getCumulativeTSN());
-        logger.info("MyTsn: " + sender.growingTSN.get());
+        logger.info("MyTsn: " + sender.currentTSN());
         logger.info("Total received bytes: " + receiver.getReceivedBytes());
         logger.info("Total delivered bytes to user: " + receiver.getDeliveredBytes());
         logger.info("Total sent bytes: " + sender.getSentBytes());
-        logger.info("DuplicateCount: " + duplicateCount.get());
         logger.info("RTT: " + heartBeatService.getRttMillis());
-        logger.info("Remote buffer: " + sender.getRemoteReceiveBufferSize());
+        logger.info("Remote buffer: " + sender.remoteBufferSize());
+        logger.info("Local send buffer: " + sender.capacity());
         logger.info("Local buffer: " + receiver.getBufferCapacity());
     }
 

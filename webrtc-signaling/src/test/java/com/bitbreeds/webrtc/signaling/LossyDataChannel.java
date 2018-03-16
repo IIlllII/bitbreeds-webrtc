@@ -1,8 +1,12 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.datachannel.DataChannelImpl;
+
+import java.io.IOException;
+import java.util.Random;
 
 /**
- * Copyright (c) 01/03/2017, Jonas Waage
+ * Copyright (c) 11/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -17,26 +21,23 @@ package com.bitbreeds.webrtc.common;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+public class LossyDataChannel extends DataChannelImpl {
 
-/**
- * The DataChannel interface that SCTP will use
- */
-public interface DataChannel {
+    private final Integer packetlossPercentage;
+    private final Random random = new Random(System.currentTimeMillis());
 
-    void runOpen();
+    public LossyDataChannel(PeerConnection parent,Integer packetlossPercentage) throws IOException {
+        super(parent);
+        if(packetlossPercentage < 0 || packetlossPercentage > 100) {
+            throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentage);
+        }
+        this.packetlossPercentage = packetlossPercentage;
+    }
 
-    void runOnMessageUnordered(byte[] data);
-
-    void runOnMessageOrdered(byte[] data);
-
-    void runOnError(final Exception err);
-
-    void send(byte[] data);
-
-    void send(byte[] data,SCTPPayloadProtocolId id);
-
-    void send(String data);
-
-    void putDataOnWire(byte[] data);
-
+    @Override
+    public void putDataOnWire(byte[] out) {
+        if(random.nextInt(100) > packetlossPercentage) {
+            super.putDataOnWire(out);
+        }
+    }
 }

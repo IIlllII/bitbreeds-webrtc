@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
+import org.apache.camel.CamelContext;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -28,12 +29,13 @@ import java.io.File;
 public class BrowserTestFirefox {
 
     @Test
-    public void testFull() throws Exception {
+    public void testOpen() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        SimpleSignalingExample.main();
+        CamelContext ctx = SimpleSignalingExample.camelContext();
+        ctx.start();
 
         File fl = new File(".././web/index.html");
 
@@ -51,6 +53,38 @@ public class BrowserTestFirefox {
         );
 
         driver.quit();
+        ctx.stop();
+
+    }
+
+
+    @Test
+    public void testAllMessages() throws Exception {
+        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
+        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
+        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
+
+        CamelContext ctx = SimpleSignalingExample.camelContext();
+        ctx.start();
+
+        File fl = new File(".././web/transfer.html");
+
+        String url = "file://" + fl.getAbsolutePath();
+        System.out.println(url);
+        WebDriverManager.firefoxdriver().setup();
+        WebDriver driver = new FirefoxDriver();
+        driver.get(url);
+
+        (new WebDriverWait(driver, 20)).until(
+                (ExpectedCondition<Boolean>) d -> {
+                    assert d != null;
+                    return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");
+                }
+        );
+
+        driver.quit();
+
+        ctx.stop();
 
     }
 

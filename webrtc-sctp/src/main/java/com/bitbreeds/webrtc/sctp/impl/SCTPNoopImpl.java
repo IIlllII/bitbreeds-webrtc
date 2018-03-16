@@ -2,9 +2,12 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedSent;
+import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Copyright (c) 29/06/16, Jonas Waage
@@ -28,27 +31,27 @@ import java.util.List;
  */
 public class SCTPNoopImpl implements SCTP {
     @Override
-    public byte[] createHeartBeat() {
-        return new byte[0];
+    public Optional<WireRepresentation> createHeartBeat() {
+        return Optional.empty();
     }
 
     @Override
-    public byte[] createSackMessage() {
-        return new byte[0];
+    public Optional<WireRepresentation> createSackMessage() {
+        return Optional.empty();
     }
 
     @Override
-    public List<byte[]> getMessagesForResend() {
+    public List<WireRepresentation> getMessagesForResend() {
         return Collections.emptyList();
     }
 
     @Override
-    public List<byte[]> handleRequest(byte[] data) {
+    public List<WireRepresentation> handleRequest(byte[] data) {
         return Collections.emptyList();
     }
 
     @Override
-    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid) {
+    public List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream) {
         return Collections.emptyList();
     }
 

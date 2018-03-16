@@ -1,8 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.*;
-import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
-import com.bitbreeds.webrtc.sctp.impl.buffer.SendBuffer;
+import com.bitbreeds.webrtc.sctp.impl.buffer.*;
 import com.bitbreeds.webrtc.sctp.model.*;
 import javafx.util.Pair;
 import org.apache.commons.codec.binary.Hex;
@@ -12,6 +11,7 @@ import org.pcollections.HashTreePMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.Buffer;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,7 +54,7 @@ public class SendService {
 
     private static final Logger logger = LoggerFactory.getLogger(SendService.class);
 
-    private AtomicLong sentBytes = new AtomicLong(0L);
+    private final static int MAX_DATA_CHUNKSIZE = 1024;
 
     private AtomicInteger streamSeq = new AtomicInteger(1);
 
@@ -63,35 +63,11 @@ public class SendService {
     private long localTSN = 1;
 
     /**
-     * Size left of remote receive buffer in bytes
-     */
-    private final AtomicInteger remoteReceiveBufferSize = new AtomicInteger(0);
-
-    void setRemoteReceiveBufferSize(int remoteReceiveBufferSize) {
-        this.remoteReceiveBufferSize.set(remoteReceiveBufferSize);
-    }
-
-    private void addToRemoteReceiveBuffer(int sub) {
-        this.remoteReceiveBufferSize.accumulateAndGet(sub,Integer::sum);
-    }
-
-    int getRemoteReceiveBufferSize() {
-        return remoteReceiveBufferSize.get();
-    }
-
-
-    /**
      * Reference to handler to be able to pull parameters when needed.
      */
     private final SCTPImpl handler;
-    private final AtomicInteger cwnd;
 
-    /**
-     * Max packets in one go
-     */
-    private final static int MAX_BURST = 4;
-
-    private final static int DEFAULT_BUFFER_SIZE = 1000000;
+    private final static int DEFAULT_BUFFER_SIZE = 2000000;
     private final SendBuffer sendBuffer;
 
     /**
@@ -100,42 +76,26 @@ public class SendService {
      */
     SendService(SCTPImpl handler) {
         this.handler = handler;
-        cwnd = new AtomicInteger(handler.initialCongestionWindow());
         sendBuffer = new SendBuffer(DEFAULT_BUFFER_SIZE);
     }
 
-    /**
-     * Time in milliseconds before resend kicks in
-     * It seems we get sacks evry second.
-     * Wait 2 seconds before triggering resend.
-     */
-    private int resendMillis = 2000;
-
-    /**
-     * TSN for sent data
-     */
-    protected final AtomicInteger growingTSN = new AtomicInteger(0);
-
-    /**
-     * Mutex to access TSNS and duplicate data
-     */
-    private final Object dataMutex = new Object();
-
-    /**
-     * A map of sent TSNs.
-     * This uses a persistent collection, which is easy to work with
-     * when we need to pull it and resend.
-     */
-    protected HashPMap<Long,TimeData> sentTSNS = HashTreePMap.empty();
-
-    /**
-     * Set the amount of millis before a resend is attempted
-     * @param resendMillis the minimum time passed before resend is attempted
-     */
-    public void setResendMillis(int resendMillis) {
-        this.resendMillis = resendMillis;
+    public long inflightMessages() {
+        return sendBuffer.getInflightSize();
     }
 
+    public long capacity() {
+        return sendBuffer.getCapacity();
+    }
+
+    public long remoteBufferSize() {
+        return sendBuffer.getRemoteBufferSize();
+    }
+
+    public long currentTSN() {
+        synchronized (tsnLock) {
+            return localTSN;
+        }
+    }
 
     /**
      *
@@ -144,7 +104,7 @@ public class SendService {
      * @param num number of tsns needed
      * @return sequential list of tsns needed.
      */
-    public List<Long> getTsnGroup(int num) {
+    private List<Long> getTsnGroup(int num) {
         synchronized (tsnLock) {
             ArrayList<Long> ar = new ArrayList<>(num);
             for (int i = 0; i < num; i++) {
@@ -154,7 +114,7 @@ public class SendService {
         }
     }
 
-    public Long getSingleTSN() {
+    private Long getSingleTSN() {
         synchronized (tsnLock) {
             return localTSN++;
         }
@@ -176,11 +136,7 @@ public class SendService {
      * @param data data to send
      */
     private void addMessageToSend(long tsn,byte[] data) {
-        DateTime datePlusMillis = DateTime.now().plusMillis(resendMillis);
-        TimeData timeData = new TimeData(datePlusMillis,data);
-        synchronized (dataMutex) {
-            sentTSNS = sentTSNS.plus(tsn,timeData);
-        }
+
     }
 
 
@@ -195,149 +151,96 @@ public class SendService {
      *
      * @return list of data that should be sent again since no ack has been received
      */
-    public List<byte[]> getMessagesForResend() {
-        Map<Long,TimeData> forResend = sentTSNS.entrySet().stream()
-                .filter( i -> DateTime.now().isAfter(i.getValue().time))
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        j->j.getValue().updateTime(DateTime.now().plusSeconds(5)))); //backoff should ne added
-
-        if(!forResend.isEmpty()) {
-            logger.debug("Got these TSNs for resend {}", forResend);
-        }
-
-        synchronized (dataMutex) {
-            sentTSNS = sentTSNS.plusAll(forResend);
-        }
-
-        return forResend.values().stream()
-                .map(i->i.data)
-                .collect(Collectors.toList());
+    public List<WireRepresentation> getMessagesForResend() {
+        return Collections.emptyList();
     }
 
     /**
-     * @param gaps retrieved gaps
-     * @param duplicates TODO not sure what to do with these
+     *
+     * @param cumulativeTsnAck cumulative acc to update
+     * @param gaps gaps to update
+     * @param duplicates received duplicates
+     * @param remoteBufferSize remote buffer size according to sack
      */
     public void updateAcknowledgedTSNS(
             long cumulativeTsnAck,
             List<GapAck> gaps,
             List<Long> duplicates,
             int remoteBufferSize) {
-
-
         sendBuffer.receiveSack(new SackData(cumulativeTsnAck,gaps,duplicates,remoteBufferSize));
+        List<BufferedSent> toSend = sendBuffer.getDataToSend();
 
-        final HashPMap<Long,TimeData> sent = sentTSNS;
+        toSend.forEach(i ->
+                handler.getDataChannel().putDataOnWire(i.getData().getSctpPayload())
+        );
 
-        logger.debug("Before removal contains: " + sent);
-        logger.debug("Updating acks with cumulative " + cumulativeTsnAck + " and gaps " + gaps );
-
-        /*
-         * Filter and remove those with TSN below cumulativeTsnAck.
-         */
-        final Collection<Long> ls = sent.keySet().stream()
-                .filter(j -> j <= cumulativeTsnAck).collect(Collectors.toSet());
-
-        if(!ls.isEmpty()) {
-            synchronized (dataMutex) {
-                sentTSNS = sentTSNS.minusAll(ls);
-            }
-
-            removeAllAcknowledged(cumulativeTsnAck, gaps);
-            int unprocessedBytes = getOutStandingBytes();
-
-            setRemoteReceiveBufferSize(remoteBufferSize - unprocessedBytes);
-
-            logger.debug("After remove it contains: " + sentTSNS);
-        }
     }
 
-
-    /**
-     *
-     * @param cumulativeTsnAck lowest ack we are sure everything below has been acknowledged
-     * @param gaps the acknowledged groups offset from cumulativeTsnAck
-     *
-     * <a href=https://tools.ietf.org/html/rfc4960#section-3.3.4>SACK spec</a>
-     */
-    private void removeAllAcknowledged(long cumulativeTsnAck,List<GapAck> gaps) {
-        gaps.forEach(i-> {
-            Collection<Long> ls = sentTSNS.keySet().stream()
-                    .filter(j ->
-                            j >= (cumulativeTsnAck + i.start) &&
-                                    j <= (cumulativeTsnAck + i.end))
-                    .collect(Collectors.toSet());
-
-            synchronized (dataMutex) {
-                sentTSNS = sentTSNS.minusAll(ls);
-            }
-        });
+    public void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
+        sendBuffer.initializeRemote(remoteReceiveBufferSize,initialTSN);
     }
-
-    /**
-     *
-     * @return bytes unprocessed by remote as far as we know
-     */
-    private int getOutStandingBytes() {
-        return sentTSNS.values().stream()
-                .map(d -> d.data.length)
-                .reduce(0, Integer::sum);
-    }
-
 
     private int nextSSN() {
-        return streamSeq.getAndUpdate(i -> i >= Short.MAX_VALUE ? 1 : i+1);
+        return streamSeq.getAndUpdate(i -> i >= Short.MAX_VALUE ? 1 : i + 1);
     }
 
-
-    private final static int MAX_DATA_CHUNKSIZE = 1024;
+    public List<BufferedSent> bufferForSending(byte[] data, SCTPPayloadProtocolId ppid, Integer stream, SCTPHeader baseHeader) {
+        List<SendData> toSend = createPayloadMessage(data,ppid,baseHeader,false,stream);
+        sendBuffer.buffer(toSend);
+        return sendBuffer.getDataToSend();
+    }
 
     /**
      *
      * @param data payload to send
      * @return create message with payload to send
      */
-    public List<byte[]> createPayloadMessage(byte[] data,SCTPPayloadProtocolId ppid,SCTPHeader base,boolean order) {
+    private List<SendData> createPayloadMessage(
+            byte[] data,
+            SCTPPayloadProtocolId ppid,
+            SCTPHeader base,
+            boolean order,
+            int stream) {
 
         if(data.length <= MAX_DATA_CHUNKSIZE) {
-            return Collections.singletonList(
-                    createPayloadMessage(data,ppid,base,SCTPOrderFlag.UNORDERED_UNFRAGMENTED,0,getSingleTSN())
-            );
+            SendData single = createPayloadMessage(data,ppid,base,SCTPOrderFlag.UNORDERED_UNFRAGMENTED,0,getSingleTSN(),stream);
+            return Collections.singletonList(single);
         }
         else {
 
-
             List<byte[]> dataSplit = SignalUtil.split(data,MAX_DATA_CHUNKSIZE);
-            List<byte[]> outPut = new ArrayList<>();
+            List<SendData> outPut = new ArrayList<>();
 
             List<Long> TSNs = getTsnGroup(dataSplit.size());
 
             int ssn = nextSSN();
 
-            outPut.add(createPayloadMessage(
+            SendData start = createPayloadMessage(
                     dataSplit.get(0),
                     ppid,
                     base,
                     order ? SCTPOrderFlag.ORDERED_START_FRAGMENT : SCTPOrderFlag.UNORDERED_START_FRAGMENT,
-                    ssn,TSNs.get(0)));
+                    ssn,TSNs.get(0),stream);
+            outPut.add(start);
 
             for(int i = 1; i < dataSplit.size()-1 ; i++) {
-                outPut.add(createPayloadMessage(
+                SendData mid = createPayloadMessage(
                         dataSplit.get(i),
                         ppid,
                         base,
                         order ? SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT : SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT,
-                        ssn,TSNs.get(i)));
+                        ssn,TSNs.get(i),stream);
+                outPut.add(mid);
             }
 
-            outPut.add(createPayloadMessage(
+            SendData end = createPayloadMessage(
                     dataSplit.get(dataSplit.size()-1),
                     ppid,
                     base,
                     order ? SCTPOrderFlag.ORDERED_END_FRAGMENT : SCTPOrderFlag.UNORDERED_END_FRAGMENT,
                     ssn,
-                    TSNs.get(dataSplit.size()-1)));
+                    TSNs.get(dataSplit.size()-1),stream);
+            outPut.add(end);
 
             return outPut;
         }
@@ -351,19 +254,22 @@ public class SendService {
      * @param header sctp header
      * @return payload data
      */
-    public byte[] createPayloadMessage(
+    private SendData createPayloadMessage(
             byte[] data,
             SCTPPayloadProtocolId ppid,
             SCTPHeader header,
             SCTPOrderFlag flag,
             int ssn,
-            long myTSN) {
+            long myTSN,
+            Integer stream) {
+
+        int streamId = stream == null ? 0 : stream;
 
         logger.debug("Creating payload");
 
         Map<SCTPFixedAttributeType,SCTPFixedAttribute> attr  = new HashMap<>();
         attr.put(TSN,new SCTPFixedAttribute(TSN, SignalUtil.longToFourBytes(myTSN)));
-        attr.put(STREAM_IDENTIFIER_S,new SCTPFixedAttribute(STREAM_IDENTIFIER_S,SignalUtil.twoBytesFromInt(0)));
+        attr.put(STREAM_IDENTIFIER_S,new SCTPFixedAttribute(STREAM_IDENTIFIER_S,SignalUtil.twoBytesFromInt(streamId)));
         attr.put(STREAM_SEQUENCE_NUMBER,new SCTPFixedAttribute(STREAM_SEQUENCE_NUMBER,SignalUtil.twoBytesFromInt(ssn)));
         attr.put(PROTOCOL_IDENTIFIER,new SCTPFixedAttribute(PROTOCOL_IDENTIFIER,new byte[]{0,0,0,sign(ppid.getId())}));
 
@@ -389,26 +295,13 @@ public class SendService {
 
         logger.debug("Sending payload with TSN: " + myTSN  + " and data: " + Hex.encodeHexString(finalOut));
 
-        sentBytes.getAndAdd(data.length);
-
-        /*
-         *
-         */
-        this.addToRemoteReceiveBuffer(-chunk.getLength());
-
-        /*
-         * Add to resend map
-         * Should remove on correct SACK or too large or too long map.
-         */
-        addMessageToSend(myTSN,finalOut);
-
-        return finalOut;
+        return new SendData(myTSN,streamId,ssn,flag,ppid,finalOut);
     }
 
     /**
      * @return the amount of sent bytes in this association.
      */
     public long getSentBytes() {
-        return sentBytes.get();
+        return sendBuffer.getBytesSent();
     }
 }

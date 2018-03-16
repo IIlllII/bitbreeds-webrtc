@@ -1,8 +1,9 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.GapAck;
-import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
 import com.bitbreeds.webrtc.sctp.impl.SendData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -40,6 +41,8 @@ public class SendBuffer {
 
     private final Object lock = new Object();
 
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private final Queue<BufferedSent> queue = new ArrayDeque<>();
     private Map<Long,BufferedSent> inFlight = new HashMap<>();
 
@@ -51,6 +54,8 @@ public class SendBuffer {
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
     private boolean remoteIsInitialized = false;
+
+    private long bytesSent = 0;
 
     public SendBuffer(int capacity) {
         this(capacity,DEFAULT_MAX_INFLIGHT);
@@ -68,7 +73,7 @@ public class SendBuffer {
     }
 
 
-    public void initializeRemote(int remoteBufferSize, int remoteCumulativeTSN) {
+    public void initializeRemote(int remoteBufferSize, long remoteCumulativeTSN) {
         synchronized (lock) {
             if (!remoteIsInitialized) {
                 this.remoteBufferSize = remoteBufferSize;
@@ -83,23 +88,35 @@ public class SendBuffer {
         return capacity;
     }
 
+    public long getRemoteBufferSize() {
+        return remoteBufferSize;
+    }
+
+    public long getBytesSent() {
+        return bytesSent;
+    }
+
 
     /**
      *
      * Buffer a message for sending and move as many messages to inflight as possible
      *
-     * @param data data to store
+     * @param messages data to store
      */
-    public void buffer(SendData data) {
+    public void buffer(List<SendData> messages) {
         if(!remoteIsInitialized) {
             throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
         }
         synchronized (lock) {
-            if(capacity - data.getPayload().length < 0) {
-                throw new OutOfBufferSpaceError("Send buffer is full, message was dropped");
-            }
-            capacity -= data.getPayload().length;
-            queue.add(BufferedSent.buffer(data,data.getTsn()));
+            messages.forEach( data -> {
+                if (capacity - data.getSctpPayload().length < 0) {
+                    throw new OutOfBufferSpaceError("Send buffer has capacity " + capacity +
+                            " message with size "+ data.getSctpPayload().length +" was dropped");
+                }
+                capacity -= data.getSctpPayload().length;
+                queue.add(BufferedSent.buffer(data, data.getTsn()));
+            });
+            logger.debug("After buffering inflight:" + inFlight + " queue: " + queue.size());
         }
     }
 
@@ -116,15 +133,29 @@ public class SendBuffer {
      * @param sack acknowledgement
      */
     public void receiveSack(SackData sack) {
+        logger.debug("Handling sack " + sack);
         synchronized (lock) {
             if(sack.getCumulativeTSN() > remoteCumulativeTSN) {
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
             }
-            inFlight = inFlight.values().stream()
-                    .filter(i->!acknowledged(sack,i))
-                    .collect(Collectors.toMap(BufferedSent::getTsn, i->i));
+            List<BufferedSent> acked = inFlight.values().stream()
+                    .filter(i->acknowledged(sack,i))
+                    .collect(Collectors.toList());
 
+            long size = acked.stream()
+                    .map(i->i.getData().getSctpPayload().length)
+                    .reduce(0,Integer::sum);
+
+            List<Long> tsns = acked.stream()
+                    .map(BufferedSent::getTsn)
+                    .collect(Collectors.toList());
+
+            capacity +=size;
+
+            inFlight.keySet().removeAll(tsns);
+
+            logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
         }
     }
 
@@ -152,10 +183,16 @@ public class SendBuffer {
         synchronized (lock) {
             while (!queue.isEmpty() && canFly(queue.element())) {
                 BufferedSent buff = queue.remove();
-                inFlight.put(buff.getTsn(), buff.send());
-                toSend.add(buff);
+                BufferedSent sent = buff.send();
+                inFlight.put(buff.getTsn(), sent);
+                toSend.add(sent);
             }
+            bytesSent += toSend.stream()
+                    .map(i->i.getData().getSctpPayload().length)
+                    .reduce(0,Integer::sum);
+            logger.debug("After getting messages to send inflight:" + inFlight + " queue: " + queue.size());
         }
+
         return toSend;
     }
 
@@ -165,7 +202,7 @@ public class SendBuffer {
      */
     private boolean canFly(BufferedSent data) {
         return maxInflight - inFlight.size() > 0
-                && remoteBufferSize > data.getData().getPayload().length;
+                && remoteBufferSize > data.getData().getSctpPayload().length;
     }
 
 

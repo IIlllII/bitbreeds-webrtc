@@ -26,7 +26,7 @@ public class SendData {
     private final int streamSequence;
     private final SCTPOrderFlag flags;
     private final SCTPPayloadProtocolId protocolId;
-    private final byte[] payload;
+    private final byte[] sctpPayload;
     private final long tsn;
 
     public SendData(long tsn,int streamId, int streamSequence, SCTPOrderFlag flags, SCTPPayloadProtocolId protocolId, byte[] payload) {
@@ -35,7 +35,7 @@ public class SendData {
         this.streamSequence = streamSequence;
         this.flags = flags;
         this.protocolId = protocolId;
-        this.payload = payload;
+        this.sctpPayload = payload;
     }
 
     public long getTsn() {
@@ -58,7 +58,7 @@ public class SendData {
         return protocolId;
     }
 
-    public byte[] getPayload() {
-        return payload;
+    public byte[] getSctpPayload() {
+        return sctpPayload;
     }
 }

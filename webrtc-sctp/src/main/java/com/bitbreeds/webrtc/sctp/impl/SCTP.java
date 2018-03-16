@@ -2,9 +2,11 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Copyright (c) 29/06/16, Jonas Waage
@@ -32,34 +34,33 @@ public interface SCTP {
      *
      * @return a SCTP heartbeat message
      */
-    byte[] createHeartBeat();
+    Optional<WireRepresentation> createHeartBeat();
 
     /**
      *
      * @return SCTP SACK
      */
-    byte[] createSackMessage();
+    Optional<WireRepresentation> createSackMessage();
 
     /**
      *
      * @return messages for resend
      */
-    List<byte[]> getMessagesForResend();
+    List<WireRepresentation> getMessagesForResend();
 
     /**
-     * TODO should probably return an optional {@link SCTPMessage}
      * @param data the request
      * @return possible return message for handling
      */
-    List<byte[]> handleRequest(byte[] data);
+    List<WireRepresentation> handleRequest(byte[] data);
 
     /**
-     * TODO fix to add message to buffer or throw exception if buffer is too small.
      * @param data the rawdata to create a message
      * @param id protocol
-     * @return the payload message to send.
+     * @param stream if set, this message is sent ordered on this stream
+     * @return messages that SCTP means should be sent now
      */
-    List<byte[]> createPayloadMessage(byte[] data, SCTPPayloadProtocolId id);
+    List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream);
 
     /**
      * Log useful monitoring values.

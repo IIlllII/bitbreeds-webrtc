@@ -11,7 +11,7 @@ import java.util.Optional;
 
 import static com.bitbreeds.webrtc.sctp.model.SCTPFixedAttributeType.*;
 
-/**
+/*
  * Copyright (c) 12/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -58,7 +58,6 @@ public class InitiationHandler implements MessageHandler {
          * Set initial remote buffersize
          */
         int remoteBufferSize = SignalUtil.intFromFourBytes(data.getFixed().get(SCTPFixedAttributeType.ARWC).getData());
-        handler.getSender().setRemoteReceiveBufferSize(remoteBufferSize);
 
         SCTPHeader hdr = new SCTPHeader(
                 header.getDestinationPort(),
@@ -81,6 +80,11 @@ public class InitiationHandler implements MessageHandler {
         attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getSender().getFirstTSN())));
 
         long tsn = SignalUtil.bytesToLong(data.getFixed().get(INITIAL_TSN).getData());
+
+        /*
+         * Initialize remote
+         */
+        handler.getSender().initializeRemote(remoteBufferSize,tsn);
         handler.getReceiver().handleReceiveInitialTSN(tsn);
 
         /*

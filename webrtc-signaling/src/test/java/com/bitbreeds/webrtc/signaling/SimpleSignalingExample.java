@@ -85,6 +85,22 @@ public class SimpleSignalingExample {
         ctx.start();
     }
 
+
+    public static CamelContext camelContext() throws Exception {
+        JndiRegistry reg = new JndiRegistry(new JndiContext());
+
+        reg.bind("sslContextParameters",sslParameters());
+
+        CamelContext ctx = new DefaultCamelContext(reg);
+        ctx.addRoutes(new WebsocketRouteNoSSL());
+        ctx.addRoutes(new OutRoute());
+        ctx.addRoutes(new DelayRoute());
+        ctx.setUseMDCLogging(true);
+        ctx.setTracing(true);
+        return ctx;
+    }
+
+
     private static class MDCStart implements Processor {
 
         private final static Logger logger = LoggerFactory.getLogger(SimpleSignalingExample.class);

@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.sctp.messaging;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.datachannel.DataChannelImpl;
+import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.CRC32c;
 import com.bitbreeds.webrtc.sctp.impl.SCTPContext;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
@@ -12,6 +13,9 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.nio.file.OpenOption;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Copyright (c) 25/05/16, Jonas Waage
@@ -46,7 +50,8 @@ public class SCTPServiceTest {
     public void getInit() throws DecoderException {
 
         String inp = "1388138800000000699b219101000056eed2220b0002000001000800e36d1ec9c000000480080009c00fc180820000008002002440cbb942df677d367167427655856025aa291f084401663bb48624229a6b2e4b80040006000100008003000680c10000";
-        byte[] out = srv.handleRequest(Hex.decodeHex(inp.toCharArray())).get(0);
+        WireRepresentation rep = srv.handleRequest(Hex.decodeHex(inp.toCharArray())).get(0);
+        byte[] out = rep.getPayload();
         System.out.println(Hex.encodeHexString(out));
 
         CRC32c crc = new CRC32c();
@@ -90,7 +95,7 @@ public class SCTPServiceTest {
 
 
         String input = "13881388548b3c9b4941db3e0a0000208f89999e04ebc3eb34da090dd11bd97422f5ff3600000154eeb897d8";
-        byte[] out = srv.handleRequest(Hex.decodeHex(input.toCharArray())).get(0);
+        WireRepresentation representation = srv.handleRequest(Hex.decodeHex(input.toCharArray())).get(0);
 
     }
 
@@ -98,7 +103,7 @@ public class SCTPServiceTest {
     public void doInput() throws DecoderException {
 
         String dat = "138813887c42ba97c6c6f17800030023fe68433900000000000000320300000000000000000700006368616e6e656c00";
-        byte[] out = srv.handleRequest(Hex.decodeHex(dat.toCharArray())).get(0);
+        List<WireRepresentation> wr2 = srv.handleRequest(Hex.decodeHex(dat.toCharArray()));
 
     }
 
@@ -108,12 +113,12 @@ public class SCTPServiceTest {
     public void testDataIntput() throws DecoderException {
 
         String inp = "1388138800000000699b219101000056eed2220b0002000001000800e36d1ec9c000000480080009c00fc180820000008002002440cbb942df677d367167427655856025aa291f084401663bb48624229a6b2e4b80040006000100008003000680c10000";
-        byte[] o1 = srv.handleRequest(Hex.decodeHex(inp.toCharArray())).get(0);
+        List<WireRepresentation> wr = srv.handleRequest(Hex.decodeHex(inp.toCharArray()));
 
         String dataInput = "1388138869086b5b2c030e9c0003001c436cf1d40000000d0000003348656c6c6f20576f726c6421";
         String m = "1388 1388 69086b5b 2c030e9c 00 03 001c 436cf1d40000000d000000334865 6c6c6f20576f726c6421";
 
-        byte[] out = srv.handleRequest(Hex.decodeHex(dataInput.toCharArray())).get(0);
+        List<WireRepresentation> wr2 = srv.handleRequest(Hex.decodeHex(dataInput.toCharArray()));
 
 
     }

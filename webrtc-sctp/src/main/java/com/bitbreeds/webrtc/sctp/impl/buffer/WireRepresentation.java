@@ -1,8 +1,9 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.sctp.model.SCTPMessageType;
 
 /**
- * Copyright (c) 01/03/2017, Jonas Waage
+ * Copyright (c) 03/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,27 +17,21 @@ package com.bitbreeds.webrtc.common;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public class WireRepresentation {
 
+    private final byte[] payload;
+    private final SCTPMessageType messageType;
 
-/**
- * The DataChannel interface that SCTP will use
- */
-public interface DataChannel {
+    public WireRepresentation(byte[] payload, SCTPMessageType messageType) {
+        this.payload = payload;
+        this.messageType = messageType;
+    }
 
-    void runOpen();
+    public byte[] getPayload() {
+        return payload;
+    }
 
-    void runOnMessageUnordered(byte[] data);
-
-    void runOnMessageOrdered(byte[] data);
-
-    void runOnError(final Exception err);
-
-    void send(byte[] data);
-
-    void send(byte[] data,SCTPPayloadProtocolId id);
-
-    void send(String data);
-
-    void putDataOnWire(byte[] data);
-
+    public SCTPMessageType getMessageType() {
+        return messageType;
+    }
 }

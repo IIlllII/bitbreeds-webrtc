@@ -65,10 +65,8 @@ public class BufferedSent {
     @Override
     public String toString() {
         return "BufferedSent{" +
-                "data=" + data +
-                ", bufferState=" + bufferState +
+                "bufferState=" + bufferState +
                 ", lastSendTime=" + lastSendTime +
-                ", tsn=" + tsn +
                 '}';
     }
 }
