@@ -1,10 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.GapAck;
-import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.sctp.impl.buffer.Deliverable;
-import com.bitbreeds.webrtc.sctp.impl.buffer.ReceiveBuffer;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.slf4j.Logger;
@@ -33,107 +30,20 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
 /**
  *
- * This class handles the state for received payloads and TSNs and creating a SACK from those.
- * This should implement the below, though currently it does probably not do so well.
+ * This class handles creation of SCTP sack
  *
  * @see <a hred="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP SACK spec</a>
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
  *
  */
-public class ReceiveService {
+public class SackCreator {
 
-    private final ReceiveBuffer buffer;
-
-    private static final Logger logger = LoggerFactory.getLogger(ReceiveService.class);
-
-    private final SCTPImpl handler;
-
-    private final Object sackLock = new Object();
-
-    /**
-     * Values for handling when to create a SACK.
-     * Delayed or immediate.
-     */
-    private boolean shouldSack = false;
-    private int dataCount = 0;
-
-    /**
-     * TSN which describes the next expected TSN.
-     * Not needed for non ordered communication
-     */
-    ReceiveService(SCTPImpl handler,int bufferSize) {
-        this.handler = handler;
-        this.buffer = new ReceiveBuffer(1000,bufferSize);
-    }
-
-
-
-
-    /**
-     * Receive initial TSN
-     */
-    public void handleReceiveInitialTSN(long tsn) {
-        buffer.setInitialTSN(tsn);
-    }
-
-
-    /**
-     * @param data data to store and evaluate
-     * @return whether to sack or not
-     */
-    public boolean handleReceive(ReceivedData data) {
-        Objects.requireNonNull(data);
-        buffer.store(data);
-        List<Deliverable> deliverables = buffer.getMessagesForDelivery();
-        deliverables.forEach(
-                i -> handler.getDataChannel().runOnMessageUnordered(i.getData())
-        );
-
-        boolean performImmediateSack = false;
-        synchronized (sackLock) {
-            dataCount++;
-            shouldSack = true;
-
-
-            //SACK IMMEDIATE IF MORE THEN X OUTSTANDING
-            /*if (dataCount > 1) {
-                performImmediateSack = true;
-                shouldSack = false;
-                dataCount = 0;
-            }*/
-        }
-        return true;
-    }
-
-    public long getDeliveredBytes() {
-        return buffer.getDeliveredBytes();
-    }
-    public long getReceivedBytes() {
-        return buffer.getReceivedBytes();
-    }
-    public long getCumulativeTSN() {
-        return buffer.getCumulativeTSN();
-    }
-    public long getBufferCapacity() {
-        return buffer.getCapacity();
-    }
-
-
+    private static final Logger logger = LoggerFactory.getLogger(SackCreator.class);
 
     /**
      * @return attempt to create a SCTP SACK message.
      */
-    public Optional<SCTPMessage> createSack(SCTPHeader header ) {
-
-        synchronized (sackLock) {
-            if (!shouldSack) {
-                return Optional.empty();
-            }
-            shouldSack = false;
-            dataCount = 0;
-        }
-
-        SackData sackData = buffer.getSackDataToSend();//Pull sack data
+    static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
 
         //Calculate gap acks from only relevant data.
         List<GapAck> acks = sackData.getTsns();

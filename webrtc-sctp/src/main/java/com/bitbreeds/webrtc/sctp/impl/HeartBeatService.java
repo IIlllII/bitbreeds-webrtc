@@ -78,20 +78,6 @@ public class HeartBeatService {
 
 
     /**
-     * If some heartbeat have been missed we can remove after some time.
-     */
-    private void removeHeartBeatsWithNoResponse() {
-
-    }
-
-    /**
-     * If we have no response on several heartbeats we should cancel..
-     */
-    private boolean checkForShutDown() {
-        return false;
-    }
-
-    /**
      * @return the current RTT in milliseconds, -1 if not yet calculated.
      */
     public long getRttMillis() {

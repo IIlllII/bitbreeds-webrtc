@@ -4,10 +4,7 @@ import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedReceived;
-import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedSent;
-import com.bitbreeds.webrtc.sctp.impl.buffer.ReceiveBuffer;
-import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
+import com.bitbreeds.webrtc.sctp.impl.buffer.*;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -63,17 +60,12 @@ public class SCTPImpl implements SCTP  {
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
 
-
     /**
      * The impl access to write data to the socket
      */
     private final DataChannel writer;
 
-    /**
-     * Handles received messages and sending if acknowledgements.
-     * Also handles buffering of received messages and presentation to app layer.
-     */
-    private final ReceiveService receiver = new ReceiveService(this,localBufferSize);
+    private final ReceiveBuffer receiveBuffer =  new ReceiveBuffer(1000,localBufferSize);
 
     /**
      * Handles sending of messages and reception of acknowledgements.
@@ -112,9 +104,6 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
-    public ReceiveService getReceiver() {
-        return receiver;
-    }
 
     public SendService getSender() {
         return sender;
@@ -127,8 +116,6 @@ public class SCTPImpl implements SCTP  {
     public void setContext(SCTPContext context) {
         this.context = context;
     }
-
-
 
 
     /**
@@ -145,7 +132,16 @@ public class SCTPImpl implements SCTP  {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Receive initial TSN
+     */
+    void handleReceiveInitialTSN(long tsn) {
+        receiveBuffer.setInitialTSN(tsn);
+    }
 
+    long getBufferCapacity() {
+        return receiveBuffer.getCapacity();
+    }
 
     /**
      * @return message with acks
@@ -154,7 +150,8 @@ public class SCTPImpl implements SCTP  {
         if(context == null) {
             return Optional.empty();
         }
-        Optional<SCTPMessage> message = receiver.createSack(SCTPUtil.baseHeader(context));
+        SackData sackData = receiveBuffer.getSackDataToSend();
+        Optional<SCTPMessage> message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
         return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
     }
 
@@ -272,19 +269,21 @@ public class SCTPImpl implements SCTP  {
             else {
                 throw new IllegalArgumentException("PPID " +SCTPPayloadProtocolId.WEBRTC_DCEP + " should be sent with " + DataChannelMessageType.OPEN);
             }
-        }
-        else {
+        } else {
             logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence());
             logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
             logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-            boolean shouldSack = receiver.handleReceive(data);
-            if(shouldSack) {
-                createSackMessage().ifPresent(i->
-                    getDataChannel().putDataOnWire(i.getPayload())
-                );
-            }
+            Objects.requireNonNull(data);
 
+            receiveBuffer.store(data);
+            List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
+            deliverables.forEach(
+                    i -> getDataChannel().runOnMessageUnordered(i.getData())
+            );
+            createSackMessage().ifPresent(i ->
+                    getDataChannel().putDataOnWire(i.getPayload())
+            );
         }
     }
 
@@ -295,15 +294,15 @@ public class SCTPImpl implements SCTP  {
     public void runMonitoring() {
         logger.info("---------------------------------------------");
         logger.info("Inflight: " + sender.inflightMessages());
-        logger.info("CumulativeReceivedTSN: " + receiver.getCumulativeTSN());
+        logger.info("CumulativeReceivedTSN: " + receiveBuffer.getCumulativeTSN());
         logger.info("MyTsn: " + sender.currentTSN());
-        logger.info("Total received bytes: " + receiver.getReceivedBytes());
-        logger.info("Total delivered bytes to user: " + receiver.getDeliveredBytes());
+        logger.info("Total received bytes: " + receiveBuffer.getReceivedBytes());
+        logger.info("Total delivered bytes to user: " + receiveBuffer.getDeliveredBytes());
         logger.info("Total sent bytes: " + sender.getSentBytes());
         logger.info("RTT: " + heartBeatService.getRttMillis());
         logger.info("Remote buffer: " + sender.remoteBufferSize());
         logger.info("Local send buffer: " + sender.capacity());
-        logger.info("Local buffer: " + receiver.getBufferCapacity());
+        logger.info("Local buffer: " + receiveBuffer.getCapacity());
     }
 
     @Override
