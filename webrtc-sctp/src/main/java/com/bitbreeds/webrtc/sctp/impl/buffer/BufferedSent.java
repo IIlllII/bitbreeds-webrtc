@@ -1,7 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
-import com.bitbreeds.webrtc.sctp.impl.SendData;
+import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 
 import java.time.LocalDateTime;
 

@@ -1,4 +1,6 @@
-package com.bitbreeds.webrtc.sctp.impl;
+package com.bitbreeds.webrtc.sctp.impl.model;
+
+import java.util.Arrays;
 
 /**
  * Copyright (c) 13/07/16, Jonas Waage
@@ -15,35 +17,26 @@ package com.bitbreeds.webrtc.sctp.impl;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public enum DataChannelPriority {
 
+    NOT_SET(0),
+    BELOW_NORMAL(128),
+    NORMAL(256),
+    HIGH(512),
+    EXTRA_HIGH(1024);
 
-import java.util.Arrays;
-
-/**
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-5.1">WebRTC Datachannel spec</a>
- */
-public enum DataChannelType {
-
-    DATA_CHANNEL_RELIABLE(0x00),
-    DATA_CHANNEL_RELIABLE_UNORDERED(0x80),
-    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01),
-    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81),
-    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02),
-    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82);
-
-    private final int type;
-
-    DataChannelType(int type) {
-        this.type = type;
+    private int priority;
+    DataChannelPriority(int priority) {
+        this.priority = priority;
     }
 
-    public int getType() {
-        return type;
+    public int getPriority() {
+        return priority;
     }
 
-    public static DataChannelType fromInt(int bt) {
+    public static DataChannelPriority fromInt(int bt) {
         return Arrays.stream(values())
-                .filter(i -> i.type == bt)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown datachannel type"));
+                .filter(i -> i.priority == bt)
+                .findFirst().orElse(NOT_SET);
     }
 }

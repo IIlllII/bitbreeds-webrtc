@@ -1,4 +1,4 @@
-package com.bitbreeds.webrtc.sctp.impl;
+package com.bitbreeds.webrtc.sctp.impl.model;
 
 /*
  * Copyright (c) 29/06/16, Jonas Waage
@@ -16,6 +16,7 @@ package com.bitbreeds.webrtc.sctp.impl;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import com.bitbreeds.webrtc.sctp.impl.util.TSNUtil;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 

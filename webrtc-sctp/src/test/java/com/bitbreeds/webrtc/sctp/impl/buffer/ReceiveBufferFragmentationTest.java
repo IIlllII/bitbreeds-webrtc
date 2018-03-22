@@ -3,7 +3,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SetUtil;
-import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
+import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 

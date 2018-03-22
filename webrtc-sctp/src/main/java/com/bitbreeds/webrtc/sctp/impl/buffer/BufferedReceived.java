@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.sctp.impl.ReceivedData;
+import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
 /**
  * Copyright (c) 19/02/2018, Jonas Waage

@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.common.GapAck;
-import com.bitbreeds.webrtc.sctp.impl.SendData;
+import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

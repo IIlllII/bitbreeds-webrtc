@@ -2,6 +2,8 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.sctp.impl.buffer.*;
+import com.bitbreeds.webrtc.sctp.impl.model.*;
+import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -234,7 +236,7 @@ public class SCTPImpl implements SCTP  {
      * Run the onMessage callback
      * @param data input to callback
      */
-    protected void runOnMessage(ReceivedData data) {
+    void runOnMessage(ReceivedData data) {
 
         /*
          * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
@@ -298,7 +300,7 @@ public class SCTPImpl implements SCTP  {
 
 
     /**
-     * Print relevant monitoring and debugging data.
+     * Print relevant monitoring and debugging data
      */
     public void runMonitoring() {
         logger.info("---------------------------------------------");

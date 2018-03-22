@@ -1,6 +1,4 @@
-package com.bitbreeds.webrtc.sctp.impl;
-
-import java.util.Arrays;
+package com.bitbreeds.webrtc.sctp.impl.model;
 
 /**
  * Copyright (c) 13/07/16, Jonas Waage
@@ -19,28 +17,33 @@ import java.util.Arrays;
  */
 
 
+import java.util.Arrays;
+
 /**
- *
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
- *
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-5.1">WebRTC Datachannel spec</a>
  */
-public enum DataChannelMessageType {
+public enum DataChannelType {
 
-    OPEN(0x03),
-    ACK(0x02);
+    DATA_CHANNEL_RELIABLE(0x00),
+    DATA_CHANNEL_RELIABLE_UNORDERED(0x80),
+    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01),
+    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81),
+    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02),
+    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82);
 
-    private int type;
-    DataChannelMessageType(int priority) {
-        this.type = priority;
+    private final int type;
+
+    DataChannelType(int type) {
+        this.type = type;
     }
 
     public int getType() {
         return type;
     }
 
-    public static DataChannelMessageType fromInt(int bt) {
+    public static DataChannelType fromInt(int bt) {
         return Arrays.stream(values())
                 .filter(i -> i.type == bt)
-                .findFirst().orElseThrow(()->new IllegalArgumentException("Not type with that number" + bt));
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown datachannel type"));
     }
 }

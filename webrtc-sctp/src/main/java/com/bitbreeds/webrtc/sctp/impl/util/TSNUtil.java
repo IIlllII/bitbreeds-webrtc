@@ -1,9 +1,7 @@
-package com.bitbreeds.webrtc.sctp.impl;
-
-import java.util.Arrays;
+package com.bitbreeds.webrtc.sctp.impl.util;
 
 /**
- * Copyright (c) 13/07/16, Jonas Waage
+ * Copyright (c) 14/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -17,26 +15,40 @@ import java.util.Arrays;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public enum DataChannelPriority {
+public class TSNUtil {
 
-    NOT_SET(0),
-    BELOW_NORMAL(128),
-    NORMAL(256),
-    HIGH(512),
-    EXTRA_HIGH(1024);
+    /**
+     * Accepted as a duplicate if within this range,
+     * otherwise new message.
+     */
+    static final int TSN_DIFF = 1000000000;
 
-    private int priority;
-    DataChannelPriority(int priority) {
-        this.priority = priority;
+
+    /**
+     *
+     * @param a a TSN
+     * @param b a TSN
+     * @return distance, if the two TSNs are too far apart,the TSN has looped.
+     */
+    public static long cmp(long a,long b) {
+        if(Math.abs(a-b) < TSN_DIFF) {
+            return Math.min(a,b);
+        }
+        else {
+            return Math.max(a,b);
+        }
     }
 
-    public int getPriority() {
-        return priority;
+
+
+    /**
+     *
+     * @param tsn tsn
+     * @param min min tsn given
+     * @return whether we are below the given tsn or too far away.
+     */
+     public static boolean isBelow(long tsn,long min) {
+        return tsn < min && Math.abs(tsn-min) < TSN_DIFF;
     }
 
-    public static DataChannelPriority fromInt(int bt) {
-        return Arrays.stream(values())
-                .filter(i -> i.priority == bt)
-                .findFirst().orElse(NOT_SET);
-    }
 }

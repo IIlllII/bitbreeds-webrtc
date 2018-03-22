@@ -1,6 +1,7 @@
-package com.bitbreeds.webrtc.sctp.impl;
+package com.bitbreeds.webrtc.sctp.impl.util;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.SCTPContext;
 import com.bitbreeds.webrtc.sctp.model.SCTPHeader;
 import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
 import org.slf4j.Logger;

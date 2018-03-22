@@ -1,4 +1,4 @@
-package com.bitbreeds.webrtc.sctp.impl;
+package com.bitbreeds.webrtc.sctp.impl.model;
 
 /**
  * Copyright (c) 13/07/16, Jonas Waage
@@ -17,6 +17,8 @@ package com.bitbreeds.webrtc.sctp.impl;
  */
 
 
+import com.bitbreeds.webrtc.sctp.impl.model.DataChannelPriority;
+import com.bitbreeds.webrtc.sctp.impl.model.DataChannelType;
 import org.apache.commons.codec.binary.Hex;
 
 /**

@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
 import com.bitbreeds.webrtc.sctp.model.SCTPHeader;
 import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
