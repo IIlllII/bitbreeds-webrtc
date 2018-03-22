@@ -1,9 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.ByteRange;
-import com.bitbreeds.webrtc.common.DataChannel;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.sctp.impl.buffer.*;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.apache.commons.codec.binary.Hex;
@@ -11,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,20 +56,18 @@ public class SCTPImpl implements SCTP  {
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
 
+    private final static int DEFAULT_SEND_BUFFER_SIZE = 2000000;
+
     /**
      * The impl access to write data to the socket
      */
     private final DataChannel writer;
 
     private final ReceiveBuffer receiveBuffer =  new ReceiveBuffer(1000,localBufferSize);
-
-    /**
-     * Handles sending of messages and reception of acknowledgements.
-     * Also handles buffering of sent messages and picture of remote state.
-     */
-    private final SendService sender = new SendService(this);
-
+    private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
+    private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
+    private SCTPContext context;
 
     /**
      *
@@ -82,11 +76,6 @@ public class SCTPImpl implements SCTP  {
     public SCTPImpl(DataChannel writer) {
         this.writer = writer;
     }
-
-    /**
-     *
-     */
-    private SCTPContext context;
 
     /**
      *
@@ -104,11 +93,6 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
-
-    public SendService getSender() {
-        return sender;
-    }
-
     public HeartBeatService getHeartBeatService() {
         return heartBeatService;
     }
@@ -119,19 +103,19 @@ public class SCTPImpl implements SCTP  {
 
 
     /**
-     *
-     * @param data payload to send
-     * @return messages to send now
+     * @param sackData acknowledgement
      */
-    public List<WireRepresentation> bufferForSending(byte[] data,SCTPPayloadProtocolId ppid,Integer stream) {
-
-        List<BufferedSent> toSend = sender.bufferForSending(data,ppid,stream,SCTPUtil.baseHeader(context));
-
-        return toSend.stream()
-                .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
-                .collect(Collectors.toList());
+    public void updateAcknowledgedTSNS(SackData sackData) {
+        sendBuffer.receiveSack(sackData);
+        List<BufferedSent> toSend = sendBuffer.getDataToSend();
+        toSend.forEach(i ->
+                getDataChannel().putDataOnWire(i.getData().getSctpPayload())
+        );
     }
 
+    public void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
+        sendBuffer.initializeRemote(remoteReceiveBufferSize,initialTSN);
+    }
     /**
      * Receive initial TSN
      */
@@ -139,8 +123,28 @@ public class SCTPImpl implements SCTP  {
         receiveBuffer.setInitialTSN(tsn);
     }
 
-    long getBufferCapacity() {
-        return receiveBuffer.getCapacity();
+
+    long getFirstTSN() {
+        return payloadCreator.getFirstTSN();
+    }
+
+    /**
+     *
+     * @param data payload to send
+     * @return messages to send now
+     */
+    public List<WireRepresentation> bufferForSending(byte[] data,SCTPPayloadProtocolId ppid,Integer stream) {
+        List<SendData> messages = payloadCreator.createPayloadMessage(
+                data,ppid,
+                SCTPUtil.baseHeader(context),
+                false,
+                stream);
+
+        sendBuffer.buffer(messages);
+        List<BufferedSent> toSend = sendBuffer.getDataToSend();
+        return toSend.stream()
+                .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
+                .collect(Collectors.toList());
     }
 
     /**
@@ -161,8 +165,7 @@ public class SCTPImpl implements SCTP  {
      */
     @Override
     public List<WireRepresentation> getMessagesForResend() {
-
-        return sender.getMessagesForResend();
+        return Collections.emptyList();
     }
 
     /**
@@ -213,6 +216,12 @@ public class SCTPImpl implements SCTP  {
             return Stream.empty();
         }
     }
+
+
+    long getBufferCapacity() {
+        return receiveBuffer.getCapacity();
+    }
+
 
     /**
      * Run the open callback
@@ -293,15 +302,15 @@ public class SCTPImpl implements SCTP  {
      */
     public void runMonitoring() {
         logger.info("---------------------------------------------");
-        logger.info("Inflight: " + sender.inflightMessages());
+        logger.info("Inflight: " + sendBuffer.getInflightSize());
         logger.info("CumulativeReceivedTSN: " + receiveBuffer.getCumulativeTSN());
-        logger.info("MyTsn: " + sender.currentTSN());
+        logger.info("MyTsn: " + payloadCreator.currentTSN());
         logger.info("Total received bytes: " + receiveBuffer.getReceivedBytes());
         logger.info("Total delivered bytes to user: " + receiveBuffer.getDeliveredBytes());
-        logger.info("Total sent bytes: " + sender.getSentBytes());
+        logger.info("Total sent bytes: " + sendBuffer.getBytesSent());
         logger.info("RTT: " + heartBeatService.getRttMillis());
-        logger.info("Remote buffer: " + sender.remoteBufferSize());
-        logger.info("Local send buffer: " + sender.capacity());
+        logger.info("Remote buffer: " + sendBuffer.getRemoteBufferSize());
+        logger.info("Local send buffer: " + sendBuffer.getCapacity());
         logger.info("Local buffer: " + receiveBuffer.getCapacity());
     }
 

@@ -4,6 +4,7 @@ import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.GapAck;
 import com.bitbreeds.webrtc.common.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,7 @@ public class SelectiveAckHandler implements MessageHandler {
 
         int remoteBuffer = SignalUtil.intFromFourBytes(arcw.getData());
 
-        long below_this_all_good = SignalUtil.bytesToLong(cum_tsn.getData());
+        long cumulativeTSN = SignalUtil.bytesToLong(cum_tsn.getData());
         int gaps = SignalUtil.intFromTwoBytes(num_gap.getData());
         int dupl = SignalUtil.intFromTwoBytes(num_dupl.getData());
 
@@ -80,11 +81,9 @@ public class SelectiveAckHandler implements MessageHandler {
         /*
          * Get gaps acks and duplicates, and send to handler for processing
          */
-        handler.getSender().updateAcknowledgedTSNS(
-                below_this_all_good,
-                gapAcks,
-                duplicates,
-                remoteBuffer);
+        handler.updateAcknowledgedTSNS(
+                new SackData(cumulativeTSN,gapAcks,duplicates,remoteBuffer)
+        );
 
         return Optional.empty();
     }

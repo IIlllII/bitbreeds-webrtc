@@ -77,14 +77,14 @@ public class InitiationHandler implements MessageHandler {
                 new SCTPFixedAttribute(OUTBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
         attr.put(INBOUND_STREAMS,
                 new SCTPFixedAttribute(INBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
-        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getSender().getFirstTSN())));
+        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getFirstTSN())));
 
         long tsn = SignalUtil.bytesToLong(data.getFixed().get(INITIAL_TSN).getData());
 
         /*
          * Initialize remote
          */
-        handler.getSender().initializeRemote(remoteBufferSize,tsn);
+        handler.initializeRemote(remoteBufferSize,tsn);
         handler.handleReceiveInitialTSN(tsn);
 
         /*
