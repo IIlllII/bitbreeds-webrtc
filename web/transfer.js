@@ -71,7 +71,7 @@ peerConnection.onpeeridentity = function(ev) {
 
 
 var dataChannel = peerConnection.createDataChannel("channel",
-    {ordered:false,reliable:true});
+    {ordered:false});
 
 var sent = 0;
 var received = 0;
@@ -124,19 +124,23 @@ dataChannel.onopen = function (e) {
         var transfer = window.setInterval(function () {
 
             try {
-                if (transmit && dataChannel.bufferedAmount <= BUFF_MAX && dataChannel.readyState === "open") {
+                if(transmit) {
+                    if (dataChannel.bufferedAmount <= BUFF_MAX && dataChannel.readyState === "open") {
 
-                    for (var i = 0; i < 100;i++) {
-                        var out = data[i];
-                        dataChannel.send(out);
-                        sent = sent + out.length;
-                        count++;
+                        for (var i = 0; i < 100; i++) {
+                            var out = data[i];
+                            dataChannel.send(out);
+                            sent = sent + out.length;
+                            count++;
+                        }
+                        transmit = false;
+                        console.log("sent " + out.length + " bytes");
                     }
-                    transmit = false;
-                    console.log("sent " + out.length + " bytes")
-                }
-                else {
-                    console.log("buffer above " + BUFF_MAX + " bytes, no send")
+                    else {
+                        console.log("buffer above " + BUFF_MAX + " bytes, no send");
+                    }
+                } else {
+                    console.log("Transmission ended");
                 }
             }
             catch (err) {

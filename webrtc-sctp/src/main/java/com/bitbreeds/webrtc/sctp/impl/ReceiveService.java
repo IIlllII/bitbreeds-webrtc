@@ -67,13 +67,6 @@ public class ReceiveService {
     }
 
 
-    /**
-     *
-     * @return iterate list of received messages for batch sacking
-     */
-    private SackData getAndSetSackTSNList() {
-        return buffer.getSackDataToSend();
-    }
 
 
     /**
@@ -86,18 +79,22 @@ public class ReceiveService {
 
     /**
      * @param data data to store and evaluate
+     * @return whether to sack or not
      */
-    public void handleReceive(ReceivedData data) {
+    public boolean handleReceive(ReceivedData data) {
         Objects.requireNonNull(data);
         buffer.store(data);
         List<Deliverable> deliverables = buffer.getMessagesForDelivery();
         deliverables.forEach(
                 i -> handler.getDataChannel().runOnMessageUnordered(i.getData())
         );
+
         boolean performImmediateSack = false;
         synchronized (sackLock) {
             dataCount++;
             shouldSack = true;
+
+
             //SACK IMMEDIATE IF MORE THEN X OUTSTANDING
             /*if (dataCount > 1) {
                 performImmediateSack = true;
@@ -105,6 +102,7 @@ public class ReceiveService {
                 dataCount = 0;
             }*/
         }
+        return true;
     }
 
     public long getDeliveredBytes() {
@@ -135,7 +133,7 @@ public class ReceiveService {
             dataCount = 0;
         }
 
-        SackData sackData = getAndSetSackTSNList();//Pull sack data
+        SackData sackData = buffer.getSackDataToSend();//Pull sack data
 
         //Calculate gap acks from only relevant data.
         List<GapAck> acks = sackData.getTsns();

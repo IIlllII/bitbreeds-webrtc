@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.signaling;
 
-import gov.nist.core.NameValue;
 import gov.nist.javax.sdp.MediaDescriptionImpl;
 import gov.nist.javax.sdp.fields.*;
 

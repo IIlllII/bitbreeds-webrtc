@@ -65,7 +65,7 @@ public class PeerConnection {
     /**
      * Password and usename for remote user
      */
-    private UserData remote;
+    private PeerDescription remote;
 
     /**
      *
@@ -78,7 +78,7 @@ public class PeerConnection {
     /**
      * @return the remote username and password
      */
-    public UserData getRemote() {
+    public PeerDescription getRemote() {
         return remote;
     }
 
@@ -87,7 +87,7 @@ public class PeerConnection {
      *
      * @param remote username/pass from answer
      */
-    public void setRemote(UserData remote) {
+    public void setRemote(PeerDescription remote) {
         this.remote = remote;
     }
 
@@ -108,7 +108,7 @@ public class PeerConnection {
      */
     private void addLocalCandidate(IceCandidate candidate) {
         synchronized (candidateMutex) {
-            remoteCandidates = remoteCandidates.plus(candidate);
+            localCandidates = localCandidates.plus(candidate);
         }
     }
 
@@ -145,7 +145,7 @@ public class PeerConnection {
 
         String mid = med.getAttribute("mid");
 
-        this.setRemote(new UserData(user,pwd));
+        this.setRemote(new PeerDescription(new UserData(user,pwd),mid,sdp));
 
         /*
          * TODO The below should be defined outside PeerConnection
@@ -202,6 +202,22 @@ public class PeerConnection {
 
         return Arrays.asList(new Answer(answerSdp));
     }
+
+    public String getFingerPrint() {
+        return CertUtil.getCertFingerPrint(
+                keyStoreInfo.getFilePath(),
+                keyStoreInfo.getAlias(),
+                keyStoreInfo.getPassword());
+    }
+
+    public SessionDescription createAnswer() {
+        IceCandidate candidate = localCandidates.stream()
+                .sorted()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No candidate") );
+        return SDPUtil.createSDP(candidate,local.getUserName(),local.getPassword(),getFingerPrint(),remote.getMediaStreamId());
+    }
+
 
     /**
      * We sent an offer and here we handle the answer

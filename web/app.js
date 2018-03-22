@@ -71,7 +71,7 @@ peerConnection.onpeeridentity = function(ev) {
 
 
 var dataChannel = peerConnection.createDataChannel("channel",
-    {ordered:false,reliable:true});
+    {ordered:false});
 
 var sent = 0;
 var received = 0;
@@ -104,7 +104,7 @@ var logger = window.setInterval(function(){
 },3000);
 
 var transmit = true;
-var out = "0123456789ABCDEF".repeat(800);
+var out = "0123456789ABCDEF".repeat(20);
 
 
 dataChannel.onopen = function (e) {
@@ -120,14 +120,18 @@ dataChannel.onopen = function (e) {
         var transfer = window.setInterval(function () {
 
             try {
-                if (transmit && dataChannel.bufferedAmount <= BUFF_MAX && dataChannel.readyState === "open") {
-                    dataChannel.send(out);
-                    sent = sent + out.length;
-                    count++;
-                    console.log("sent " + out.length + " bytes")
-                }
-                else {
-                    console.log("buffer above " + BUFF_MAX + " bytes, no send")
+                if(transmit) {
+                    if (dataChannel.bufferedAmount <= BUFF_MAX && dataChannel.readyState === "open") {
+                        dataChannel.send(out);
+                        sent = sent + out.length;
+                        count++;
+                        console.log("sent " + out.length + " bytes");
+                    }
+                    else {
+                        console.log("buffer above " + BUFF_MAX + " bytes, no send");
+                    }
+                } else {
+                    console.log("Transmission ended");
                 }
             }
             catch (err) {
@@ -136,19 +140,6 @@ dataChannel.onopen = function (e) {
         }, 25);
 
     }, 1000);
-
-     window.setTimeout(
-        function() {
-            console.log("Settings transmit to FALSE and clear timer");
-            transmit = false;
-            clearInterval(transfer);
-            clearInterval(logger);
-            var res = (new Date().getTime() - time)/1000;
-            console.log("Time: " + res + " sec");
-            console.log("Sent: " + sent/res + " bytes/sec");
-            console.log("Received: " + received/res + " bytes/sec");
-        }
-        ,30*60000);
 
 };
 
@@ -228,15 +219,12 @@ ws.onmessage = function(message) {
 
 };
 
-ws.onopen = function(ev) {
+ws.onopen = function(ev) { 
     peerConnection.createOffer().then(function(desc)
     {
         return peerConnection.setLocalDescription(desc);
     }).then( function() {
-
         console.log("Created offer, icecandidates will be sent");
-        //Offer sending handled in onicecandidate
-
     }).catch(
         function(error) {console.log("Offer Error" + error)}
     );

@@ -1,7 +1,9 @@
 package com.bitbreeds.webrtc.signaling;
 
+import javax.sdp.SessionDescription;
+
 /**
- * Copyright (c) 16/05/16, Jonas Waage
+ * Copyright (c) 22/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -15,46 +17,27 @@ package com.bitbreeds.webrtc.signaling;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public class PeerDescription {
 
+    private final UserData userData;
+    private final String mediaStreamId;
+    private final SessionDescription sdp;
 
-/**
- * Holds the users username and password for this WebRTC session
- */
-public class UserData {
-
-    private final String userName;
-    private final String password;
-
-    public UserData(String userName, String password) {
-        this.userName = userName;
-        this.password = password;
+    public PeerDescription(UserData userData, String mediaStreamId, SessionDescription sdp) {
+        this.userData = userData;
+        this.mediaStreamId = mediaStreamId;
+        this.sdp = sdp;
     }
 
-
-    public String getUserName() {
-        return userName;
+    public UserData getUserData() {
+        return userData;
     }
 
-    public String getPassword() {
-        return password;
+    public String getMediaStreamId() {
+        return mediaStreamId;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        UserData that = (UserData) o;
-
-        if (userName != null ? !userName.equals(that.userName) : that.userName != null) return false;
-        return password != null ? password.equals(that.password) : that.password == null;
-
-    }
-
-    @Override
-    public int hashCode() {
-        int result = userName != null ? userName.hashCode() : 0;
-        result = 31 * result + (password != null ? password.hashCode() : 0);
-        return result;
+    public SessionDescription getSdp() {
+        return sdp;
     }
 }

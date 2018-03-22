@@ -6,6 +6,7 @@ import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedReceived;
 import com.bitbreeds.webrtc.sctp.impl.buffer.BufferedSent;
+import com.bitbreeds.webrtc.sctp.impl.buffer.ReceiveBuffer;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.apache.commons.codec.binary.Hex;
@@ -62,11 +63,11 @@ public class SCTPImpl implements SCTP  {
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
 
+
     /**
      * The impl access to write data to the socket
      */
     private final DataChannel writer;
-
 
     /**
      * Handles received messages and sending if acknowledgements.
@@ -82,14 +83,11 @@ public class SCTPImpl implements SCTP  {
 
     private final HeartBeatService heartBeatService = new HeartBeatService();
 
-    private final int MTU;
-
     /**
      *
      * @param writer interface to socket
      */
-    public SCTPImpl(DataChannel writer,int MTU) {
-        this.MTU = MTU;
+    public SCTPImpl(DataChannel writer) {
         this.writer = writer;
     }
 
@@ -184,7 +182,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * Handle message and create a immediate response if needed
      * @param input the incoming message
-     * @return a byte response, an empty array is equal to no response.
+     * @return responses
      */
     public List<WireRepresentation> handleRequest(byte[] input) {
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
@@ -268,6 +266,7 @@ public class SCTPImpl implements SCTP  {
                  */
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
                 this.writer.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
+
                 logger.debug("Sending ack: "+ Hex.encodeHexString(ack));
             }
             else {
@@ -279,7 +278,13 @@ public class SCTPImpl implements SCTP  {
             logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
             logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-            receiver.handleReceive(data);
+            boolean shouldSack = receiver.handleReceive(data);
+            if(shouldSack) {
+                createSackMessage().ifPresent(i->
+                    getDataChannel().putDataOnWire(i.getPayload())
+                );
+            }
+
         }
     }
 

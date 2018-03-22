@@ -34,7 +34,7 @@ import java.util.Optional;
  */
 public class SCTPServiceTest {
 
-    private SCTPImpl srv = new SCTPImpl(Mockito.mock(DataChannelImpl.class),1000);
+    private SCTPImpl srv = new SCTPImpl(Mockito.mock(DataChannelImpl.class));
 
     long check = 0x83f086a0;
 
