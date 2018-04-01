@@ -1,6 +1,5 @@
-package com.bitbreeds.webrtc.signaling;
+package com.bitbreeds.webrtc.dtls;
 
-import com.bitbreeds.webrtc.dtls.DTLSUtils;
 import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.crypto.tls.Certificate;
 import org.slf4j.Logger;
@@ -25,7 +24,6 @@ import java.security.MessageDigest;
 public class CertUtil {
 
     private final static Logger logger = LoggerFactory.getLogger(CertUtil.class);
-
 
     /**
      * @return sha-256 string based on cert in keystore

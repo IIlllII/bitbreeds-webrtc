@@ -1,7 +1,10 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.common.DataChannel;
+import com.bitbreeds.webrtc.common.ConnectionInternalApi;
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.datachannel.DataChannelImpl;
+import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import org.apache.commons.codec.binary.Hex;
 import org.pcollections.ConsPStack;
@@ -9,14 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sdp.MediaDescription;
-import javax.sdp.SdpException;
-import javax.sdp.SdpFactory;
 import javax.sdp.SessionDescription;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /*
  * Copyright (c) 26/04/16, Jonas Waage
@@ -35,21 +37,22 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 
 /**
- * A very poor mans PeerConnection hack, currently it only supports
- * connections initiated from another party.
+ *
+ * Handles offers to create a webrtc peer.
+ *
  */
-public class PeerConnection {
+public class PeerServer {
 
-    private final static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
+    private final static Logger logger = LoggerFactory.getLogger(PeerServer.class);
 
     private ConsPStack<IceCandidate> remoteCandidates = ConsPStack.empty();
     private ConsPStack<IceCandidate> localCandidates = ConsPStack.empty();
-    private ConcurrentHashMap<String,DataChannelImpl> channels = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String,ConnectionInternalApi> connections = new ConcurrentHashMap<>();
     private final Object candidateMutex = new Object();
 
     private KeyStoreInfo keyStoreInfo;
 
-    public PeerConnection(KeyStoreInfo keyStoreInfo) {
+    public PeerServer(KeyStoreInfo keyStoreInfo) {
         this.keyStoreInfo = keyStoreInfo;
     }
 
@@ -95,11 +98,11 @@ public class PeerConnection {
      * If we start an offer, we must create a datachannel with
      * no userdata for remote user.
      *
-     * @return DataChannelImpl with no data for remote user, it can
+     * @return ConnectionImplementation with no data for remote user, it can
      * not be started before this data is added.
      */
-    public DataChannelImpl createDataChannel() throws IOException {
-        return new DataChannelImpl(this);
+    public ConnectionImplementation createDataChannel() throws IOException {
+        return new ConnectionImplementation(this);
     }
 
 
@@ -147,32 +150,6 @@ public class PeerConnection {
 
         this.setRemote(new PeerDescription(new UserData(user,pwd),mid,sdp));
 
-        /*
-         * TODO The below should be defined outside PeerConnection
-         */
-        DataChannelImpl conn = channels.get(user);
-        if(conn == null) {
-            conn = new DataChannelImpl(this);
-
-            //Add handling of input
-            conn.onOpen((i) -> {
-                logger.info("Running onOpen");
-                i.send("I'M SO OPEN!!!");
-            });
-            conn.onMessage((i,j)->{
-                String in = new String(j.getData());
-                logger.debug("Running onMessage: " + in);
-                i.send("echo-" + in);
-            });
-            conn.onError((i,j)->{
-                logger.info("Received error",j.getError());
-            });
-
-            channels.put(user,conn);
-
-            new Thread(conn).start();
-        }
-
         String localAddress = InetAddress.getLocalHost().getHostAddress();
         String address = System.getProperty("com.bitbreeds.ip",localAddress);
         logger.info("Adr: {}", address);
@@ -182,13 +159,15 @@ public class PeerConnection {
                 keyStoreInfo.getAlias(),
                 keyStoreInfo.getPassword());
 
+        ConnectionInternalApi ds = connections.values().stream().findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Only Single channel supported for now"));
 
         /*
-         * Create candidate
+         * Create candidate from connections
          */
         Random random = new Random();
         int number = random.nextInt(1000000);
-        IceCandidate candidate = new IceCandidate(BigInteger.valueOf(number),conn.getPort(),address,2122252543L);
+        IceCandidate candidate = new IceCandidate(BigInteger.valueOf(number),ds.getPort(),address,2122252543L);
 
         addLocalCandidate(candidate);
 
@@ -200,7 +179,9 @@ public class PeerConnection {
                 mid
         );
 
-        return Arrays.asList(new Answer(answerSdp));
+        logger.info("Answer: "+ answerSdp);
+
+        return Collections.singletonList(new Answer(answerSdp));
     }
 
     public String getFingerPrint() {
@@ -216,6 +197,36 @@ public class PeerConnection {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No candidate") );
         return SDPUtil.createSDP(candidate,local.getUserName(),local.getPassword(),getFingerPrint(),remote.getMediaStreamId());
+    }
+
+
+    /**
+     *
+     * @param ordered whether the channel does ordered communication or not.
+     *
+     * This should initialize a datachannel over the peerconnection, by sending
+     * a datachannel open message.
+     *
+     * @return new datachannel
+     */
+    public DataChannel createDataChannel(boolean ordered, int maxPacketLifeTime, int maxRetransmits ) {
+        if(connections.size() > 12) {
+            throw new IllegalStateException("Too many connections defined for a single peer");
+        }
+        Random random = new Random();
+        String next = String.valueOf(random.nextInt(65534));
+        while (connections.containsKey(next)){
+            next = String.valueOf(random.nextInt(65534));
+        }
+        ConnectionImplementation ds;
+        try {
+            ds = new ConnectionImplementation(this);
+            connections.put(String.valueOf(next),ds);
+            new Thread(ds).start();
+            return ds;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create datachannel due to: ",e);
+        }
     }
 
 

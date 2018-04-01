@@ -30,6 +30,8 @@ import java.util.stream.Collectors;
  *
  * TODO Must handle TSN and Stream Sequence id rollover
  *
+ * TODO Must handle delivery to different ordered or unordered streams/datachannels
+ *
  */
 public class ReceiveBuffer {
 
@@ -68,7 +70,8 @@ public class ReceiveBuffer {
 
     /**
      *
-     * These getters are for monitoring, and can not be fully trusted.
+     * These getters are for monitoring, and can not be fully trusted
+     * since they are not synchronizes
      */
     public long getReceivedBytes() {
         return receivedBytes;
@@ -86,6 +89,11 @@ public class ReceiveBuffer {
         return capacity;
     }
 
+
+    /**
+     *
+     * @param initialTSN first TSN of the connection
+     */
     public void setInitialTSN(long initialTSN) {
         synchronized (lock) {
             this.cumulativeTSN = initialTSN;

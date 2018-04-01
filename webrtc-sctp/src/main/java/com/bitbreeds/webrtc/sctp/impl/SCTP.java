@@ -1,9 +1,8 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.DataChannel;
+import com.bitbreeds.webrtc.common.ConnectionInternalApi;
 import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
-import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
 
 import java.util.List;
 import java.util.Optional;
@@ -71,5 +70,5 @@ public interface SCTP {
      *
      * @return datachannel
      */
-    DataChannel getDataChannel();
+    ConnectionInternalApi getDataChannel();
 }

@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.messaging;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.datachannel.DataChannelImpl;
+import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.CRC32c;
 import com.bitbreeds.webrtc.sctp.impl.SCTPContext;
@@ -13,9 +13,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.io.IOException;
-import java.nio.file.OpenOption;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Copyright (c) 25/05/16, Jonas Waage
@@ -34,7 +32,7 @@ import java.util.Optional;
  */
 public class SCTPServiceTest {
 
-    private SCTPImpl srv = new SCTPImpl(Mockito.mock(DataChannelImpl.class));
+    private SCTPImpl srv = new SCTPImpl(Mockito.mock(ConnectionImplementation.class));
 
     long check = 0x83f086a0;
 

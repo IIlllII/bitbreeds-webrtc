@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -41,8 +42,6 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * The handling of specific chunks is passed to the correct {@link MessageHandler}.
  *
  * TODO implement shutdown messages
- * TODO implement proper congestion control (HUGE!!!)
- * TODO figure out why transfer is slow (BIG!!)
  * TODO implement JMX hooks, so transfer parameters can be adjusted at runtime
  *
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
@@ -63,7 +62,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * The impl access to write data to the socket
      */
-    private final DataChannel writer;
+    private final ConnectionInternalApi writer;
 
     private final ReceiveBuffer receiveBuffer =  new ReceiveBuffer(1000,localBufferSize);
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
@@ -72,10 +71,15 @@ public class SCTPImpl implements SCTP  {
     private SCTPContext context;
 
     /**
+     * ChannelParameters
+     */
+    private final ConcurrentHashMap<Integer,ReliabilityParameters> dataChannels = new ConcurrentHashMap<>();
+
+    /**
      *
      * @param writer interface to socket
      */
-    public SCTPImpl(DataChannel writer) {
+    public SCTPImpl(ConnectionInternalApi writer) {
         this.writer = writer;
     }
 
@@ -246,6 +250,7 @@ public class SCTPImpl implements SCTP  {
             DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
 
             if(DataChannelMessageType.OPEN.equals(msg)) {
+
                 logger.debug("Received open: "+ Hex.encodeHexString(msgData));
                 DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
                 DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
@@ -317,7 +322,7 @@ public class SCTPImpl implements SCTP  {
     }
 
     @Override
-    public DataChannel getDataChannel() {
+    public ConnectionInternalApi getDataChannel() {
         return writer;
     }
 }

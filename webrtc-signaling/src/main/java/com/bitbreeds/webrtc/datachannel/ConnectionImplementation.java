@@ -1,9 +1,8 @@
 package com.bitbreeds.webrtc.datachannel;
 
+import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.dtls.DtlsMuxStunTransport;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
-import com.bitbreeds.webrtc.common.DataChannel;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
@@ -13,7 +12,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.crypto.tls.DTLSServerProtocol;
 import org.bouncycastle.crypto.tls.DatagramTransport;
 import org.bouncycastle.crypto.tls.TlsServer;
-import org.bouncycastle.crypto.tls.UDPTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,14 +53,17 @@ import java.util.function.Consumer;
  * @see <a href=https://github.com/bcgit/bc-java/blob/adecd89d33edf278a5c601af2de696f0a6f65251/core/src/test/java/org/bouncycastle/crypto/tls/test/DTLSServerTest.java> tls server </a>
  * @see <a href=http://stackoverflow.com/questions/18065170/how-do-i-do-tls-with-bouncycastle> tls server </a>
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
+ *
+ * An implementation of a peer connection.
+ *
  */
-public class DataChannelImpl implements Runnable,DataChannel {
+public class ConnectionImplementation implements Runnable,DataChannel,ConnectionInternalApi {
 
     enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
 
     private final ReentrantLock lock = new ReentrantLock(true);
 
-    private final static Logger logger = LoggerFactory.getLogger(DataChannelImpl.class);
+    private final static Logger logger = LoggerFactory.getLogger(ConnectionImplementation.class);
 
     private SCTP sctpService = new SCTPNoopImpl();
 
@@ -90,7 +91,6 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final Runnable heartBeat;
-    private final Runnable sackSender;
     private final Runnable reSender;
     private final Runnable monitor;
 
@@ -100,16 +100,14 @@ public class DataChannelImpl implements Runnable,DataChannel {
     private static final int RECEIVE_BUFFER_DEFAULT = 2000000;
     private static final int SEND_BUFFER_DEFAULT = 2000000;
 
-    private Consumer<DataChannel> onOpen = (i) -> {};
-    private BiConsumer<DataChannel,MessageEvent> onMessage = (i,j) -> {};
-    private BiConsumer<DataChannel,ErrorEvent> onError = (i,j)-> {};
+    public Consumer<DataChannel> onOpen = (i) -> {};
+    public BiConsumer<DataChannel,MessageEvent> onMessage = (i, j) -> {};
+    public BiConsumer<DataChannel,ErrorEvent> onError = (i, j)-> {};
 
-    private final PeerConnection parent;
+    private final PeerServer parent;
 
-    private final Random rd = new Random();
-
-    public DataChannelImpl(
-            PeerConnection parent)
+    public ConnectionImplementation(
+            PeerServer parent)
             throws IOException {
         logger.info("Initializing {}",this.getClass().getName());
         this.dtlsServer = new WebrtcDtlsServer(parent.getKeyStoreInfo());
@@ -169,31 +167,6 @@ public class DataChannelImpl implements Runnable,DataChannel {
             }
         };
 
-        /*
-         * Acknowledge received data
-         * TODO remove, not needed anymore
-         */
-        this.sackSender = () -> {
-            while(running && channel.isBound()) {
-                try {
-                    Thread.sleep(1); //sleep to not go ham on cpu
-                    logger.trace("Creating sack:");
-                    sctpService.createSackMessage().ifPresent(sack -> {
-                        if (sack.getPayload().length > 0) {
-                            logger.trace("Sending sack: " + Hex.encodeHexString(sack.getPayload()));
-                            processPool.submit(() ->
-                                    putDataOnWire(sack.getPayload())
-                            );
-                        } else {
-                            logger.trace("Already on latest sack, no send");
-                        }
-                    });
-
-                } catch (Exception e) {
-                    logger.error("Sack error: ",e);
-                }
-            }
-        };
 
         /*
          * Resends non acknowledged sent messages
@@ -230,9 +203,6 @@ public class DataChannelImpl implements Runnable,DataChannel {
 
     @Override
     public void run() {
-        if(parent.getRemote() == null) {
-            throw new IllegalArgumentException("No user data set for remote user");
-        }
 
         logger.info("Started listening to port: " + port);
         while(running && channel.isBound()) {
@@ -251,6 +221,10 @@ public class DataChannelImpl implements Runnable,DataChannel {
                         sender = currentSender;
                         byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
                         logger.info("Received data: " + Hex.encodeHexString(data) + " on " + channel.getLocalSocketAddress() + " - " + channel.getPort());
+
+                        if(parent.getRemote() == null) {
+                            throw new IllegalArgumentException("No user data set for remote user");
+                        }
 
                         byte[] out = bindingService.processBindingRequest(
                                 data,
@@ -349,7 +323,6 @@ public class DataChannelImpl implements Runnable,DataChannel {
     private void startThreads() {
         if(started.compareAndSet(false,true)) {
             new Thread(heartBeat).start();
-            //new Thread(sackSender).start();
             //new Thread(reSender).start();
             new Thread(monitor).start();
             new Thread(orderedReader).start();
@@ -433,21 +406,6 @@ public class DataChannelImpl implements Runnable,DataChannel {
         return  (InetSocketAddress) channel.getLocalSocketAddress();
     }
 
-    /**
-     *
-     * @param onMessage action to take when receiving a message
-     */
-    public void onMessage(BiConsumer<DataChannel,MessageEvent> onMessage) {
-        this.onMessage = onMessage;
-    }
-
-    /**
-     * @param onError action when an error occurs
-     */
-    public void onError(BiConsumer<DataChannel,ErrorEvent> onError) {
-        this.onError = onError;
-    }
-
 
     /**
      * Trigger error handling
@@ -510,12 +468,9 @@ public class DataChannelImpl implements Runnable,DataChannel {
     }
 
     /**
-     *
-     * @param onOpen action to take when connection is open
+     * Remote requested opening of a datachannel
      */
-    public void onOpen(Consumer<DataChannel> onOpen) {
-        this.onOpen = onOpen;
-    }
+    public Consumer<DataChannelEvent> onDataChannel = (event) -> { };
 
     public void setRunning(boolean running) {
         this.running = running;
@@ -525,5 +480,17 @@ public class DataChannelImpl implements Runnable,DataChannel {
         return port;
     }
 
+
+    public void setOnOpen(Consumer<DataChannel> onOpen) {
+        this.onOpen = onOpen;
+    }
+
+    public void setOnMessage(BiConsumer<DataChannel, MessageEvent> onMessage) {
+        this.onMessage = onMessage;
+    }
+
+    public void setOnError(BiConsumer<DataChannel, ErrorEvent> onError) {
+        this.onError = onError;
+    }
 
 }

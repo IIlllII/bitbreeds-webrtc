@@ -117,7 +117,8 @@ public class SDPUtil {
             media.setAttribute("rtcp-mux","");
             media.setAttribute("sendrecv ","");
             media.setAttribute("mid",mid);
-            media.setAttribute("sctpmap","5000 webrtc-datachannel 1024");
+            //Type of channel and amount of streams
+            media.setAttribute("sctpmap","5000 webrtc-datachannel 256");
             return media;
         }
         catch (SdpException e) {

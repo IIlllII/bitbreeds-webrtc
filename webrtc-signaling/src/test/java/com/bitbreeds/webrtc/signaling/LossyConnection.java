@@ -1,9 +1,12 @@
 package com.bitbreeds.webrtc.signaling;
 
-import java.net.SocketAddress;
+import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+
+import java.io.IOException;
+import java.util.Random;
 
 /**
- * Copyright (c) 29/06/16, Jonas Waage
+ * Copyright (c) 11/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -18,25 +21,27 @@ import java.net.SocketAddress;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
 /**
- * Holds a datachannel message
+ * Created for testing a lossy connection
  */
-public class MessageEvent {
+public class LossyConnection extends ConnectionImplementation {
 
-    private final byte[] data;
-    private final SocketAddress origin;
+    private final Integer packetlossPercentage;
+    private final Random random = new Random(System.currentTimeMillis());
 
-    public MessageEvent(byte[] data, SocketAddress origin) {
-        this.data = data;
-        this.origin = origin;
+    public LossyConnection(PeerServer parent, Integer packetlossPercentage) throws IOException {
+        super(parent);
+        if(packetlossPercentage < 0 || packetlossPercentage > 100) {
+            throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentage);
+        }
+        this.packetlossPercentage = packetlossPercentage;
     }
 
-    public byte[] getData() {
-        return data;
+    @Override
+    public void putDataOnWire(byte[] out) {
+        if(random.nextInt(100) > packetlossPercentage) {
+            super.putDataOnWire(out);
+        }
     }
-
-    public SocketAddress getOrigin() {
-        return origin;
-    }
-
 }

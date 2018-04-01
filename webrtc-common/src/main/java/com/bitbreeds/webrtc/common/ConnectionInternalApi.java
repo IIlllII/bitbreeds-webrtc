@@ -22,18 +22,26 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * The DataChannel interface for user of the peerConnection
+ * The DataChannel interface that SCTP will use
  */
-public interface DataChannel {
+public interface ConnectionInternalApi {
+
+    void runOpen();
+
+    void runOnMessageUnordered(byte[] data);
+
+    void runOnMessageOrdered(byte[] data);
+
+    void runOnError(final Exception err);
 
     void send(byte[] data);
 
+    void send(byte[] data, SCTPPayloadProtocolId id);
+
     void send(String data);
 
-    void setOnOpen(Consumer<DataChannel> onOpen);
+    void putDataOnWire(byte[] data);
 
-    void setOnMessage(BiConsumer<DataChannel, MessageEvent> onMessage);
-
-    void setOnError(BiConsumer<DataChannel, ErrorEvent> onError);
+    int getPort();
 
 }

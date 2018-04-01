@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
 /**
- * Copyright (c) 29/06/16, Jonas Waage
+ * Copyright (c) 31/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -15,19 +15,5 @@ package com.bitbreeds.webrtc.signaling;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-/**
- * Holds a DataChannel error
- */
-public class ErrorEvent {
-
-    private final Exception error;
-
-    public ErrorEvent(Exception error) {
-        this.error = error;
-    }
-
-    public Exception getError() {
-        return error;
-    }
+public class DataChannelEvent {
 }

@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
  * - Ensuring we overhold max inflight
  * - Ensure resend if message is never acked
  *
+ *
+ * TODO count buffered on each datachannel, not just the connection.
+ *
  */
 public class SendBuffer {
 

@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.common.DataChannel;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
@@ -20,7 +21,6 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Copyright (c) 16/04/16, Jonas Waage
@@ -42,6 +42,9 @@ import java.util.concurrent.TimeUnit;
  * Simple WSS based signaling used for <b>TESTING</b>
  */
 public class SimpleSignalingExample {
+
+    private final static Logger logger = LoggerFactory.getLogger(SimpleSignalingExample.class);
+
 
     /**
      * Depending on where this is run from different paths can match
@@ -76,8 +79,26 @@ public class SimpleSignalingExample {
 
         reg.bind("sslContextParameters",sslParameters());
 
+        PeerServer peerConnection = new PeerServer(keyStoreInfo);
+        DataChannel dataChannel = peerConnection.createDataChannel(false,5,5);
+
+        dataChannel.setOnOpen((channel -> {
+            logger.info("Running onOpen");
+            channel.send("I'M SO OPEN!!!");
+        }));
+
+        dataChannel.setOnMessage((channel,event) -> {
+            String in = new String(event.getData());
+            logger.debug("Running onMessage: " + in);
+            channel.send("echo-" + in);
+        });
+
+        dataChannel.setOnError((i,j) -> {
+            logger.info("Received error",j.getError());
+        });
+
         CamelContext ctx = new DefaultCamelContext(reg);
-        ctx.addRoutes(new WebsocketRouteNoSSL());
+        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnection));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());
         ctx.setUseMDCLogging(true);
@@ -88,11 +109,28 @@ public class SimpleSignalingExample {
 
     public static CamelContext camelContext() throws Exception {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
-
         reg.bind("sslContextParameters",sslParameters());
 
+        PeerServer peerConnection = new PeerServer(keyStoreInfo);
+        DataChannel dataChannel = peerConnection.createDataChannel(false,5,5);
+
+        dataChannel.setOnOpen((channel -> {
+            logger.info("Running onOpen");
+            channel.send("I'M SO OPEN!!!");
+        }));
+
+        dataChannel.setOnMessage((channel,event) -> {
+            String in = new String(event.getData());
+            logger.debug("Running onMessage: " + in);
+            channel.send("echo-" + in);
+        });
+
+        dataChannel.setOnError((i,j) -> {
+            logger.info("Received error",j.getError());
+        });
+
         CamelContext ctx = new DefaultCamelContext(reg);
-        ctx.addRoutes(new WebsocketRouteNoSSL());
+        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnection));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());
         ctx.setUseMDCLogging(true);
@@ -125,7 +163,7 @@ public class SimpleSignalingExample {
             from("websocket:0.0.0.0:8443/incoming?sslContextParameters=#sslContextParameters")
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
-                    .bean(new PeerConnection(keyStoreInfo))
+                    .bean(new PeerServer(keyStoreInfo))
                     .split()
                     .body()
                     .choice()
@@ -148,12 +186,18 @@ public class SimpleSignalingExample {
      */
     private static class WebsocketRouteNoSSL extends RouteBuilder {
 
+        private final PeerServer peerConnection;
+
+        public WebsocketRouteNoSSL(PeerServer peerConnection) {
+            this.peerConnection = peerConnection;
+        }
+
         @Override
         public void configure() throws Exception {
             from("websocket:0.0.0.0:8443/incoming")
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
-                    .bean(new PeerConnection(keyStoreInfo))
+                    .bean(peerConnection)
                     .split()
                     .body()
                     .choice()
