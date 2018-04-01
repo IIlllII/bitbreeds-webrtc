@@ -302,7 +302,7 @@ public class SCTPImpl implements SCTP  {
         /*
          * Store params
          */
-        parameters = new ReliabilityParameters(
+        this.parameters = new ReliabilityParameters(
                 relParam,
                 type,
                 priority,
