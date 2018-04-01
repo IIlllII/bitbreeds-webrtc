@@ -27,6 +27,8 @@ public interface ConnectionInternalApi {
 
     void runOpen();
 
+    void handleMessage(Deliverable deliverable);
+
     void runOnMessageUnordered(byte[] data);
 
     void runOnMessageOrdered(byte[] data);
@@ -43,6 +45,6 @@ public interface ConnectionInternalApi {
 
     int getPort();
 
-    void onDataChannel(DataChannelEvent dataChannel);
+    void onDataChannel(DataChannelDefinition dataChannel);
 
 }

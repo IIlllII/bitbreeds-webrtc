@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
 import java.util.*;
@@ -174,7 +175,11 @@ public class ReceiveBuffer {
                 if (bf != null) {
                     if (bf.readyForUnorderedDelivery()) {
                         if (bf.getData().getFlag().isUnFragmented()) {
-                            dl.add(new Deliverable(bf.getData().getPayload(), 1));
+                            dl.add(new Deliverable(
+                                    bf.getData().getPayload(),
+                                    1,
+                                    bf.getData().getStreamId(),
+                                    bf.getData().getProtocolId()));
                             setBuffered(tsn, bf.deliver());
                         } else {
                             if (bf.getData().getFlag().isStart()) {
@@ -231,7 +236,11 @@ public class ReceiveBuffer {
         if(nextInStream(buffered.getData())) {
             setBuffered(buffered.getData().getTSN(), buffered.deliver());
             orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence());
-            return Optional.of(new Deliverable(buffered.getData().getPayload(),1));
+            return Optional.of(new Deliverable(
+                    buffered.getData().getPayload(),
+                    1,
+                    buffered.getData().getStreamId(),
+                    buffered.getData().getProtocolId()));
         }
         return Optional.empty();
     }
@@ -345,11 +354,20 @@ public class ReceiveBuffer {
     }
 
     private Deliverable fromTsns(List<Long> tsns) {
-        List<byte[]> data = tsns.stream()
-                .map(this::getBuffered)
+        List<BufferedReceived> buffered = tsns.stream()
+                .map(this::getBuffered).collect(Collectors.toList());
+
+        List<byte[]> data = buffered.stream()
                 .map(j->(j.getData()).getPayload())
                 .collect(Collectors.toList());
-        return new Deliverable(SignalUtil.joinBytesArrays(data),data.size());
+
+        BufferedReceived first = buffered.get(0);
+
+        return new Deliverable(
+                SignalUtil.joinBytesArrays(data),
+                data.size(),
+                first.getData().getStreamId(),
+                first.getData().getProtocolId());
     }
 
 

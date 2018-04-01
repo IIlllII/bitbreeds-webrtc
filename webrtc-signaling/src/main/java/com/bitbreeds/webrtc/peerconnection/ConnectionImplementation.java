@@ -6,7 +6,7 @@ import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
 import com.bitbreeds.webrtc.model.webrtc.*;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.model.webrtc.DataChannelEvent;
+import com.bitbreeds.webrtc.model.webrtc.DataChannelDefinition;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
@@ -26,14 +26,14 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+
+import static com.bitbreeds.webrtc.common.SignalUtil.*;
+import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
 
 /*
  * Copyright (c) 16/05/16, Jonas Waage
@@ -97,6 +97,8 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     private final BindingService bindingService = new BindingService();
 
     private SocketAddress sender;
+
+    private final ConcurrentHashMap<Integer,DataChannelDefinition> dataChannels = new ConcurrentHashMap<>();
 
     private final ExecutorService processPool = Executors.newFixedThreadPool(1);
     private final ExecutorService workPool = Executors.newFixedThreadPool(1);
@@ -461,6 +463,67 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
         });
     }
 
+
+    @Override
+    public void handleMessage(Deliverable deliverable) {
+        DataChannelDefinition definition = dataChannels.get(deliverable.getStreamId());
+
+        if (deliverable.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
+            byte[] msgData = deliverable.getData();
+            DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
+            if(DataChannelMessageType.OPEN.equals(msg)) {
+
+                logger.debug("Received open: " + Hex.encodeHexString(msgData));
+                DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
+                DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
+                        copyRange(msgData, new ByteRange(2, 4))));
+                int relParam = intFromFourBytes(copyRange(msgData, new ByteRange(4, 8)));
+                int labelLength = SignalUtil.intFromTwoBytes(copyRange(msgData, new ByteRange(8, 10)));
+                int protocolLength = SignalUtil.intFromTwoBytes(copyRange(msgData, new ByteRange(10, 12)));
+                byte[] label = SignalUtil.copyRange(msgData, new ByteRange(12, 12 + labelLength));
+                byte[] protocol = SignalUtil.copyRange(msgData,
+                        new ByteRange(12 + labelLength, 12 + labelLength + protocolLength));
+
+                ReliabilityParameters parameters = new ReliabilityParameters(
+                        relParam,
+                        type,
+                        priority,
+                        label,
+                        protocol);
+
+                DataChannelDefinition nuDef = new DataChannelDefinition(deliverable.getStreamId(), parameters, new DataChannelEventHandler());
+
+                /*
+                 * Allow user to specify handling
+                 */
+                onDataChannel(nuDef);
+
+                dataChannels.put(nuDef.getStreamId(), nuDef);
+
+                logger.info("Opening datachannel with is {} and params {}", nuDef.getStreamId(), nuDef.getReliabilityParameters());
+
+                /*
+                 * Run user callback
+                 */
+                nuDef.getDataChannel().onOpen.accept(new OpenEvent());
+            }
+
+        } else {
+            if(definition != null) {
+                workPool.submit(() -> {
+                    try {
+                        onMessage.accept(this,new MessageEvent(deliverable.getData(),sender));
+                    } catch (Exception e) {
+                        logger.error("OnMessage failed",e);
+                    }
+                });
+            }
+            else {
+                throw new IllegalStateException("DataChannel is not open");
+            }
+        }
+    }
+
     /**
      * Submit unordered messages
      */
@@ -497,7 +560,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
     @Override
-    public void onDataChannel(DataChannelEvent dataChannel) {
+    public void onDataChannel(DataChannelDefinition dataChannel) {
 
     }
 

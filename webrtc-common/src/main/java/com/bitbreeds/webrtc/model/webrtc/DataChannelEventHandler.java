@@ -22,8 +22,10 @@ public class DataChannelEventHandler {
 
     public Consumer<MessageEvent> onMessage = (i)->{};
 
-    public Consumer<ErrorEvent> onError = (i)->{};;
+    public Consumer<ErrorEvent> onError = (i)->{};
 
-    public Consumer<CloseEvent> onClose = (i)->{};;
+    public Consumer<CloseEvent> onClose = (i)->{};
+
+    public Consumer<OpenEvent> onOpen = (i)->{};
 
 }

@@ -1,5 +1,8 @@
 package com.bitbreeds.webrtc.model.webrtc;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 /**
  * Copyright (c) 01/04/2018, Jonas Waage
  * <p>
@@ -15,14 +18,38 @@ package com.bitbreeds.webrtc.model.webrtc;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class DataChannelEvent {
+public class DataChannelDefinition {
+
+    private final int streamId;
 
     private final ReliabilityParameters reliabilityParameters;
 
     private final DataChannelEventHandler dataChannel;
 
-    public DataChannelEvent(ReliabilityParameters reliabilityParameters, DataChannelEventHandler dataChannel) {
+    public DataChannelDefinition(int streamId, ReliabilityParameters reliabilityParameters, DataChannelEventHandler dataChannel) {
+        this.streamId = streamId;
         this.reliabilityParameters = reliabilityParameters;
         this.dataChannel = dataChannel;
+    }
+
+    public int getStreamId() {
+        return streamId;
+    }
+
+    public ReliabilityParameters getReliabilityParameters() {
+        return reliabilityParameters;
+    }
+
+    public DataChannelEventHandler getDataChannel() {
+        return dataChannel;
+    }
+
+    @Override
+    public String toString() {
+        return "DataChannelDefinition{" +
+                "streamId=" + streamId +
+                ", reliabilityParameters=" + reliabilityParameters +
+                ", dataChannel=" + dataChannel +
+                '}';
     }
 }

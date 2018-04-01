@@ -195,8 +195,8 @@ public class SCTPImpl implements SCTP  {
     public List<WireRepresentation> handleRequest(byte[] input) {
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.info("Input Parsed: " + inFullMessage );
-        logger.info("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
+        logger.debug("Input Parsed: " + inFullMessage );
+        logger.debug("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
@@ -260,6 +260,10 @@ public class SCTPImpl implements SCTP  {
                  */
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
                 this.connection.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
+                List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
+                deliverables.forEach(
+                        i -> getDataChannel().runOnMessageUnordered(i.getData())
+                );
 
                 logger.debug("Sending ack: "+ Hex.encodeHexString(ack));
             }
@@ -311,7 +315,10 @@ public class SCTPImpl implements SCTP  {
 
         logger.info("Updated channel with parameters: " + parameters);
 
-        connection.onDataChannel(new DataChannelEvent(parameters,new DataChannelEventHandler()));
+        connection.onDataChannel(new DataChannelDefinition(
+                data.getStreamId(),
+                parameters,
+                new DataChannelEventHandler()));
     }
 
 

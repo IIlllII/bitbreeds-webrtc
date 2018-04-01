@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
+import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
@@ -57,7 +58,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
-        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1)),del);
+        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1,del.get(0).getStreamId(),del.get(0).getProtocolId())),del);
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(2,sack.getCumulativeTSN());
