@@ -69,6 +69,24 @@ public class SimpleSignalingExample {
             "websocket",
             "websocket");
 
+    private static void onDataChannel(DataChannel dataChannel) {
+        dataChannel.setOnOpen((channel -> {
+            logger.info("Running onOpen");
+            channel.send("I'M SO OPEN!!!");
+        }));
+
+        dataChannel.setOnMessage((channel, event) -> {
+            String in = new String(event.getData());
+            logger.debug("Running onMessage: " + in);
+            channel.send("echo-" + in);
+        });
+
+        dataChannel.setOnError((i, j) -> {
+            logger.info("Received error", j.getError());
+        });
+
+    }
+
     /**
      * Application entry point
      * @param args application arguments
@@ -79,26 +97,12 @@ public class SimpleSignalingExample {
 
         reg.bind("sslContextParameters",sslParameters());
 
-        PeerServer peerConnection = new PeerServer(keyStoreInfo);
-        DataChannel dataChannel = peerConnection.createDataChannel(false,5,5);
+        SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
-        dataChannel.setOnOpen((channel -> {
-            logger.info("Running onOpen");
-            channel.send("I'M SO OPEN!!!");
-        }));
-
-        dataChannel.setOnMessage((channel,event) -> {
-            String in = new String(event.getData());
-            logger.debug("Running onMessage: " + in);
-            channel.send("echo-" + in);
-        });
-
-        dataChannel.setOnError((i,j) -> {
-            logger.info("Received error",j.getError());
-        });
+        peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
-        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnection));
+        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());
         ctx.setUseMDCLogging(true);
@@ -107,30 +111,17 @@ public class SimpleSignalingExample {
     }
 
 
+
     public static CamelContext camelContext() throws Exception {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
         reg.bind("sslContextParameters",sslParameters());
 
-        PeerServer peerConnection = new PeerServer(keyStoreInfo);
-        DataChannel dataChannel = peerConnection.createDataChannel(false,5,5);
+        SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
-        dataChannel.setOnOpen((channel -> {
-            logger.info("Running onOpen");
-            channel.send("I'M SO OPEN!!!");
-        }));
-
-        dataChannel.setOnMessage((channel,event) -> {
-            String in = new String(event.getData());
-            logger.debug("Running onMessage: " + in);
-            channel.send("echo-" + in);
-        });
-
-        dataChannel.setOnError((i,j) -> {
-            logger.info("Received error",j.getError());
-        });
+        peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
-        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnection));
+        ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());
         ctx.setUseMDCLogging(true);
@@ -163,7 +154,7 @@ public class SimpleSignalingExample {
             from("websocket:0.0.0.0:8443/incoming?sslContextParameters=#sslContextParameters")
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
-                    .bean(new PeerServer(keyStoreInfo))
+                    .bean(new SimplePeerServer(keyStoreInfo))
                     .split()
                     .body()
                     .choice()
@@ -186,9 +177,9 @@ public class SimpleSignalingExample {
      */
     private static class WebsocketRouteNoSSL extends RouteBuilder {
 
-        private final PeerServer peerConnection;
+        private final SimplePeerServer peerConnection;
 
-        public WebsocketRouteNoSSL(PeerServer peerConnection) {
+        public WebsocketRouteNoSSL(SimplePeerServer peerConnection) {
             this.peerConnection = peerConnection;
         }
 

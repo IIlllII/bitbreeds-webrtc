@@ -3,7 +3,7 @@ package com.bitbreeds.webrtc.dtls;
 import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.signaling.BindingService;
-import com.bitbreeds.webrtc.signaling.PeerServer;
+import com.bitbreeds.webrtc.signaling.UserData;
 import org.apache.commons.codec.binary.Hex;
 import org.bouncycastle.crypto.tls.AlertDescription;
 import org.bouncycastle.crypto.tls.DatagramTransport;
@@ -47,14 +47,14 @@ public class DtlsMuxStunTransport implements DatagramTransport {
     private final DatagramSocket socket;
     private final int receiveLimit, sendLimit;
 
-    private final PeerServer parent;
+    private final UserData local;
 
     private final BindingService bindingService = new BindingService();
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public DtlsMuxStunTransport(PeerServer parent, DatagramSocket socket, int mtu) throws IOException {
-        this.parent = parent;
+    public DtlsMuxStunTransport(UserData local, DatagramSocket socket, int mtu) throws IOException {
+        this.local = local;
         this.socket = socket;
         this.receiveLimit = mtu - IP_BYTES - UDP_BYTES;
         this.sendLimit = mtu - IP_MAX_BYTES - UDP_BYTES;
@@ -79,8 +79,8 @@ public class DtlsMuxStunTransport implements DatagramTransport {
 
             byte[] out = bindingService.processBindingRequest(
                     data,
-                    parent.getLocal().getUserName(),
-                    parent.getLocal().getPassword(),
+                    local.getUserName(),
+                    local.getPassword(),
                     (InetSocketAddress) currentSender
             );
 

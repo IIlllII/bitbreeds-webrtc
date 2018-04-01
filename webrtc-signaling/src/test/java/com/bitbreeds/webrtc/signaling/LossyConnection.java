@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 
 import java.io.IOException;
 import java.util.Random;
@@ -30,8 +31,9 @@ public class LossyConnection extends ConnectionImplementation {
     private final Integer packetlossPercentage;
     private final Random random = new Random(System.currentTimeMillis());
 
-    public LossyConnection(PeerServer parent, Integer packetlossPercentage) throws IOException {
-        super(parent);
+    public LossyConnection(KeyStoreInfo keyStoreInfo,
+                           PeerDescription remoteDescription, Integer packetlossPercentage) throws IOException {
+        super(keyStoreInfo,remoteDescription);
         if(packetlossPercentage < 0 || packetlossPercentage > 100) {
             throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentage);
         }

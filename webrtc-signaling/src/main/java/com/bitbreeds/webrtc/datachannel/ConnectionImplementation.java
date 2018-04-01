@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.datachannel;
 
 import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.dtls.DtlsMuxStunTransport;
+import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
@@ -22,7 +23,6 @@ import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -54,7 +54,15 @@ import java.util.function.Consumer;
  * @see <a href=http://stackoverflow.com/questions/18065170/how-do-i-do-tls-with-bouncycastle> tls server </a>
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
  *
- * An implementation of a peer connection.
+ * An implementation of a webrtc peer connection.
+ *
+ * This is implemented using a UDP socket.
+ * On this UDP socket DTLS and and STUN is multiplexed to allow encrypted SCTP messages, and
+ * STUN to handle connectivity.
+ *
+ * The SCTP packets are currently fed to my own implementation of SCTP.
+ *
+ * This peerconnection supports creation ordered/unordered webrtc datachannels.
  *
  */
 public class ConnectionImplementation implements Runnable,DataChannel,ConnectionInternalApi {
@@ -65,14 +73,14 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     private final static Logger logger = LoggerFactory.getLogger(ConnectionImplementation.class);
 
-    private SCTP sctpService = new SCTPNoopImpl();
+    private SCTP sctp = new SCTPNoopImpl();
 
     private final static int DEFAULT_WAIT_MILLIS = 10000;
     private final static int DEFAULT_MTU = 1500;
     private final static int DEFAULT_BUFFER_SIZE = 20000;
 
     private final DTLSServerProtocol serverProtocol;
-    private final DatagramSocket channel;
+    private final DatagramSocket socket;
 
     private final int port;
 
@@ -97,30 +105,39 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     private final LinkedBlockingQueue<byte[]> orderedQueue = new LinkedBlockingQueue<>();
     private final Runnable orderedReader;
 
-    private static final int RECEIVE_BUFFER_DEFAULT = 2000000;
-    private static final int SEND_BUFFER_DEFAULT = 2000000;
-
     public Consumer<DataChannel> onOpen = (i) -> {};
     public BiConsumer<DataChannel,MessageEvent> onMessage = (i, j) -> {};
     public BiConsumer<DataChannel,ErrorEvent> onError = (i, j)-> {};
 
-    private final PeerServer parent;
+
+    private final UserData localUser = createLocalUser();
+
+    private final PeerDescription remoteDescription;
+
+    /**
+     *
+     * @return local userdata
+     */
+    public UserData getLocal() {
+        return localUser;
+    }
 
     public ConnectionImplementation(
-            PeerServer parent)
+            KeyStoreInfo keyStoreInfo,
+            PeerDescription remoteDescription)
             throws IOException {
         logger.info("Initializing {}",this.getClass().getName());
-        this.dtlsServer = new WebrtcDtlsServer(parent.getKeyStoreInfo());
-        this.parent = parent;
-        this.channel = new DatagramSocket();
-        this.channel.setReceiveBufferSize(RECEIVE_BUFFER_DEFAULT);
-        this.channel.setSendBufferSize(SEND_BUFFER_DEFAULT);
-        this.port = channel.getLocalPort();
+        this.remoteDescription = remoteDescription;
+        this.dtlsServer = new WebrtcDtlsServer(keyStoreInfo);
+        this.socket = new DatagramSocket();
+        this.socket.setReceiveBufferSize(2000000);
+        this.socket.setSendBufferSize(2000000);
+        this.port = socket.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
         this.mode = ConnectionMode.BINDING;
 
         this.orderedReader = () -> {
-            while(running && channel.isBound()) {
+            while(running && socket.isBound()) {
                 try {
                     byte[] bytes = orderedQueue.poll(2, TimeUnit.SECONDS);
                     if(bytes != null) {
@@ -137,10 +154,10 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
          * Print monitoring information
          */
         this.monitor = () -> {
-            while(running && channel.isBound()) {
+            while(running && socket.isBound()) {
                 try {
                     Thread.sleep(3000);
-                    sctpService.runMonitoring();
+                    sctp.runMonitoring();
                 }
                 catch (Exception e) {
                     logger.error("Logging error",e);
@@ -152,10 +169,10 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
          * Create heartbeat message
          */
         this.heartBeat = () ->  {
-            while(running && channel.isBound()) {
+            while(running && socket.isBound()) {
                 try {
                     Thread.sleep(5000);
-                    sctpService.createHeartBeat().ifPresent(beat -> {
+                    sctp.createHeartBeat().ifPresent(beat -> {
                         logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
                         processPool.submit(() ->
                                 putDataOnWire(beat.getPayload())
@@ -173,10 +190,10 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
          * TODO remove not needed anymore
          */
         this.reSender = () -> {
-            while(running && channel.isBound() && !channel.isClosed()) {
+            while(running && socket.isBound() && !socket.isClosed()) {
                 try {
                     Thread.sleep(1000);
-                    List<WireRepresentation> msgs = sctpService.getMessagesForResend();
+                    List<WireRepresentation> msgs = sctp.getMessagesForResend();
                     if (!msgs.isEmpty()) {
                         msgs.forEach(i ->
                                 {
@@ -205,31 +222,31 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public void run() {
 
         logger.info("Started listening to port: " + port);
-        while(running && channel.isBound()) {
+        while(running && socket.isBound()) {
 
             byte[] bt = new byte[DEFAULT_BUFFER_SIZE];
 
                 try {
                     if (mode == ConnectionMode.BINDING) {
-                        logger.info("Listening for binding on: " + channel.getLocalSocketAddress() + " - " + channel.getPort());
+                        logger.info("Listening for binding on: " + socket.getLocalSocketAddress() + " - " + socket.getPort());
                         Thread.sleep(5); //No reason to hammer on this
 
                         DatagramPacket packet = new DatagramPacket(bt, 0, bt.length);
-                        channel.receive(packet);
+                        socket.receive(packet);
                         SocketAddress currentSender = packet.getSocketAddress();
 
                         sender = currentSender;
                         byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
-                        logger.info("Received data: " + Hex.encodeHexString(data) + " on " + channel.getLocalSocketAddress() + " - " + channel.getPort());
+                        logger.info("Received data: " + Hex.encodeHexString(data) + " on " + socket.getLocalSocketAddress() + " - " + socket.getPort());
 
-                        if(parent.getRemote() == null) {
+                        if(this.remoteDescription == null) {
                             throw new IllegalArgumentException("No user data set for remote user");
                         }
 
                         byte[] out = bindingService.processBindingRequest(
                                 data,
-                                parent.getLocal().getUserName(),
-                                parent.getLocal().getPassword(),
+                                localUser.getUserName(),
+                                localUser.getPassword(),
                                 (InetSocketAddress) currentSender
                         );
 
@@ -238,7 +255,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
                         DatagramPacket pc = new DatagramPacket(out, 0, out.length);
                         pc.setSocketAddress(sender);
-                        channel.send(pc);
+                        socket.send(pc);
 
                         this.mode = ConnectionMode.HANDSHAKE; //Go to handshake mode
                         logger.info("-> DTLS handshake");
@@ -247,19 +264,19 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                         Thread.sleep(5);
 
                         if(transport == null) {
-                            channel.connect(sender);
+                            socket.connect(sender);
 
                             logger.info("Connecting DTLS mux");
                             /*
                              * {@link NioUdpTransport} might replace the {@link UDPTransport} here.
                              * @see <a href="https://github.com/RestComm/mediaserver/blob/master/io/rtp/src/main/java/org/mobicents/media/server/impl/srtp/NioUdpTransport.java">NioUdpTransport</a>
                              */
-                            //DatagramTransport udpTransport = new UDPTransport(channel, DEFAULT_MTU);
-                            DtlsMuxStunTransport muxStunTransport = new DtlsMuxStunTransport(parent,channel, DEFAULT_MTU);
+                            //DatagramTransport udpTransport = new UDPTransport(socket, DEFAULT_MTU);
+                            DtlsMuxStunTransport muxStunTransport = new DtlsMuxStunTransport(localUser, socket, DEFAULT_MTU);
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
-                        sctpService = new SCTPImpl(this);
+                        sctp = new SCTPImpl(this);
                         mode = ConnectionMode.TRANSFER;
                         logger.info("-> SCTP mode");
                     }
@@ -276,7 +293,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                             byte[] handled = Arrays.copyOf(buf, length);
                             processPool.submit(() -> {
                                 try {
-                                    List<WireRepresentation> data = sctpService.handleRequest(handled);
+                                    List<WireRepresentation> data = sctp.handleRequest(handled);
                                     data.forEach(i->putDataOnWire(i.getPayload()));
                                 } catch (Exception e) {
                                     logger.error("Failed handling message: ", e);
@@ -289,7 +306,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                 catch (Exception e) {
                     logger.error("Com error:",e);
                     logger.info("Shutting down, we cannot continue here");
-                    running = false; //Need to quit channel now
+                    running = false; //Need to quit socket now
                 }
         }
 
@@ -369,13 +386,13 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
             /*
              * Payload can be fragmented if more then 1024 bytes
              */
-            List<WireRepresentation> out = sctpService.bufferForSending(data, ppid,0);
+            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,0);
             processPool.submit(() ->
                 out.forEach(i->putDataOnWire(i.getPayload()))
             );
         }
         else {
-            logger.error("Data {} not sent, channel not open",Hex.encodeHex(data));
+            logger.error("Data {} not sent, socket not open",Hex.encodeHex(data));
         }
     }
 
@@ -403,7 +420,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
     public InetSocketAddress getLocalAddress() {
-        return  (InetSocketAddress) channel.getLocalSocketAddress();
+        return  (InetSocketAddress) socket.getLocalSocketAddress();
     }
 
 
@@ -491,6 +508,15 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     public void setOnError(BiConsumer<DataChannel, ErrorEvent> onError) {
         this.onError = onError;
+    }
+
+    /**
+     * @return A local user with randomly generated username and password.
+     */
+    private UserData createLocalUser() {
+        String myUser = Hex.encodeHexString(SignalUtil.randomBytes(4));
+        String myPass = Hex.encodeHexString(SignalUtil.randomBytes(16));
+        return new UserData(myUser,myPass);
     }
 
 }

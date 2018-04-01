@@ -30,12 +30,13 @@ import java.io.File;
 public class BrowserTestChrome {
 
     @Test
-    public void testFull() throws Exception {
+    public void testOpen() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        SimpleSignalingExample.main();
+        CamelContext ctx = SimpleSignalingExample.camelContext();
+        ctx.start();
 
         File fl = new File(".././web/index.html");
 
@@ -53,6 +54,7 @@ public class BrowserTestChrome {
         );
 
         driver.quit();
+        ctx.stop();
 
     }
 
