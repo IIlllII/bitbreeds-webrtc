@@ -1,6 +1,8 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.*;
+import com.bitbreeds.webrtc.model.webrtc.*;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.buffer.*;
 import com.bitbreeds.webrtc.sctp.impl.model.*;
 import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
@@ -44,7 +46,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * TODO implement shutdown messages
  * TODO implement JMX hooks, so transfer parameters can be adjusted at runtime
  *
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
  */
 public class SCTPImpl implements SCTP  {
@@ -62,7 +64,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * The impl access to write data to the socket
      */
-    private final ConnectionInternalApi writer;
+    private final ConnectionInternalApi connection;
 
     private final ReceiveBuffer receiveBuffer =  new ReceiveBuffer(1000,localBufferSize);
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
@@ -77,10 +79,10 @@ public class SCTPImpl implements SCTP  {
 
     /**
      *
-     * @param writer interface to socket
+     * @param connection interface to socket
      */
-    public SCTPImpl(ConnectionInternalApi writer) {
-        this.writer = writer;
+    public SCTPImpl(ConnectionInternalApi connection) {
+        this.connection = connection;
     }
 
     /**
@@ -139,7 +141,7 @@ public class SCTPImpl implements SCTP  {
      * @param data payload to send
      * @return messages to send now
      */
-    public List<WireRepresentation> bufferForSending(byte[] data,SCTPPayloadProtocolId ppid,Integer stream) {
+    public List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId ppid, Integer stream) {
         List<SendData> messages = payloadCreator.createPayloadMessage(
                 data,ppid,
                 SCTPUtil.baseHeader(context),
@@ -233,7 +235,7 @@ public class SCTPImpl implements SCTP  {
      * Run the open callback
      */
     protected void runOpen() {
-        this.writer.runOpen();
+        this.connection.runOpen();
     }
 
     /**
@@ -245,40 +247,19 @@ public class SCTPImpl implements SCTP  {
         /*
          * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
          */
-        if(parameters == null && data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
+        if(data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
             final byte[] msgData = data.getPayload();
             DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
 
             if(DataChannelMessageType.OPEN.equals(msg)) {
 
-                logger.debug("Received open: "+ Hex.encodeHexString(msgData));
-                DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
-                DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
-                        copyRange(msgData,new ByteRange(2,4))));
-                int relParam = intFromFourBytes( copyRange(msgData,new ByteRange(4,8) ));
-                int labelLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(8,10)));
-                int protocolLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(10,12)));
-                byte[] label = SignalUtil.copyRange(msgData,new ByteRange(12,12+labelLength));
-                byte[] protocol = SignalUtil.copyRange(msgData,
-                        new ByteRange(12+labelLength,12+labelLength+protocolLength));
-
-                /*
-                 * Store params
-                 */
-                parameters = new ReliabilityParameters(
-                        relParam,
-                        type,
-                        priority,
-                        label,
-                        protocol);
-
-                logger.info("Updated channel with parameters: " + parameters);
+                openDataChannel(data);
 
                 /*
                  * Send ack and do not process anymore
                  */
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
-                this.writer.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
+                this.connection.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
 
                 logger.debug("Sending ack: "+ Hex.encodeHexString(ack));
             }
@@ -304,6 +285,37 @@ public class SCTPImpl implements SCTP  {
     }
 
 
+    private void openDataChannel(ReceivedData data) {
+        byte[] msgData = data.getPayload();
+
+        logger.debug("Received open: "+ Hex.encodeHexString(msgData));
+        DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
+        DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
+                copyRange(msgData,new ByteRange(2,4))));
+        int relParam = intFromFourBytes( copyRange(msgData,new ByteRange(4,8) ));
+        int labelLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(8,10)));
+        int protocolLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(10,12)));
+        byte[] label = SignalUtil.copyRange(msgData,new ByteRange(12,12+labelLength));
+        byte[] protocol = SignalUtil.copyRange(msgData,
+                new ByteRange(12+labelLength,12+labelLength+protocolLength));
+
+        /*
+         * Store params
+         */
+        parameters = new ReliabilityParameters(
+                relParam,
+                type,
+                priority,
+                label,
+                protocol);
+
+        logger.info("Updated channel with parameters: " + parameters);
+
+        //connection.onDataChannel();
+    }
+
+
+
     /**
      * Print relevant monitoring and debugging data
      */
@@ -323,6 +335,6 @@ public class SCTPImpl implements SCTP  {
 
     @Override
     public ConnectionInternalApi getDataChannel() {
-        return writer;
+        return connection;
     }
 }

@@ -1,7 +1,8 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.model.webrtc;
+
 
 /**
- * Copyright (c) 29/06/16, Jonas Waage
+ * Copyright (c) 01/03/2017, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,18 +17,23 @@ package com.bitbreeds.webrtc.common;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 /**
- * Holds a DataChannel error
+ * The DataChannel interface for user of the peerConnection
  */
-public class ErrorEvent {
+public interface DataChannel {
 
-    private final Exception error;
+    void send(byte[] data);
 
-    public ErrorEvent(Exception error) {
-        this.error = error;
-    }
+    void send(String data);
 
-    public Exception getError() {
-        return error;
-    }
+    void setOnOpen(Consumer<DataChannel> onOpen);
+
+    void setOnMessage(BiConsumer<DataChannel, MessageEvent> onMessage);
+
+    void setOnError(BiConsumer<DataChannel, ErrorEvent> onError);
+
 }

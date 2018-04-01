@@ -1,8 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.ByteRange;
-import com.bitbreeds.webrtc.common.GapAck;
-import com.bitbreeds.webrtc.common.SackUtil;
+import com.bitbreeds.webrtc.model.sctp.GapAck;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.model.*;

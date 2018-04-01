@@ -1,9 +1,9 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.model.webrtc;
 
-import java.util.Objects;
+import java.net.SocketAddress;
 
 /**
- * Copyright (c) 03/03/2018, Jonas Waage
+ * Copyright (c) 29/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -17,39 +17,26 @@ import java.util.Objects;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class GapAck {
-    public final long start;
-    public final long end;
 
-    public GapAck(long start, long end) {
-        this.start = start;
-        this.end = end;
+/**
+ * Holds a peerconnection message
+ */
+public class MessageEvent {
+
+    private final byte[] data;
+    private final SocketAddress origin;
+
+    public MessageEvent(byte[] data, SocketAddress origin) {
+        this.data = data;
+        this.origin = origin;
     }
 
-    public boolean inRange(long l) {
-        return l >= start && l<=end;
+    public byte[] getData() {
+        return data;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        GapAck gapAck = (GapAck) o;
-        return start == gapAck.start &&
-                end == gapAck.end;
+    public SocketAddress getOrigin() {
+        return origin;
     }
 
-    @Override
-    public int hashCode() {
-
-        return Objects.hash(start, end);
-    }
-
-    @Override
-    public String toString() {
-        return "GapAck{" +
-                "start=" + start +
-                ", end=" + end +
-                '}';
-    }
 }

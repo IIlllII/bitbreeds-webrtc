@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.common.GapAck;
+import com.bitbreeds.webrtc.model.sctp.GapAck;
 import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  * - Ensure resend if message is never acked
  *
  *
- * TODO count buffered on each datachannel, not just the connection.
+ * TODO count buffered on each peerconnection, not just the connection.
  *
  */
 public class SendBuffer {

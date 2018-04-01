@@ -1,10 +1,11 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.model.sctp;
+
+import com.bitbreeds.webrtc.model.sctp.GapAck;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Copyright (c) 07/06/16, Jonas Waage

@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.ConnectionInternalApi;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 
 import java.util.Collections;

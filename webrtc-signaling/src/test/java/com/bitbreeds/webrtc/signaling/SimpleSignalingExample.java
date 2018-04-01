@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
-import com.bitbreeds.webrtc.common.DataChannel;
+import com.bitbreeds.webrtc.model.webrtc.DataChannel;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;

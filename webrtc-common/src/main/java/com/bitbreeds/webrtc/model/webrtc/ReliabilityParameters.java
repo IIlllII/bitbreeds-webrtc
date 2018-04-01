@@ -1,4 +1,4 @@
-package com.bitbreeds.webrtc.sctp.impl.model;
+package com.bitbreeds.webrtc.model.webrtc;
 
 /**
  * Copyright (c) 13/07/16, Jonas Waage
@@ -17,12 +17,10 @@ package com.bitbreeds.webrtc.sctp.impl.model;
  */
 
 
-import com.bitbreeds.webrtc.sctp.impl.model.DataChannelPriority;
-import com.bitbreeds.webrtc.sctp.impl.model.DataChannelType;
 import org.apache.commons.codec.binary.Hex;
 
 /**
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  */
 public class ReliabilityParameters {
 

@@ -5,7 +5,7 @@ import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
 import com.bitbreeds.webrtc.sctp.model.SCTPHeader;
 import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

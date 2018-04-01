@@ -1,6 +1,4 @@
-package com.bitbreeds.webrtc.common;
-
-import java.net.SocketAddress;
+package com.bitbreeds.webrtc.model.webrtc;
 
 /**
  * Copyright (c) 29/06/16, Jonas Waage
@@ -19,24 +17,17 @@ import java.net.SocketAddress;
  */
 
 /**
- * Holds a datachannel message
+ * Holds a DataChannel error
  */
-public class MessageEvent {
+public class ErrorEvent {
 
-    private final byte[] data;
-    private final SocketAddress origin;
+    private final Exception error;
 
-    public MessageEvent(byte[] data, SocketAddress origin) {
-        this.data = data;
-        this.origin = origin;
+    public ErrorEvent(Exception error) {
+        this.error = error;
     }
 
-    public byte[] getData() {
-        return data;
+    public Exception getError() {
+        return error;
     }
-
-    public SocketAddress getOrigin() {
-        return origin;
-    }
-
 }

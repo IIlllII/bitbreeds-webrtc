@@ -1,7 +1,8 @@
-package com.bitbreeds.webrtc.sctp.impl.model;
+package com.bitbreeds.webrtc.model.webrtc;
+
 
 /**
- * Copyright (c) 13/07/16, Jonas Waage
+ * Copyright (c) 01/03/2017, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -17,33 +18,31 @@ package com.bitbreeds.webrtc.sctp.impl.model;
  */
 
 
-import java.util.Arrays;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 
 /**
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-5.1">WebRTC Datachannel spec</a>
+ * The DataChannel interface that SCTP will use
  */
-public enum DataChannelType {
+public interface ConnectionInternalApi {
 
-    DATA_CHANNEL_RELIABLE(0x00),
-    DATA_CHANNEL_RELIABLE_UNORDERED(0x80),
-    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01),
-    DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81),
-    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02),
-    DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82);
+    void runOpen();
 
-    private final int type;
+    void runOnMessageUnordered(byte[] data);
 
-    DataChannelType(int type) {
-        this.type = type;
-    }
+    void runOnMessageOrdered(byte[] data);
 
-    public int getType() {
-        return type;
-    }
+    void runOnError(final Exception err);
 
-    public static DataChannelType fromInt(int bt) {
-        return Arrays.stream(values())
-                .filter(i -> i.type == bt)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown datachannel type"));
-    }
+    void send(byte[] data);
+
+    void send(byte[] data, SCTPPayloadProtocolId id);
+
+    void send(String data);
+
+    void putDataOnWire(byte[] data);
+
+    int getPort();
+
+    void onDataChannel(DataChannel dataChannel);
+
 }

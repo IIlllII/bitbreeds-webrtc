@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.common.SackUtil;
+import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 

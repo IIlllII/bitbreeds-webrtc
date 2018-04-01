@@ -1,4 +1,4 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.model.sctp;
 
 /**
  * Copyright (c) 10/07/16, Jonas Waage

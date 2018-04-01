@@ -1,11 +1,12 @@
 package com.bitbreeds.webrtc.common;
 
+import com.bitbreeds.webrtc.model.sctp.GapAck;
 import org.junit.Test;
 
 import java.util.HashSet;
 import java.util.List;
 
-import static com.bitbreeds.webrtc.common.SackUtil.getGapAckList;
+import static com.bitbreeds.webrtc.model.sctp.SackUtil.getGapAckList;
 import static org.junit.Assert.assertEquals;
 
 /**

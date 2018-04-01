@@ -1,8 +1,8 @@
 package com.bitbreeds.webrtc.signaling;
 
-import com.bitbreeds.webrtc.common.ConnectionInternalApi;
-import com.bitbreeds.webrtc.common.DataChannel;
-import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
+import com.bitbreeds.webrtc.model.webrtc.DataChannel;
+import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import org.pcollections.ConsPStack;

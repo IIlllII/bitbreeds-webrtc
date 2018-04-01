@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.sctp.messaging;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.model.CRC32c;
 import com.bitbreeds.webrtc.sctp.impl.SCTPContext;

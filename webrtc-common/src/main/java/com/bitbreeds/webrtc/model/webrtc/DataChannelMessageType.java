@@ -1,4 +1,4 @@
-package com.bitbreeds.webrtc.sctp.impl.model;
+package com.bitbreeds.webrtc.model.webrtc;
 
 import java.util.Arrays;
 
@@ -17,26 +17,30 @@ import java.util.Arrays;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public enum DataChannelPriority {
 
-    NOT_SET(0),
-    BELOW_NORMAL(128),
-    NORMAL(256),
-    HIGH(512),
-    EXTRA_HIGH(1024);
 
-    private int priority;
-    DataChannelPriority(int priority) {
-        this.priority = priority;
+/**
+ *
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
+ *
+ */
+public enum DataChannelMessageType {
+
+    OPEN(0x03),
+    ACK(0x02);
+
+    private int type;
+    DataChannelMessageType(int priority) {
+        this.type = priority;
     }
 
-    public int getPriority() {
-        return priority;
+    public int getType() {
+        return type;
     }
 
-    public static DataChannelPriority fromInt(int bt) {
+    public static DataChannelMessageType fromInt(int bt) {
         return Arrays.stream(values())
-                .filter(i -> i.priority == bt)
-                .findFirst().orElse(NOT_SET);
+                .filter(i -> i.type == bt)
+                .findFirst().orElseThrow(()->new IllegalArgumentException("Not type with that number" + bt));
     }
 }

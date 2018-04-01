@@ -1,9 +1,14 @@
-package com.bitbreeds.webrtc.datachannel;
+package com.bitbreeds.webrtc.peerconnection;
 
 import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.dtls.DtlsMuxStunTransport;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
+import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
+import com.bitbreeds.webrtc.model.webrtc.DataChannel;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.model.webrtc.ErrorEvent;
+import com.bitbreeds.webrtc.model.webrtc.MessageEvent;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
@@ -52,7 +57,7 @@ import java.util.function.Consumer;
  * @see <a href=https://tools.ietf.org/html/rfc4960#section-3.3.1>SCTP</a>
  * @see <a href=https://github.com/bcgit/bc-java/blob/adecd89d33edf278a5c601af2de696f0a6f65251/core/src/test/java/org/bouncycastle/crypto/tls/test/DTLSServerTest.java> tls server </a>
  * @see <a href=http://stackoverflow.com/questions/18065170/how-do-i-do-tls-with-bouncycastle> tls server </a>
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
  * An implementation of a webrtc peer connection.
  *
@@ -66,6 +71,7 @@ import java.util.function.Consumer;
  *
  */
 public class ConnectionImplementation implements Runnable,DataChannel,ConnectionInternalApi {
+
 
     enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
 
@@ -108,7 +114,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public Consumer<DataChannel> onOpen = (i) -> {};
     public BiConsumer<DataChannel,MessageEvent> onMessage = (i, j) -> {};
     public BiConsumer<DataChannel,ErrorEvent> onError = (i, j)-> {};
-
 
     private final UserData localUser = createLocalUser();
 
@@ -371,7 +376,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
      */
     @Override
     public void send(byte[] data) {
-        send(data,SCTPPayloadProtocolId.WEBRTC_STRING);
+        send(data, SCTPPayloadProtocolId.WEBRTC_STRING);
     }
 
 
@@ -485,7 +490,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
     /**
-     * Remote requested opening of a datachannel
+     * Remote requested opening of a peerconnection
      */
     public Consumer<DataChannelEvent> onDataChannel = (event) -> { };
 
@@ -495,6 +500,11 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     public int getPort() {
         return port;
+    }
+
+    @Override
+    public void onDataChannel(DataChannel dataChannel) {
+
     }
 
 
@@ -509,6 +519,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public void setOnError(BiConsumer<DataChannel, ErrorEvent> onError) {
         this.onError = onError;
     }
+
 
     /**
      * @return A local user with randomly generated username and password.

@@ -18,7 +18,7 @@ package com.bitbreeds.webrtc.sctp.impl.model;
 
 import com.bitbreeds.webrtc.sctp.impl.util.TSNUtil;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
-import com.bitbreeds.webrtc.common.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 
 import java.util.Objects;
 

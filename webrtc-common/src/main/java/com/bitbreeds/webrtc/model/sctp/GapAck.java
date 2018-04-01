@@ -1,8 +1,9 @@
-package com.bitbreeds.webrtc.common;
+package com.bitbreeds.webrtc.model.sctp;
 
+import java.util.Objects;
 
 /**
- * Copyright (c) 01/03/2017, Jonas Waage
+ * Copyright (c) 03/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,24 +17,39 @@ package com.bitbreeds.webrtc.common;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public class GapAck {
+    public final long start;
+    public final long end;
 
+    public GapAck(long start, long end) {
+        this.start = start;
+        this.end = end;
+    }
 
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+    public boolean inRange(long l) {
+        return l >= start && l<=end;
+    }
 
-/**
- * The DataChannel interface for user of the peerConnection
- */
-public interface DataChannel {
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        GapAck gapAck = (GapAck) o;
+        return start == gapAck.start &&
+                end == gapAck.end;
+    }
 
-    void send(byte[] data);
+    @Override
+    public int hashCode() {
 
-    void send(String data);
+        return Objects.hash(start, end);
+    }
 
-    void setOnOpen(Consumer<DataChannel> onOpen);
-
-    void setOnMessage(BiConsumer<DataChannel, MessageEvent> onMessage);
-
-    void setOnError(BiConsumer<DataChannel, ErrorEvent> onError);
-
+    @Override
+    public String toString() {
+        return "GapAck{" +
+                "start=" + start +
+                ", end=" + end +
+                '}';
+    }
 }

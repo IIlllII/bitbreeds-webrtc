@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.GapAck;
+import com.bitbreeds.webrtc.model.sctp.GapAck;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
@@ -34,7 +34,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * This class handles creation of SCTP sack
  *
  * @see <a hred="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP SACK spec</a>
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
  */
 public class SackCreator {

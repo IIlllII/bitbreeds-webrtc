@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
-import com.bitbreeds.webrtc.datachannel.ConnectionImplementation;
+import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 
 import java.io.IOException;
