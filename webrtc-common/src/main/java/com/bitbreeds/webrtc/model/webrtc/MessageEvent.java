@@ -19,7 +19,7 @@ import java.net.SocketAddress;
  */
 
 /**
- * Holds a peerconnection message
+ * Holds a DataChannel message
  */
 public class MessageEvent {
 

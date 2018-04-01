@@ -20,7 +20,7 @@ package com.bitbreeds.webrtc.model.webrtc;
 import org.apache.commons.codec.binary.Hex;
 
 /**
- * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
+ * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">datachannel spec</a>
  */
 public class ReliabilityParameters {
 

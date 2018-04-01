@@ -44,6 +44,6 @@ public enum DataChannelType {
     public static DataChannelType fromInt(int bt) {
         return Arrays.stream(values())
                 .filter(i -> i.type == bt)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown peerconnection type"));
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown DataChannel type"));
     }
 }
