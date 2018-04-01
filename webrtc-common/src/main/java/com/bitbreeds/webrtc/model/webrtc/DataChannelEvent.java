@@ -1,8 +1,7 @@
 package com.bitbreeds.webrtc.model.webrtc;
 
-
 /**
- * Copyright (c) 01/03/2017, Jonas Waage
+ * Copyright (c) 01/04/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,33 +15,14 @@ package com.bitbreeds.webrtc.model.webrtc;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+public class DataChannelEvent {
 
+    private final ReliabilityParameters reliabilityParameters;
 
-import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+    private final DataChannelEventHandler dataChannel;
 
-/**
- * The DataChannel interface that SCTP will use
- */
-public interface ConnectionInternalApi {
-
-    void runOpen();
-
-    void runOnMessageUnordered(byte[] data);
-
-    void runOnMessageOrdered(byte[] data);
-
-    void runOnError(final Exception err);
-
-    void send(byte[] data);
-
-    void send(byte[] data, SCTPPayloadProtocolId id);
-
-    void send(String data);
-
-    void putDataOnWire(byte[] data);
-
-    int getPort();
-
-    void onDataChannel(DataChannelEvent dataChannel);
-
+    public DataChannelEvent(ReliabilityParameters reliabilityParameters, DataChannelEventHandler dataChannel) {
+        this.reliabilityParameters = reliabilityParameters;
+        this.dataChannel = dataChannel;
+    }
 }

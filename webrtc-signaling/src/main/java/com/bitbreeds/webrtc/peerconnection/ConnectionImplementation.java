@@ -4,11 +4,9 @@ import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.dtls.DtlsMuxStunTransport;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
-import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
-import com.bitbreeds.webrtc.model.webrtc.DataChannel;
+import com.bitbreeds.webrtc.model.webrtc.*;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.model.webrtc.ErrorEvent;
-import com.bitbreeds.webrtc.model.webrtc.MessageEvent;
+import com.bitbreeds.webrtc.model.webrtc.DataChannelEvent;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
@@ -489,10 +487,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
         }
     }
 
-    /**
-     * Remote requested opening of a peerconnection
-     */
-    public Consumer<DataChannelEvent> onDataChannel = (event) -> { };
 
     public void setRunning(boolean running) {
         this.running = running;
@@ -503,7 +497,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
     @Override
-    public void onDataChannel(DataChannel dataChannel) {
+    public void onDataChannel(DataChannelEvent dataChannel) {
 
     }
 

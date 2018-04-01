@@ -1,8 +1,7 @@
 package com.bitbreeds.webrtc.model.webrtc;
 
-
 /**
- * Copyright (c) 01/03/2017, Jonas Waage
+ * Copyright (c) 29/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -17,32 +16,12 @@ package com.bitbreeds.webrtc.model.webrtc;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
-
 /**
- * The DataChannel interface that SCTP will use
+ * Holds a DataChannel error
  */
-public interface ConnectionInternalApi {
+public class CloseEvent {
 
-    void runOpen();
+    public CloseEvent() {
 
-    void runOnMessageUnordered(byte[] data);
-
-    void runOnMessageOrdered(byte[] data);
-
-    void runOnError(final Exception err);
-
-    void send(byte[] data);
-
-    void send(byte[] data, SCTPPayloadProtocolId id);
-
-    void send(String data);
-
-    void putDataOnWire(byte[] data);
-
-    int getPort();
-
-    void onDataChannel(DataChannelEvent dataChannel);
-
+    }
 }

@@ -195,8 +195,8 @@ public class SCTPImpl implements SCTP  {
     public List<WireRepresentation> handleRequest(byte[] input) {
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.debug("Input Parsed: " + inFullMessage );
-        logger.debug("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
+        logger.info("Input Parsed: " + inFullMessage );
+        logger.info("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
@@ -247,7 +247,7 @@ public class SCTPImpl implements SCTP  {
         /*
          * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
          */
-        if(data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
+        if(parameters != null && data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
             final byte[] msgData = data.getPayload();
             DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
 
@@ -311,7 +311,7 @@ public class SCTPImpl implements SCTP  {
 
         logger.info("Updated channel with parameters: " + parameters);
 
-        //connection.onDataChannel();
+        connection.onDataChannel(new DataChannelEvent(parameters,new DataChannelEventHandler()));
     }
 
 
