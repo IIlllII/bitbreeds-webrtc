@@ -118,7 +118,7 @@ public class SDPUtil {
             media.setAttribute("sendrecv ","");
             media.setAttribute("mid",mid);
             //Type of channel and amount of streams
-            media.setAttribute("sctpmap","5000 webrtc-peerconnection 256");
+            media.setAttribute("sctpmap","5000 webrtc-datachannel 256");
             return media;
         }
         catch (SdpException e) {
