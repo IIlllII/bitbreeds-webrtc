@@ -2,6 +2,8 @@ package com.bitbreeds.webrtc.signaling;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.camel.CamelContext;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -28,6 +30,19 @@ import java.io.File;
  */
 public class BrowserTestFirefox {
 
+    WebDriver driver;
+
+    @Before
+    public void setup() {
+        WebDriverManager.firefoxdriver().setup();
+        driver = new FirefoxDriver();
+    }
+
+    @After
+    public void tearDown() {
+        driver.quit();
+    }
+
     @Test
     public void testOpen() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
@@ -41,8 +56,6 @@ public class BrowserTestFirefox {
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
-        WebDriverManager.firefoxdriver().setup();
-        WebDriver driver = new FirefoxDriver();
         driver.get(url);
 
         (new WebDriverWait(driver, 20)).until(
@@ -52,9 +65,7 @@ public class BrowserTestFirefox {
                 }
         );
 
-        driver.quit();
         ctx.stop();
-
     }
 
 
@@ -71,8 +82,6 @@ public class BrowserTestFirefox {
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
-        WebDriverManager.firefoxdriver().setup();
-        WebDriver driver = new FirefoxDriver();
         driver.get(url);
 
         (new WebDriverWait(driver, 20)).until(
@@ -82,10 +91,7 @@ public class BrowserTestFirefox {
                 }
         );
 
-        driver.quit();
-
         ctx.stop();
-
     }
 
 

@@ -2,6 +2,8 @@ package com.bitbreeds.webrtc.signaling;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.camel.CamelContext;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -29,6 +31,21 @@ import java.io.File;
  */
 public class BrowserTestChrome {
 
+    private WebDriver driver;
+
+    @Before
+    public void setupDriver() {
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+    }
+
+    @After
+    public void tearDown() {
+        driver.close();
+        driver.quit();
+    }
+
+
     @Test
     public void testOpen() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
@@ -42,8 +59,6 @@ public class BrowserTestChrome {
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
-        WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver();
         driver.get(url);
 
         (new WebDriverWait(driver, 20)).until(
@@ -53,9 +68,7 @@ public class BrowserTestChrome {
                 }
         );
 
-        driver.quit();
         ctx.stop();
-
     }
 
     @Test
@@ -71,8 +84,6 @@ public class BrowserTestChrome {
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
-        WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver();
         driver.get(url);
 
         (new WebDriverWait(driver, 20)).until(
@@ -82,10 +93,7 @@ public class BrowserTestChrome {
                 }
         );
 
-        driver.quit();
-
         ctx.stop();
-
     }
 
 
