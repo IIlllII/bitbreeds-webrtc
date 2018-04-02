@@ -55,7 +55,7 @@ public class PayloadHandler implements MessageHandler {
 
         ReceivedData storage = new ReceivedData(tsn,streamId,sequence,data.getFlags(),ppid,data.getRest());
 
-        handler.runOnMessage(storage);
+        handler.handleSctpPayload(storage);
 
         return Optional.empty();
     }

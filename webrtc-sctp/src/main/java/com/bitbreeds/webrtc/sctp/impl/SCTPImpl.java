@@ -239,89 +239,28 @@ public class SCTPImpl implements SCTP  {
     }
 
     /**
-     * Run the onMessage callback
-     * @param data input to callback
+     * Handles reception of a payload
+     *
+     * @param data payload representation
      */
-    void runOnMessage(ReceivedData data) {
+    void handleSctpPayload(ReceivedData data) {
 
-        /*
-         * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
-         */
-        if(parameters != null && data.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
-            final byte[] msgData = data.getPayload();
-            DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
+        Objects.requireNonNull(data);
 
-            if(DataChannelMessageType.OPEN.equals(msg)) {
+        logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence());
+        logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
+        logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-                openDataChannel(data);
+        receiveBuffer.store(data);
+        List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
+        deliverables.forEach(
+                i -> getDataChannel().handleMessage(i)
+        );
+        createSackMessage().ifPresent(i ->
+                getDataChannel().putDataOnWire(i.getPayload())
+        );
 
-                /*
-                 * Send ack and do not process anymore
-                 */
-                byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
-                this.connection.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP);
-                List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
-                deliverables.forEach(
-                        i -> getDataChannel().runOnMessageUnordered(i.getData())
-                );
-
-                logger.debug("Sending ack: "+ Hex.encodeHexString(ack));
-            }
-            else {
-                throw new IllegalArgumentException("PPID " +SCTPPayloadProtocolId.WEBRTC_DCEP + " should be sent with " + DataChannelMessageType.OPEN);
-            }
-        } else {
-            logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence());
-            logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
-            logger.trace("Data as string: " + new String(data.getPayload()) + ":");
-
-            Objects.requireNonNull(data);
-
-            receiveBuffer.store(data);
-            List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
-            deliverables.forEach(
-                    i -> getDataChannel().runOnMessageUnordered(i.getData())
-            );
-            createSackMessage().ifPresent(i ->
-                    getDataChannel().putDataOnWire(i.getPayload())
-            );
-        }
     }
-
-
-    private void openDataChannel(ReceivedData data) {
-        byte[] msgData = data.getPayload();
-
-        logger.debug("Received open: "+ Hex.encodeHexString(msgData));
-        DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
-        DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
-                copyRange(msgData,new ByteRange(2,4))));
-        int relParam = intFromFourBytes( copyRange(msgData,new ByteRange(4,8) ));
-        int labelLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(8,10)));
-        int protocolLength = SignalUtil.intFromTwoBytes(copyRange(msgData,new ByteRange(10,12)));
-        byte[] label = SignalUtil.copyRange(msgData,new ByteRange(12,12+labelLength));
-        byte[] protocol = SignalUtil.copyRange(msgData,
-                new ByteRange(12+labelLength,12+labelLength+protocolLength));
-
-        /*
-         * Store params
-         */
-        this.parameters = new ReliabilityParameters(
-                relParam,
-                type,
-                priority,
-                label,
-                protocol);
-
-        logger.info("Updated channel with parameters: " + parameters);
-
-        connection.onDataChannel(new DataChannelDefinition(
-                data.getStreamId(),
-                parameters,
-                new DataChannelEventHandler()));
-    }
-
-
 
     /**
      * Print relevant monitoring and debugging data

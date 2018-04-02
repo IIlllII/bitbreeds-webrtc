@@ -376,7 +376,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
      */
     @Override
     public void send(byte[] data) {
-        send(data, SCTPPayloadProtocolId.WEBRTC_STRING);
+        send(data, SCTPPayloadProtocolId.WEBRTC_STRING,dataChannels.values().stream().findFirst().map(i->i.getStreamId()).orElse(0));
     }
 
 
@@ -386,12 +386,12 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
      * @param data bytes to send
      */
     @Override
-    public void send(byte[] data,SCTPPayloadProtocolId ppid) {
+    public void send(byte[] data,SCTPPayloadProtocolId ppid,int streamId) {
         if(mode == ConnectionMode.TRANSFER && running) {
             /*
              * Payload can be fragmented if more then 1024 bytes
              */
-            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,0);
+            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,streamId);
             processPool.submit(() ->
                 out.forEach(i->putDataOnWire(i.getPayload()))
             );
@@ -464,6 +464,10 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
 
+    /**
+     *
+     * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
+     */
     @Override
     public void handleMessage(Deliverable deliverable) {
         DataChannelDefinition definition = dataChannels.get(deliverable.getStreamId());
@@ -472,6 +476,9 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
             byte[] msgData = deliverable.getData();
             DataChannelMessageType msg = DataChannelMessageType.fromInt(unsign(msgData[0]));
             if(DataChannelMessageType.OPEN.equals(msg)) {
+                if(definition != null) {
+                    return; //Already open data channel, unsure how to handle
+                }
 
                 logger.debug("Received open: " + Hex.encodeHexString(msgData));
                 DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
@@ -491,6 +498,12 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                         label,
                         protocol);
 
+                /*
+                 * Send ack
+                 */
+                byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
+                this.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP,deliverable.getStreamId());
+
                 DataChannelDefinition nuDef = new DataChannelDefinition(deliverable.getStreamId(), parameters, new DataChannelEventHandler());
 
                 /*
@@ -506,8 +519,10 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                  * Run user callback
                  */
                 nuDef.getDataChannel().onOpen.accept(new OpenEvent());
-            }
 
+            } else {
+                throw new IllegalArgumentException("PPID " +SCTPPayloadProtocolId.WEBRTC_DCEP + " should be sent with " + DataChannelMessageType.OPEN);
+            }
         } else {
             if(definition != null) {
                 workPool.submit(() -> {

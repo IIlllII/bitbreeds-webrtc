@@ -37,7 +37,7 @@ public interface ConnectionInternalApi {
 
     void send(byte[] data);
 
-    void send(byte[] data, SCTPPayloadProtocolId id);
+    void send(byte[] data, SCTPPayloadProtocolId id, int streamId);
 
     void send(String data);
 

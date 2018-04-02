@@ -99,7 +99,7 @@ public class ReceiveBuffer {
         synchronized (lock) {
             this.cumulativeTSN = initialTSN;
             this.maxReceivedTSN = initialTSN;
-            this.lowestDelivered = initialTSN;
+            this.lowestDelivered = initialTSN-1;
             this.initialReceived = true;
         }
     }
@@ -224,7 +224,7 @@ public class ReceiveBuffer {
      */
     private boolean nextInStream(ReceivedData ds) {
         Integer sq = orderedStreams.get(ds.getStreamId());
-        return sq == null || sq+1 == ds.getStreamSequence();
+        return (sq == null && ds.getStreamSequence() == 0) || (sq != null && sq == ds.getStreamSequence());
     }
 
     /*
@@ -235,7 +235,7 @@ public class ReceiveBuffer {
     private Optional<Deliverable> receiveUnfragmentedBuffered(BufferedReceived buffered) {
         if(nextInStream(buffered.getData())) {
             setBuffered(buffered.getData().getTSN(), buffered.deliver());
-            orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence());
+            orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence()+1);
             return Optional.of(new Deliverable(
                     buffered.getData().getPayload(),
                     1,
