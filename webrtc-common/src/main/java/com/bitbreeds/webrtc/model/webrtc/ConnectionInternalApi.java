@@ -45,6 +45,4 @@ public interface ConnectionInternalApi {
 
     int getPort();
 
-    void onDataChannel(DataChannelDefinition dataChannel);
-
 }

@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.model.webrtc.DataChannel;
+import com.bitbreeds.webrtc.model.webrtc.DataChannelDefinition;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
@@ -47,6 +48,8 @@ public class SimplePeerServer {
     private ConcurrentHashMap<Integer,ConnectionInternalApi> connections = new ConcurrentHashMap<>();
     private final Object candidateMutex = new Object();
 
+    public Consumer<ConnectionImplementation> onConnection = (i) -> {};
+
     public Consumer<DataChannel> onDataChannel = (i) -> {};
 
     /**
@@ -88,14 +91,9 @@ public class SimplePeerServer {
         MediaDescription med = (MediaDescription)sdp.getMediaDescriptions(true).get(0);
         String pwd = med.getAttribute("ice-pwd");
         String user = med.getAttribute("ice-ufrag");
-
         String mid = med.getAttribute("mid");
 
         PeerDescription remotePeer = new PeerDescription(new UserData(user,pwd),mid,sdp);
-
-        String localAddress = InetAddress.getLocalHost().getHostAddress();
-        String address = System.getProperty("com.bitbreeds.ip",localAddress);
-        logger.info("Adr: {}", address);
 
         String fingerPrint = CertUtil.getCertFingerPrint(
                 keyStoreInfo.getFilePath(),
@@ -104,20 +102,12 @@ public class SimplePeerServer {
 
         ConnectionImplementation ds = new ConnectionImplementation(keyStoreInfo,remotePeer);
         onDataChannel.accept(ds);
+        onConnection.accept(ds);
         connections.put(ds.getPort(),ds);
         new Thread(ds).start();
 
-        /*
-         * Create candidate from connections
-         */
-        Random random = new Random();
-        int number = random.nextInt(1000000);
-        IceCandidate candidate = new IceCandidate(BigInteger.valueOf(number),ds.getPort(),address,2122252543L);
-
-        addLocalCandidate(candidate);
-
         SessionDescription answerSdp = SDPUtil.createSDP(
-                candidate,
+                ds.getIceCandidate(),
                 ds.getLocal().getUserName(),
                 ds.getLocal().getPassword(),
                 fingerPrint,

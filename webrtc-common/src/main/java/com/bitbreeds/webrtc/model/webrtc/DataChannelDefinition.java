@@ -1,7 +1,8 @@
 package com.bitbreeds.webrtc.model.webrtc;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+
+import java.util.function.Consumer;
 
 /**
  * Copyright (c) 01/04/2018, Jonas Waage
@@ -24,12 +25,28 @@ public class DataChannelDefinition {
 
     private final ReliabilityParameters reliabilityParameters;
 
-    private final DataChannelEventHandler dataChannel;
+    private final ConnectionInternalApi connection;
 
-    public DataChannelDefinition(int streamId, ReliabilityParameters reliabilityParameters, DataChannelEventHandler dataChannel) {
+    public DataChannelDefinition(ConnectionInternalApi connection,int streamId, ReliabilityParameters reliabilityParameters) {
         this.streamId = streamId;
         this.reliabilityParameters = reliabilityParameters;
-        this.dataChannel = dataChannel;
+        this.connection = connection;
+    }
+
+    public Consumer<MessageEvent> onMessage = (i)-> {};
+
+    public Consumer<ErrorEvent> onError = (i)->{};
+
+    public Consumer<CloseEvent> onClose = (i)->{};
+
+    public Consumer<OpenEvent> onOpen = (i)->{};
+
+    public void send(String data) {
+        connection.send(data.getBytes(), SCTPPayloadProtocolId.WEBRTC_STRING,streamId);
+    }
+
+    public void send(byte[] data) {
+        connection.send(data, SCTPPayloadProtocolId.WEBRTC_BINARY,streamId);
     }
 
     public int getStreamId() {
@@ -40,16 +57,12 @@ public class DataChannelDefinition {
         return reliabilityParameters;
     }
 
-    public DataChannelEventHandler getDataChannel() {
-        return dataChannel;
-    }
 
     @Override
     public String toString() {
         return "DataChannelDefinition{" +
                 "streamId=" + streamId +
                 ", reliabilityParameters=" + reliabilityParameters +
-                ", dataChannel=" + dataChannel +
                 '}';
     }
 }

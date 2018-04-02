@@ -99,6 +99,8 @@ public class SimpleSignalingExample {
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
+        setupPeerConnection(peerConnectionServer);
+
         peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
@@ -118,6 +120,8 @@ public class SimpleSignalingExample {
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
+        setupPeerConnection(peerConnectionServer);
+
         peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
@@ -127,6 +131,35 @@ public class SimpleSignalingExample {
         ctx.setUseMDCLogging(true);
         ctx.setTracing(true);
         return ctx;
+    }
+
+    private static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
+        peerConnectionServer.onConnection = (connection) -> {
+
+            connection.onDataChannelDefinition = (dataChannel) -> {
+
+                dataChannel.onOpen = (ev) -> {
+                    logger.info("Running onOpen");
+                    dataChannel.send("I'M SO OPEN!!!");
+                };
+
+                dataChannel.onMessage = (ev) -> {
+                    String in = new String(ev.getData());
+                    logger.debug("Running onMessage: " + in);
+                    dataChannel.send("echo-" + in);
+                };
+
+                dataChannel.onClose = (ev) -> {
+                    logger.info("Received close: {}", ev);
+                };
+
+                dataChannel.onError = (ev) -> {
+                    logger.info("Received error: {}", ev.getError());
+                };
+
+            };
+
+        };
     }
 
 

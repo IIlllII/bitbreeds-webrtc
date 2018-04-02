@@ -20,12 +20,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -105,8 +107,8 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final Runnable heartBeat;
-    private final Runnable reSender;
     private final Runnable monitor;
+    private final IceCandidate iceCandidate;
 
     private final LinkedBlockingQueue<byte[]> orderedQueue = new LinkedBlockingQueue<>();
     private final Runnable orderedReader;
@@ -119,6 +121,9 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     private final PeerDescription remoteDescription;
 
+    public Consumer<DataChannelDefinition> onDataChannelDefinition = (i)-> {};
+
+
     /**
      *
      * @return local userdata
@@ -126,6 +131,12 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public UserData getLocal() {
         return localUser;
     }
+
+    public IceCandidate getIceCandidate() {
+        return iceCandidate;
+    }
+
+
 
     public ConnectionImplementation(
             KeyStoreInfo keyStoreInfo,
@@ -140,6 +151,21 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
         this.port = socket.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
         this.mode = ConnectionMode.BINDING;
+
+        /*
+         * Get address which external system can reach
+         * TODO ensure this works
+         */
+        String localAddress = InetAddress.getLocalHost().getHostAddress();
+        String address = System.getProperty("com.bitbreeds.ip",localAddress);
+        logger.info("Adr: {}", address);
+
+        /*
+         * Create candidate from connections
+         */
+        Random random = new Random();
+        int number = random.nextInt(1000000);
+        this.iceCandidate = new IceCandidate(BigInteger.valueOf(number),this.port,address,2122252543L);
 
         this.orderedReader = () -> {
             while(running && socket.isBound()) {
@@ -189,36 +215,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
             }
         };
 
-
-        /*
-         * Resends non acknowledged sent messages
-         * TODO remove not needed anymore
-         */
-        this.reSender = () -> {
-            while(running && socket.isBound() && !socket.isClosed()) {
-                try {
-                    Thread.sleep(1000);
-                    List<WireRepresentation> msgs = sctp.getMessagesForResend();
-                    if (!msgs.isEmpty()) {
-                        msgs.forEach(i ->
-                                {
-                                    try {
-                                        Thread.sleep(1); //Sleep to let others work a bit
-                                        logger.debug("Resending data: " + Hex.encodeHexString(i.getPayload()));
-                                        processPool.submit(()-> {
-                                            putDataOnWire(i.getPayload());
-                                        });
-                                    } catch (InterruptedException e) {
-                                        logger.error("Resend error: ",e);
-                                    }
-                                }
-                        );
-                    }
-                } catch (Exception e) {
-                    logger.error("Resend error: ",e);
-                }
-            }
-        };
     }
 
 
@@ -504,12 +500,12 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
                 this.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP,deliverable.getStreamId());
 
-                DataChannelDefinition nuDef = new DataChannelDefinition(deliverable.getStreamId(), parameters, new DataChannelEventHandler());
+                DataChannelDefinition nuDef = new DataChannelDefinition(this,deliverable.getStreamId(), parameters);
 
                 /*
-                 * Allow user to specify handling
+                 * Allow user to hook in behavior when datachannel is created
                  */
-                onDataChannel(nuDef);
+                onDataChannelDefinition.accept(nuDef);
 
                 dataChannels.put(nuDef.getStreamId(), nuDef);
 
@@ -518,7 +514,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                 /*
                  * Run user callback
                  */
-                nuDef.getDataChannel().onOpen.accept(new OpenEvent());
+                nuDef.onOpen.accept(new OpenEvent());
 
             } else {
                 throw new IllegalArgumentException("PPID " +SCTPPayloadProtocolId.WEBRTC_DCEP + " should be sent with " + DataChannelMessageType.OPEN);
@@ -573,12 +569,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public int getPort() {
         return port;
     }
-
-    @Override
-    public void onDataChannel(DataChannelDefinition dataChannel) {
-
-    }
-
 
     public void setOnOpen(Consumer<DataChannel> onOpen) {
         this.onOpen = onOpen;
