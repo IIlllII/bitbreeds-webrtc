@@ -70,5 +70,5 @@ public interface SCTP {
      *
      * @return peerconnection
      */
-    ConnectionInternalApi getDataChannel();
+    ConnectionInternalApi getConnection();
 }

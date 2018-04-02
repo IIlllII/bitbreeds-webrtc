@@ -58,7 +58,7 @@ public class SCTPNoopImpl implements SCTP {
     public void runMonitoring() {}
 
     @Override
-    public ConnectionInternalApi getDataChannel() {
+    public ConnectionInternalApi getConnection() {
         return null;
     }
 }

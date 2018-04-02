@@ -21,7 +21,7 @@ package com.bitbreeds.webrtc.model.webrtc;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 
 /**
- * The DataChannel interface that SCTP will use
+ * The Connection interface that SCTP use internally
  */
 public interface ConnectionInternalApi {
 

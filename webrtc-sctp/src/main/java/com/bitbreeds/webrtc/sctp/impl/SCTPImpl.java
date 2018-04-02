@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.*;
 import com.bitbreeds.webrtc.model.webrtc.*;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.sctp.impl.buffer.*;
@@ -15,8 +14,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
 /*
  * Copyright (c) 19/05/16, Jonas Waage
@@ -52,8 +49,6 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
 public class SCTPImpl implements SCTP  {
 
     private static final Logger logger = LoggerFactory.getLogger(SCTPImpl.class);
-
-    private ReliabilityParameters parameters =  null;
 
     private static int DEFAULT_BUFFER_SIZE = 160000;
 
@@ -117,7 +112,7 @@ public class SCTPImpl implements SCTP  {
         sendBuffer.receiveSack(sackData);
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
         toSend.forEach(i ->
-                getDataChannel().putDataOnWire(i.getData().getSctpPayload())
+                getConnection().putDataOnWire(i.getData().getSctpPayload())
         );
     }
 
@@ -254,10 +249,10 @@ public class SCTPImpl implements SCTP  {
         receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         deliverables.forEach(
-                i -> getDataChannel().handleMessage(i)
+                i -> getConnection().handleMessage(i)
         );
         createSackMessage().ifPresent(i ->
-                getDataChannel().putDataOnWire(i.getPayload())
+                getConnection().putDataOnWire(i.getPayload())
         );
 
     }
@@ -280,7 +275,7 @@ public class SCTPImpl implements SCTP  {
     }
 
     @Override
-    public ConnectionInternalApi getDataChannel() {
+    public ConnectionInternalApi getConnection() {
         return connection;
     }
 }
