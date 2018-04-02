@@ -6,7 +6,7 @@ import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
 import com.bitbreeds.webrtc.model.webrtc.*;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.model.webrtc.DataChannelDefinition;
+import com.bitbreeds.webrtc.model.webrtc.DataChannel;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
@@ -31,7 +31,6 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
@@ -70,7 +69,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
  * This peerconnection supports creation ordered/unordered webrtc datachannels.
  *
  */
-public class ConnectionImplementation implements Runnable,DataChannel,ConnectionInternalApi {
+public class ConnectionImplementation implements Runnable,ConnectionInternalApi {
 
 
     enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
@@ -100,7 +99,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     private SocketAddress sender;
 
-    private final ConcurrentHashMap<Integer,DataChannelDefinition> dataChannels = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer,DataChannel> dataChannels = new ConcurrentHashMap<>();
 
     private final ExecutorService processPool = Executors.newFixedThreadPool(1);
     private final ExecutorService workPool = Executors.newFixedThreadPool(1);
@@ -110,24 +109,12 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     private final Runnable monitor;
     private final IceCandidate iceCandidate;
 
-    private final LinkedBlockingQueue<byte[]> orderedQueue = new LinkedBlockingQueue<>();
-    private final Runnable orderedReader;
-
-    public Consumer<DataChannel> onOpen = (i) -> {};
-    public BiConsumer<DataChannel,MessageEvent> onMessage = (i, j) -> {};
-    public BiConsumer<DataChannel,ErrorEvent> onError = (i, j)-> {};
-
     private final UserData localUser = createLocalUser();
 
     private final PeerDescription remoteDescription;
 
-    public Consumer<DataChannelDefinition> onDataChannelDefinition = (i)-> {};
+    public Consumer<DataChannel> onDataChannelDefinition = (i)-> {};
 
-
-    /**
-     *
-     * @return local userdata
-     */
     public UserData getLocal() {
         return localUser;
     }
@@ -135,7 +122,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     public IceCandidate getIceCandidate() {
         return iceCandidate;
     }
-
 
 
     public ConnectionImplementation(
@@ -162,27 +148,14 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
         /*
          * Create candidate from connections
+         * Todo random is weird
          */
         Random random = new Random();
         int number = random.nextInt(1000000);
         this.iceCandidate = new IceCandidate(BigInteger.valueOf(number),this.port,address,2122252543L);
 
-        this.orderedReader = () -> {
-            while(running && socket.isBound()) {
-                try {
-                    byte[] bytes = orderedQueue.poll(2, TimeUnit.SECONDS);
-                    if(bytes != null) {
-                        onMessage.accept(this,new MessageEvent(bytes,sender));
-                    }
-                }
-                catch (Exception e) {
-                    logger.error("Logging error",e);
-                }
-            }
-        };
-
         /*
-         * Print monitoring information
+         * Print monitoring information from connection
          */
         this.monitor = () -> {
             while(running && socket.isBound()) {
@@ -336,19 +309,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
     }
 
     /**
-     * Start the threads if not already started
-     */
-    private void startThreads() {
-        if(started.compareAndSet(false,true)) {
-            new Thread(heartBeat).start();
-            //new Thread(reSender).start();
-            new Thread(monitor).start();
-            new Thread(orderedReader).start();
-        }
-    }
-
-
-    /**
      * Data is sent as a SCTPMessage
      * @param data String in default charset
      */
@@ -420,45 +380,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
         }
     }
 
-    public InetSocketAddress getLocalAddress() {
-        return  (InetSocketAddress) socket.getLocalSocketAddress();
-    }
-
-
-    /**
-     * Trigger error handling
-     * @param err exception to handle
-     */
-    public void runOnError(final Exception err) {
-        workPool.submit(() -> {
-            try {
-                onError.accept(this,new ErrorEvent(err));
-            } catch (Exception e) {
-                logger.error("OnMessage failed",e);
-            }
-        });
-    }
-
-
-    /**
-     * Submit work based on onOpen
-     */
-    @Override
-     public void runOpen() {
-        /*
-         * TODO probably wrong place to do this
-         */
-        startThreads(); //On open we should also activate threads
-        logger.debug("Running onOpen callback");
-        workPool.submit(() -> {
-            try {
-                onOpen.accept(this);
-            } catch (Exception e) {
-                logger.error("OnOpen failed",e);
-            }
-        });
-    }
-
 
     /**
      *
@@ -466,7 +387,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
      */
     @Override
     public void handleMessage(Deliverable deliverable) {
-        DataChannelDefinition definition = dataChannels.get(deliverable.getStreamId());
+        DataChannel definition = dataChannels.get(deliverable.getStreamId());
 
         if (deliverable.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
             byte[] msgData = deliverable.getData();
@@ -500,7 +421,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
                 this.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP,deliverable.getStreamId());
 
-                DataChannelDefinition nuDef = new DataChannelDefinition(this,deliverable.getStreamId(), parameters);
+                DataChannel nuDef = new DataChannel(this,deliverable.getStreamId(), parameters);
 
                 /*
                  * Allow user to hook in behavior when datachannel is created
@@ -523,7 +444,7 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
             if(definition != null) {
                 workPool.submit(() -> {
                     try {
-                        onMessage.accept(this,new MessageEvent(deliverable.getData(),sender));
+                        definition.onMessage.accept(new MessageEvent(deliverable.getData(),sender));
                     } catch (Exception e) {
                         logger.error("OnMessage failed",e);
                     }
@@ -535,32 +456,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
         }
     }
 
-    /**
-     * Submit unordered messages
-     */
-    @Override
-    public void runOnMessageUnordered(final byte[] data) {
-        workPool.submit(() -> {
-            try {
-                onMessage.accept(this,new MessageEvent(data,sender));
-            } catch (Exception e) {
-                logger.error("OnMessage failed",e);
-            }
-        });
-    }
-
-    /**
-     * Submit ordered message
-     */
-    @Override
-    public void runOnMessageOrdered(final byte[] data) {
-        try {
-            orderedQueue.put(data);
-        } catch (Exception e) {
-            logger.error("OnMessage failed", e);
-        }
-    }
-
 
     public void setRunning(boolean running) {
         this.running = running;
@@ -568,18 +463,6 @@ public class ConnectionImplementation implements Runnable,DataChannel,Connection
 
     public int getPort() {
         return port;
-    }
-
-    public void setOnOpen(Consumer<DataChannel> onOpen) {
-        this.onOpen = onOpen;
-    }
-
-    public void setOnMessage(BiConsumer<DataChannel, MessageEvent> onMessage) {
-        this.onMessage = onMessage;
-    }
-
-    public void setOnError(BiConsumer<DataChannel, ErrorEvent> onError) {
-        this.onError = onError;
     }
 
 

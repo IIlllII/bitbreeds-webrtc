@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.signaling;
 
-import com.bitbreeds.webrtc.model.webrtc.DataChannel;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
@@ -69,23 +68,6 @@ public class SimpleSignalingExample {
             "websocket",
             "websocket");
 
-    private static void onDataChannel(DataChannel dataChannel) {
-        dataChannel.setOnOpen((channel -> {
-            logger.info("Running onOpen");
-            channel.send("I'M SO OPEN!!!");
-        }));
-
-        dataChannel.setOnMessage((channel, event) -> {
-            String in = new String(event.getData());
-            logger.debug("Running onMessage: " + in);
-            channel.send("echo-" + in);
-        });
-
-        dataChannel.setOnError((i, j) -> {
-            logger.info("Received error", j.getError());
-        });
-
-    }
 
     /**
      * Application entry point
@@ -100,8 +82,6 @@ public class SimpleSignalingExample {
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
         setupPeerConnection(peerConnectionServer);
-
-        peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
         ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));
@@ -122,7 +102,6 @@ public class SimpleSignalingExample {
 
         setupPeerConnection(peerConnectionServer);
 
-        peerConnectionServer.onDataChannel = SimpleSignalingExample::onDataChannel;
 
         CamelContext ctx = new DefaultCamelContext(reg);
         ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));

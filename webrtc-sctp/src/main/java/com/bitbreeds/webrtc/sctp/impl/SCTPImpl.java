@@ -226,12 +226,6 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-    /**
-     * Run the open callback
-     */
-    protected void runOpen() {
-        this.connection.runOpen();
-    }
 
     /**
      * Handles reception of a payload

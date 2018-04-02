@@ -51,7 +51,6 @@ public class CookieEchoHandler implements MessageHandler {
                 new byte[] {});
 
         SCTPMessage out = new SCTPMessage(hdr, Collections.singletonList(chunk));
-        handler.runOpen(); //Run open callback.
       return Optional.of(out);
     }
 

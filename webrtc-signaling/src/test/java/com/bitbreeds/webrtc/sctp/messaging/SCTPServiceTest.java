@@ -100,6 +100,9 @@ public class SCTPServiceTest {
     @Test
     public void doInput() throws DecoderException {
 
+        String inp = "1388138800000000699b219101000056eed2220b0002000001000800e36d1ec9c000000480080009c00fc180820000008002002440cbb942df677d367167427655856025aa291f084401663bb48624229a6b2e4b80040006000100008003000680c10000";
+        List<WireRepresentation> wr = srv.handleRequest(Hex.decodeHex(inp.toCharArray()));
+
         String dat = "138813887c42ba97c6c6f17800030023fe68433900000000000000320300000000000000000700006368616e6e656c00";
         List<WireRepresentation> wr2 = srv.handleRequest(Hex.decodeHex(dat.toCharArray()));
 

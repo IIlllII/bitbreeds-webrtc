@@ -25,15 +25,7 @@ import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
  */
 public interface ConnectionInternalApi {
 
-    void runOpen();
-
     void handleMessage(Deliverable deliverable);
-
-    void runOnMessageUnordered(byte[] data);
-
-    void runOnMessageOrdered(byte[] data);
-
-    void runOnError(final Exception err);
 
     void send(byte[] data);
 

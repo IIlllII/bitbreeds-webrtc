@@ -1,8 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
-import com.bitbreeds.webrtc.model.webrtc.DataChannel;
-import com.bitbreeds.webrtc.model.webrtc.DataChannelDefinition;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
@@ -12,8 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.sdp.MediaDescription;
 import javax.sdp.SessionDescription;
-import java.math.BigInteger;
-import java.net.InetAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -49,8 +45,6 @@ public class SimplePeerServer {
     private final Object candidateMutex = new Object();
 
     public Consumer<ConnectionImplementation> onConnection = (i) -> {};
-
-    public Consumer<DataChannel> onDataChannel = (i) -> {};
 
     /**
      * Server keystore for encryption
@@ -101,7 +95,6 @@ public class SimplePeerServer {
                 keyStoreInfo.getPassword());
 
         ConnectionImplementation ds = new ConnectionImplementation(keyStoreInfo,remotePeer);
-        onDataChannel.accept(ds);
         onConnection.accept(ds);
         connections.put(ds.getPort(),ds);
         new Thread(ds).start();
