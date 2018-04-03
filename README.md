@@ -2,7 +2,7 @@ bitbreeds-webrtc
 ----------------
 
 ### Goal
-The goal for bitbreeds-webrtc is to eventually make a simple Java API for
+The goal for bitbreeds-webrtc is to eventually make a simple Java peer for
 talking directly to one or several browsers or
 other WebRTC peers through an unordered/unreliable or 
 unordered/reliable DataChannel.
@@ -13,7 +13,7 @@ it to be able to act as a client should not be that hard, but
 it is not something I am interested in writing, since I do not need it at this moment.
 
 ### Maturity
-bitbreeds webrtc is not even close to complete and __not__ ready for
+bitbreeds webrtc is __experimental__ and not even close to complete and __not__ ready for
 any kind serious use.
 
 ### How to run
@@ -46,9 +46,10 @@ The keystore parameters are pretty self explanatory (you need to make an RSA cer
 ```
 
 #### Run a complete selenium test
-class `BrowserTest` runs a full test, you will need to have firefox installed,
-like below it will start the server, open the browser and connect. Then end
-once it has opened the WebRTC connection.
+class `BrowserTestChrome/Firefox` runs a full test against a browser.
+It will start the server, open the browser and connect. Then end
+once it has opened the WebRTC connection, or sent a bunch of messages over the 
+peerconnection.
 
 
 ### Debug
