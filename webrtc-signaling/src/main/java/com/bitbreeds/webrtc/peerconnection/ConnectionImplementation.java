@@ -64,13 +64,20 @@ import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
  * On this UDP socket DTLS and and STUN is multiplexed to allow encrypted SCTP messages, and
  * STUN to handle connectivity.
  *
- * The SCTP packets are currently fed to my own implementation of SCTP.
+ * TODO Use existing SCTP implementation
+ * The SCTP packets are currently fed to my own shitty implementation of SCTP.
+ * A goal is to hide that behind the SCTP interface so that I can switch to any userland sctp
+ * relatively easily.
+ *
  *
  * This peerconnection supports creation ordered/unordered webrtc datachannels.
  *
  */
 public class ConnectionImplementation implements Runnable,ConnectionInternalApi {
 
+    public PeerConnection getPeerConnection() {
+        return peerConnection;
+    }
 
     enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
 
@@ -104,7 +111,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     private final ExecutorService processPool = Executors.newFixedThreadPool(1);
     private final ExecutorService workPool = Executors.newFixedThreadPool(1);
 
-    private final AtomicBoolean started = new AtomicBoolean(false);
     private final Runnable heartBeat;
     private final Runnable monitor;
     private final IceCandidate iceCandidate;
@@ -112,8 +118,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     private final UserData localUser = createLocalUser();
 
     private final PeerDescription remoteDescription;
-
-    public Consumer<DataChannel> onDataChannelDefinition = (i)-> {};
 
     public UserData getLocal() {
         return localUser;
@@ -123,6 +127,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         return iceCandidate;
     }
 
+    private PeerConnection peerConnection;
 
     public ConnectionImplementation(
             KeyStoreInfo keyStoreInfo,
@@ -137,7 +142,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         this.port = socket.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
         this.mode = ConnectionMode.BINDING;
-
+        this.peerConnection = new PeerConnection(this);
         /*
          * Get address which external system can reach
          * TODO ensure this works
@@ -337,6 +342,14 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
 
     /**
+     *
+     */
+    public void close() {
+        sctp.shutdown();
+    }
+
+
+    /**
      * Data is sent as a SCTPMessage
      *
      * @param data bytes to send
@@ -426,7 +439,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 /*
                  * Allow user to hook in behavior when datachannel is created
                  */
-                onDataChannelDefinition.accept(nuDef);
+                peerConnection.onDataChannel.accept(nuDef);
 
                 dataChannels.put(nuDef.getStreamId(), nuDef);
 

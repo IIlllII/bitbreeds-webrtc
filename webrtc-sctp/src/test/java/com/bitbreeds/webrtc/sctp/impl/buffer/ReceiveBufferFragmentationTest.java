@@ -45,10 +45,10 @@ public class ReceiveBufferFragmentationTest {
 
         buffer.setInitialTSN(1);
 
-        ReceivedData start = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
-        ReceivedData mid = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        ReceivedData mid2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        ReceivedData end = makeFrag(5,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
+        ReceivedData start = makeFrag(1,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
+        ReceivedData mid = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData mid2 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData end = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
 
         buffer.store(start);
         buffer.store(mid2);
@@ -57,8 +57,8 @@ public class ReceiveBufferFragmentationTest {
         assertEquals(Collections.emptyList(),del);
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(2,sack.getCumulativeTSN());
-        assertEquals(sack.getTsns(), SackUtil.getGapAckList(SetUtil.newHashSet(4L)));
+        assertEquals(1,sack.getCumulativeTSN());
+        assertEquals(sack.getTsns(), SackUtil.getGapAckList(SetUtil.newHashSet(3L)));
         assertEquals(sack.getDuplicates(),Collections.emptyList());
 
         buffer.store(mid);
@@ -67,7 +67,7 @@ public class ReceiveBufferFragmentationTest {
         assertEquals(Collections.emptyList(),del2);
 
         SackData sack2 = buffer.getSackDataToSend();
-        assertEquals(4,sack2.getCumulativeTSN());
+        assertEquals(3,sack2.getCumulativeTSN());
         assertEquals(sack2.getTsns(), Collections.emptyList());
         assertEquals(sack2.getDuplicates(),Collections.emptyList());
 
@@ -75,8 +75,8 @@ public class ReceiveBufferFragmentationTest {
 
         SackData sack3 = buffer.getSackDataToSend();
         List<Deliverable> del3 = buffer.getMessagesForDelivery();
+        assertEquals(4,sack3.getCumulativeTSN());
         assertEquals(1,del3.size());
-        assertEquals(5,sack3.getCumulativeTSN());
     }
 
 
@@ -86,14 +86,14 @@ public class ReceiveBufferFragmentationTest {
 
         buffer.setInitialTSN(1);
 
-        ReceivedData uf = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
-        ReceivedData uf1 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
-        ReceivedData uf2 = makeFrag(4,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf = makeFrag(1,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf1 = makeFrag(2,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
+        ReceivedData uf2 = makeFrag(3,new byte[]{0,1,2},SCTPOrderFlag.UNORDERED_UNFRAGMENTED);
 
-        ReceivedData start = makeFrag(5,new byte[]{0},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
-        ReceivedData mid = makeFrag(6,new byte[]{1},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        ReceivedData mid2 = makeFrag(7,new byte[]{2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
-        ReceivedData end = makeFrag(8,new byte[]{3},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
+        ReceivedData start = makeFrag(4,new byte[]{0},SCTPOrderFlag.UNORDERED_START_FRAGMENT);
+        ReceivedData mid = makeFrag(5,new byte[]{1},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData mid2 = makeFrag(6,new byte[]{2},SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT);
+        ReceivedData end = makeFrag(7,new byte[]{3},SCTPOrderFlag.UNORDERED_END_FRAGMENT);
 
         buffer.store(uf);
         buffer.store(uf1);

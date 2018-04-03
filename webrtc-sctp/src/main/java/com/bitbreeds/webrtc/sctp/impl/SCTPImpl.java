@@ -41,10 +41,10 @@ import java.util.stream.Stream;
  * The handling of specific chunks is passed to the correct {@link MessageHandler}.
  *
  * TODO implement shutdown messages
- * TODO implement JMX hooks, so transfer parameters can be adjusted at runtime
- *
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
+ * TODO implement state transitions, and more correct handling of messages when receiven in different states
+ * TODO implement resend functionality
  */
 public class SCTPImpl implements SCTP  {
 
@@ -122,7 +122,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * Receive initial TSN
      */
-    void handleReceiveInitialTSN(long tsn) {
+    public void handleReceiveInitialTSN(long tsn) {
         receiveBuffer.setInitialTSN(tsn);
     }
 
@@ -249,6 +249,13 @@ public class SCTPImpl implements SCTP  {
                 getConnection().putDataOnWire(i.getPayload())
         );
 
+    }
+
+    @Override
+    public void shutdown() {
+        /*
+         * Todo move to shutdown state
+         */
     }
 
     /**

@@ -1,9 +1,8 @@
-package com.bitbreeds.webrtc.signaling;
+package com.bitbreeds.webrtc.peerconnection;
 
-import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
-import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
+import com.bitbreeds.webrtc.signaling.*;
 import org.pcollections.ConsPStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,12 +38,8 @@ public class SimplePeerServer {
 
     private final static Logger logger = LoggerFactory.getLogger(SimplePeerServer.class);
 
-    private ConsPStack<IceCandidate> remoteCandidates = ConsPStack.empty();
-    private ConsPStack<IceCandidate> localCandidates = ConsPStack.empty();
-    private ConcurrentHashMap<Integer,ConnectionInternalApi> connections = new ConcurrentHashMap<>();
-    private final Object candidateMutex = new Object();
-
-    public Consumer<ConnectionImplementation> onConnection = (i) -> {};
+    private ConcurrentHashMap<Integer,ConnectionImplementation> connections = new ConcurrentHashMap<>();
+    public Consumer<PeerConnection> onConnection = (i) -> {};
 
     /**
      * Server keystore for encryption
@@ -55,23 +50,6 @@ public class SimplePeerServer {
         this.keyStoreInfo = keyStoreInfo;
     }
 
-    /**
-     * @param candidate the received candidate
-     */
-    private void addLocalCandidate(IceCandidate candidate) {
-        synchronized (candidateMutex) {
-            localCandidates = localCandidates.plus(candidate);
-        }
-    }
-
-    /**
-     * @param candidate the received candidate
-     */
-    private void addCandidate(IceCandidate candidate) {
-        synchronized (candidateMutex) {
-            remoteCandidates = remoteCandidates.plus(candidate);
-        }
-    }
 
     /**
      *
@@ -95,7 +73,7 @@ public class SimplePeerServer {
                 keyStoreInfo.getPassword());
 
         ConnectionImplementation ds = new ConnectionImplementation(keyStoreInfo,remotePeer);
-        onConnection.accept(ds);
+        onConnection.accept(ds.getPeerConnection());
         connections.put(ds.getPort(),ds);
         new Thread(ds).start();
 

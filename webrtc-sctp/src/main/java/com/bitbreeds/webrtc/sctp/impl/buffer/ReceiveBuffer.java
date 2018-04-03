@@ -40,11 +40,11 @@ public class ReceiveBuffer {
     private final BufferedReceived[] buffer;
     private int capacity;
 
-    private long cumulativeTSN;
+    private long cumulativeTSN; //Highest returned TSN
 
-    private long maxReceivedTSN;
+    private long maxReceivedTSN; //Largest received TSN
 
-    private long lowestDelivered;
+    private long lowestDelivered; //Lowest delivered (needed due to do defragmentation)
 
     private List<Long> duplicates;
 
@@ -97,8 +97,8 @@ public class ReceiveBuffer {
      */
     public void setInitialTSN(long initialTSN) {
         synchronized (lock) {
-            this.cumulativeTSN = initialTSN;
-            this.maxReceivedTSN = initialTSN;
+            this.cumulativeTSN = initialTSN-1;
+            this.maxReceivedTSN = initialTSN-1;
             this.lowestDelivered = initialTSN-1;
             this.initialReceived = true;
         }
@@ -110,6 +110,10 @@ public class ReceiveBuffer {
      * @param data data to store
      */
     public void store(ReceivedData data) {
+        if(Math.abs(data.getTSN() - cumulativeTSN) > buffer.length*2) {
+            throw new IllegalArgumentException("TSN " + data.getTSN() + " is not in the expected range");
+        }
+
         int position = posFromTSN(data.getTSN());
         synchronized (lock) {
             if(!initialReceived) {
@@ -162,7 +166,6 @@ public class ReceiveBuffer {
 
 
     /**
-     * Todo something is probably off with lowestdelivered
      * @return get messages for next layer
      */
     public List<Deliverable> getMessagesForDelivery() {

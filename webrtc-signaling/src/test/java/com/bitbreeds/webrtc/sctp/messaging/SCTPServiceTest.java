@@ -100,9 +100,7 @@ public class SCTPServiceTest {
     @Test
     public void doInput() throws DecoderException {
 
-        String inp = "1388138800000000699b219101000056eed2220b0002000001000800e36d1ec9c000000480080009c00fc180820000008002002440cbb942df677d367167427655856025aa291f084401663bb48624229a6b2e4b80040006000100008003000680c10000";
-        List<WireRepresentation> wr = srv.handleRequest(Hex.decodeHex(inp.toCharArray()));
-
+        srv.handleReceiveInitialTSN(4268245817L);
         String dat = "138813887c42ba97c6c6f17800030023fe68433900000000000000320300000000000000000700006368616e6e656c00";
         List<WireRepresentation> wr2 = srv.handleRequest(Hex.decodeHex(dat.toCharArray()));
 
@@ -113,9 +111,7 @@ public class SCTPServiceTest {
     @Test
     public void testDataIntput() throws DecoderException {
 
-        String inp = "1388138800000000699b219101000056eed2220b0002000001000800e36d1ec9c000000480080009c00fc180820000008002002440cbb942df677d367167427655856025aa291f084401663bb48624229a6b2e4b80040006000100008003000680c10000";
-        List<WireRepresentation> wr = srv.handleRequest(Hex.decodeHex(inp.toCharArray()));
-
+        srv.handleReceiveInitialTSN(1131213266);
         String dataInput = "1388138869086b5b2c030e9c0003001c436cf1d40000000d0000003348656c6c6f20576f726c6421";
         String m = "1388 1388 69086b5b 2c030e9c 00 03 001c 436cf1d40000000d000000334865 6c6c6f20576f726c6421";
 

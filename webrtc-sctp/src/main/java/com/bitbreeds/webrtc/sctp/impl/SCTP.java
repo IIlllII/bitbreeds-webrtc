@@ -71,4 +71,9 @@ public interface SCTP {
      * @return peerconnection
      */
     ConnectionInternalApi getConnection();
+
+    /**
+     *
+     */
+    void shutdown();
 }

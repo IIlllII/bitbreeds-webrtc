@@ -46,14 +46,14 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
-        ReceivedData ds = makeDs(2,new byte[]{0,1,2});
+        ReceivedData ds = makeDs(1,new byte[]{0,1,2});
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1,ds.getStreamId(),ds.getProtocolId())),del);
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(2,sack.getCumulativeTSN());
+        assertEquals(1,sack.getCumulativeTSN());
         assertEquals(sack.getTsns(),Collections.emptyList());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
@@ -66,17 +66,17 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
         buffer.store(makeDs(3,new byte[]{0,1,2}));
         buffer.store(makeDs(4,new byte[]{0,1,2}));
-        buffer.store(makeDs(5,new byte[]{0,1,2}));
 
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(4,del.size());
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(5,sack.getCumulativeTSN());
+        assertEquals(4,sack.getCumulativeTSN());
         assertEquals(sack.getTsns(),Collections.emptyList());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
@@ -88,17 +88,17 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
-        buffer.store(makeDs(3,new byte[]{0,1,2}));
 
-        buffer.store(makeDs(5,new byte[]{0,1,2}));
+        buffer.store(makeDs(4,new byte[]{0,1,2}));
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(3,del.size());
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(3,sack.getCumulativeTSN());
-        assertEquals( SackUtil.getGapAckList(Stream.of(5L).collect(Collectors.toSet())),sack.getTsns());
+        assertEquals(2,sack.getCumulativeTSN());
+        assertEquals( SackUtil.getGapAckList(Stream.of(4L).collect(Collectors.toSet())),sack.getTsns());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 
@@ -109,19 +109,19 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
-        buffer.store(makeDs(3,new byte[]{0,1,2}));
 
-        buffer.store(makeDs(3,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(2,del.size());
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(3,sack.getCumulativeTSN());
+        assertEquals(2,sack.getCumulativeTSN());
         assertEquals(Collections.emptyList(),sack.getTsns());
-        assertEquals(Stream.of(3L,2L).collect(Collectors.toList()),sack.getDuplicates());
+        assertEquals(Stream.of(2L,1L).collect(Collectors.toList()),sack.getDuplicates());
     }
 
 
@@ -131,28 +131,28 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
-        buffer.store(makeDs(3,new byte[]{0,1,2}));
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(2,del.size());
 
         SackData sack = buffer.getSackDataToSend();
-        assertEquals(3,sack.getCumulativeTSN());
+        assertEquals(2,sack.getCumulativeTSN());
 
+        buffer.store(makeDs(3,new byte[]{0,1,2}));
         buffer.store(makeDs(4,new byte[]{0,1,2}));
-        buffer.store(makeDs(5,new byte[]{0,1,2}));
 
         List<Deliverable> del2 = buffer.getMessagesForDelivery();
         assertEquals(2,del2.size());
 
         SackData sack2 = buffer.getSackDataToSend();
-        assertEquals(5,sack2.getCumulativeTSN());
+        assertEquals(4,sack2.getCumulativeTSN());
 
-        buffer.store(makeDs(6,new byte[]{0,0,0}));
-        buffer.store(makeDs(7,new byte[]{1,1,1}));
-        buffer.store(makeDs(8,new byte[]{2,2,2}));
-        buffer.store(makeDs(9,new byte[]{3,3,3}));
+        buffer.store(makeDs(5,new byte[]{0,0,0}));
+        buffer.store(makeDs(6,new byte[]{1,1,1}));
+        buffer.store(makeDs(7,new byte[]{2,2,2}));
+        buffer.store(makeDs(8,new byte[]{3,3,3}));
 
         List<Deliverable> del3 = buffer.getMessagesForDelivery();
         assertEquals(4,del3.size());
@@ -161,15 +161,15 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
                 .map(Deliverable::getData)
                 .collect(Collectors.toList());
 
-        //Todo something is probably off with 3 here, not sure though
-        assertArrayEquals(new byte[]{0,0,0},data.get(3));
-        assertArrayEquals(new byte[]{1,1,1},data.get(0));
-        assertArrayEquals(new byte[]{2,2,2},data.get(1));
-        assertArrayEquals(new byte[]{3,3,3},data.get(2));
+
+        assertArrayEquals(new byte[]{0,0,0},data.get(0));
+        assertArrayEquals(new byte[]{1,1,1},data.get(1));
+        assertArrayEquals(new byte[]{2,2,2},data.get(2));
+        assertArrayEquals(new byte[]{3,3,3},data.get(3));
 
         SackData sack3 = buffer.getSackDataToSend();
 
-        assertEquals(9,sack3.getCumulativeTSN());
+        assertEquals(8,sack3.getCumulativeTSN());
         assertEquals(Collections.emptyList(),sack3.getTsns());
         assertEquals(Collections.emptyList(),sack3.getDuplicates());
     }
@@ -183,6 +183,7 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
+        buffer.store(makeDs(1,new byte[]{0,1,2}));
         buffer.store(makeDs(2,new byte[]{0,1,2}));
         buffer.store(makeDs(3,new byte[]{0,1,2}));
         buffer.store(makeDs(4,new byte[]{0,1,2}));
@@ -190,7 +191,6 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
         buffer.store(makeDs(6,new byte[]{0,1,2}));
         buffer.store(makeDs(7,new byte[]{0,1,2}));
         buffer.store(makeDs(8,new byte[]{0,1,2}));
-        buffer.store(makeDs(9,new byte[]{0,1,2}));
     }
 
 

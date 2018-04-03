@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
+import com.bitbreeds.webrtc.peerconnection.SimplePeerServer;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -115,7 +116,7 @@ public class SimpleSignalingExample {
     private static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
         peerConnectionServer.onConnection = (connection) -> {
 
-            connection.onDataChannelDefinition = (dataChannel) -> {
+            connection.onDataChannel = (dataChannel) -> {
 
                 dataChannel.onOpen = (ev) -> {
                     logger.info("Running onOpen");

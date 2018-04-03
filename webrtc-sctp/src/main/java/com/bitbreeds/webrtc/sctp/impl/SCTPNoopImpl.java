@@ -61,4 +61,7 @@ public class SCTPNoopImpl implements SCTP {
     public ConnectionInternalApi getConnection() {
         return null;
     }
+
+    @Override
+    public void shutdown() { }
 }
