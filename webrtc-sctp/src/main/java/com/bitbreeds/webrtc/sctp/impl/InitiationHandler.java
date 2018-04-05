@@ -70,6 +70,7 @@ public class InitiationHandler implements MessageHandler {
          */
         Map<SCTPFixedAttributeType,SCTPFixedAttribute> attr  = new HashMap<>();
         byte[] initate = SignalUtil.randomBytes(4);
+        long initialTSN = handler.getFirstTSN();
 
         attr.put(INITIATE_TAG,new SCTPFixedAttribute(INITIATE_TAG,initate));
         attr.put(ARWC,new SCTPFixedAttribute(ARWC,SignalUtil.fourBytesFromInt((int)handler.getBufferCapacity())));
@@ -77,14 +78,15 @@ public class InitiationHandler implements MessageHandler {
                 new SCTPFixedAttribute(OUTBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
         attr.put(INBOUND_STREAMS,
                 new SCTPFixedAttribute(INBOUND_STREAMS,SignalUtil.twoBytesFromInt(INIT_STREAMS)));
-        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(handler.getFirstTSN())));
+
+        attr.put(INITIAL_TSN,new SCTPFixedAttribute(INITIAL_TSN,SignalUtil.longToFourBytes(initialTSN)));
 
         long tsn = SignalUtil.bytesToLong(data.getFixed().get(INITIAL_TSN).getData());
 
         /*
-         * Initialize remote
+         * Initialize buffers
          */
-        handler.initializeRemote(remoteBufferSize,tsn);
+        handler.initializeRemote(remoteBufferSize,initialTSN);
         handler.handleReceiveInitialTSN(tsn);
 
         /*

@@ -36,9 +36,6 @@ import java.util.stream.Collectors;
  * - Ensuring we overhold max inflight
  * - Ensure resend if message is never acked
  *
- *
- * TODO count buffered on each peerconnection, not just the connection.
- *
  */
 public class SendBuffer {
 
@@ -138,27 +135,31 @@ public class SendBuffer {
     public void receiveSack(SackData sack) {
         logger.debug("Handling sack " + sack);
         synchronized (lock) {
-            if(sack.getCumulativeTSN() > remoteCumulativeTSN) {
+            if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
+
+                List<BufferedSent> acked = inFlight.values().stream()
+                        .filter(i -> acknowledged(sack, i))
+                        .collect(Collectors.toList());
+
+                long size = acked.stream()
+                        .map(i -> i.getData().getSctpPayload().length)
+                        .reduce(0, Integer::sum);
+
+                List<Long> tsns = acked.stream()
+                        .map(BufferedSent::getTsn)
+                        .collect(Collectors.toList());
+
+                capacity += size;
+
+                inFlight.keySet().removeAll(tsns);
+
+                logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
             }
-            List<BufferedSent> acked = inFlight.values().stream()
-                    .filter(i->acknowledged(sack,i))
-                    .collect(Collectors.toList());
-
-            long size = acked.stream()
-                    .map(i->i.getData().getSctpPayload().length)
-                    .reduce(0,Integer::sum);
-
-            List<Long> tsns = acked.stream()
-                    .map(BufferedSent::getTsn)
-                    .collect(Collectors.toList());
-
-            capacity +=size;
-
-            inFlight.keySet().removeAll(tsns);
-
-            logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
+            else {
+                logger.info("Out of order sack" + sack);
+            }
         }
     }
 
@@ -199,6 +200,27 @@ public class SendBuffer {
         return toSend;
     }
 
+    /**
+     * Pull earliest message for retransmission
+     *
+     * @return first message based on TSN which is in flight.
+     */
+    public List<BufferedSent> getDataToRetransmit() {
+        synchronized (lock) {
+
+            List<BufferedSent> bufferedSents = inFlight.values().stream()
+                    .min(BufferedSent::compareTo)
+                    .map(Collections::singletonList)
+                    .orElse(Collections.emptyList());
+
+            //Mark number of resends and time
+            bufferedSents.forEach(i->
+                inFlight.computeIfPresent(i.getTsn(),(key,value) -> value.resend())
+            );
+
+            return bufferedSents;
+        }
+    }
 
     /**
      * @return whether max inflight and remote buffer allows sending or not

@@ -65,6 +65,8 @@ public class SCTPImpl implements SCTP  {
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
     private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
+    private final RetransmissionScheduler retransmissionCalculator = new RetransmissionScheduler(this::doRetransmission);
+    private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use
     private SCTPContext context;
 
     /**
@@ -96,7 +98,7 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
-    public HeartBeatService getHeartBeatService() {
+    HeartBeatService getHeartBeatService() {
         return heartBeatService;
     }
 
@@ -105,18 +107,33 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-    /**
-     * @param sackData acknowledgement
-     */
-    public void updateAcknowledgedTSNS(SackData sackData) {
-        sendBuffer.receiveSack(sackData);
-        List<BufferedSent> toSend = sendBuffer.getDataToSend();
+    private void doRetransmission() {
+        //TODO implement
+        List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
+        retransmissionCalculator.restart();
         toSend.forEach(i ->
                 getConnection().putDataOnWire(i.getData().getSctpPayload())
         );
     }
 
-    public void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
+    /**
+     * @param sackData acknowledgement
+     */
+    void updateAcknowledgedTSNS(SackData sackData) {
+        sendBuffer.receiveSack(sackData);
+        List<BufferedSent> toSend = sendBuffer.getDataToSend();
+        if(toSend.isEmpty()) {
+            retransmissionCalculator.stop();
+        }
+        else {
+            retransmissionCalculator.restart();
+        }
+        toSend.forEach(i ->
+                getConnection().putDataOnWire(i.getData().getSctpPayload())
+        );
+    }
+
+    void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
         sendBuffer.initializeRemote(remoteReceiveBufferSize,initialTSN);
     }
     /**
@@ -145,6 +162,9 @@ public class SCTPImpl implements SCTP  {
 
         sendBuffer.buffer(messages);
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
+        if(!toSend.isEmpty()) {
+            retransmissionCalculator.start();
+        }
         return toSend.stream()
                 .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
                 .collect(Collectors.toList());
@@ -153,7 +173,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * @return message with acks
      */
-    public Optional<WireRepresentation> createSackMessage() {
+    private Optional<WireRepresentation> createSackMessage() {
         if(context == null) {
             return Optional.empty();
         }
@@ -162,14 +182,6 @@ public class SCTPImpl implements SCTP  {
         return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
     }
 
-
-    /**
-     * @return messages to resend
-     */
-    @Override
-    public List<WireRepresentation> getMessagesForResend() {
-        return Collections.emptyList();
-    }
 
     /**
      * @return heartbeat message
@@ -226,7 +238,6 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-
     /**
      * Handles reception of a payload
      *
@@ -243,13 +254,20 @@ public class SCTPImpl implements SCTP  {
         receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         deliverables.forEach(
-                i -> getConnection().handleMessage(i)
+                i -> getConnection().presentToUser(i)
         );
+        sendSack(); //Sack all messages immediately
+    }
+
+    /**
+     *
+     */
+    private void sendSack() {
         createSackMessage().ifPresent(i ->
                 getConnection().putDataOnWire(i.getPayload())
         );
-
     }
+
 
     @Override
     public void shutdown() {

@@ -19,22 +19,24 @@ import java.time.LocalDateTime;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BufferedSent {
+public class BufferedSent implements Comparable<BufferedSent> {
 
     private final SendData data;
     private final SendBufferedState bufferState;
     private final LocalDateTime lastSendTime;
     private final long tsn;
+    private final int resends;
 
-    public BufferedSent(SendData data, SendBufferedState bufferState, LocalDateTime lastSendTime, long tsn) {
+    public BufferedSent(SendData data, SendBufferedState bufferState, LocalDateTime lastSendTime, long tsn, int resends) {
         this.data = data;
         this.bufferState = bufferState;
         this.lastSendTime = lastSendTime;
         this.tsn = tsn;
+        this.resends = resends;
     }
 
     public static BufferedSent buffer(SendData data,long tsn) {
-        return new BufferedSent(data,SendBufferedState.STORED,null,tsn);
+        return new BufferedSent(data,SendBufferedState.STORED,null,tsn,0);
     }
 
     public boolean canBeOverwritten() {
@@ -42,11 +44,15 @@ public class BufferedSent {
     }
 
     public BufferedSent acknowledge() {
-        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime,tsn);
+        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime,tsn,this.resends);
+    }
+
+    public BufferedSent resend() {
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends+1);
     }
 
     public BufferedSent send() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn);
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends);
     }
 
     public SendData getData() {
@@ -67,5 +73,10 @@ public class BufferedSent {
                 "bufferState=" + bufferState +
                 ", lastSendTime=" + lastSendTime +
                 '}';
+    }
+
+    @Override
+    public int compareTo(BufferedSent bufferedSent) {
+        return Long.compare(this.tsn,bufferedSent.tsn);
     }
 }

@@ -1,9 +1,6 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -21,34 +18,40 @@ import java.util.concurrent.atomic.AtomicReference;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class RetransmissionCalculator {
-
-    private final AtomicReference<RetransmissionTimeout> timeout =
-            new AtomicReference<>(RetransmissionTimeout.initial());
+public class SingleTimedAction {
 
     private final ScheduledExecutorService scheduler;
     private final AtomicReference<ScheduledFuture<?>> current = new AtomicReference<>();
 
-    private final Runnable retransmit;
+    private final Runnable action;
+    private final int millis;
 
-    public RetransmissionCalculator(Runnable retransmit) {
-        this.scheduler = Executors.newScheduledThreadPool(1);
-        this.retransmit = retransmit;
-    }
+    public SingleTimedAction(Runnable retransmit, int millis) {
+        this.scheduler = Executors.newScheduledThreadPool(1, r -> {
+            Thread t = Executors.defaultThreadFactory().newThread(r);
+            t.setDaemon(true);
+            return t;
+        });
 
-    public void addMeasure(double rtt) {
-        timeout.updateAndGet(i->i.addMeasurement(rtt));
+        this.action = retransmit;
+        this.millis = millis;
     }
 
     private void scheduleRetransmission() {
-        current.updateAndGet(i -> createScheduler(i,retransmit));
+        current.updateAndGet(i -> createScheduler(i, action));
     }
 
+    /**
+     * Stop current timeout and reschedule
+     */
     public void restart() {
         stop();
         scheduleRetransmission();
     }
 
+    /**
+     * Will schedule a retransmission if none is running.
+     */
     public void start() {
         scheduleRetransmission();
     }
@@ -64,7 +67,7 @@ public class RetransmissionCalculator {
         if(existing == null) {
             return scheduler.schedule(
                     action,
-                    timeout.get().getRetransmissionTimeoutMillis(),
+                    millis,
                     TimeUnit.MILLISECONDS);
         }
         else {

@@ -35,17 +35,6 @@ public interface SCTP {
      */
     Optional<WireRepresentation> createHeartBeat();
 
-    /**
-     *
-     * @return SCTP SACK
-     */
-    Optional<WireRepresentation> createSackMessage();
-
-    /**
-     *
-     * @return messages for resend
-     */
-    List<WireRepresentation> getMessagesForResend();
 
     /**
      * @param data the request

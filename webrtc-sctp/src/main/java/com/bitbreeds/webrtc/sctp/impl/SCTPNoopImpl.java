@@ -35,16 +35,6 @@ public class SCTPNoopImpl implements SCTP {
     }
 
     @Override
-    public Optional<WireRepresentation> createSackMessage() {
-        return Optional.empty();
-    }
-
-    @Override
-    public List<WireRepresentation> getMessagesForResend() {
-        return Collections.emptyList();
-    }
-
-    @Override
     public List<WireRepresentation> handleRequest(byte[] data) {
         return Collections.emptyList();
     }

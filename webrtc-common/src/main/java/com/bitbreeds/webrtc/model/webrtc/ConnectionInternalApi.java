@@ -25,7 +25,7 @@ import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
  */
 public interface ConnectionInternalApi {
 
-    void handleMessage(Deliverable deliverable);
+    void presentToUser(Deliverable deliverable);
 
     void send(byte[] data);
 

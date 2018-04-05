@@ -170,7 +170,7 @@ public class StunMessage {
     public byte[] toBytes() {
         final List<byte[]> bt = new ArrayList<>();
 
-        attributeSet.values().stream()
+        attributeSet.values()
                 .forEach(i -> bt.add(i.toBytes()));
 
         StunHeader hd1 = withIntegrity ? header.updateMessageLength(header.getMessageLength() + 24) : header;

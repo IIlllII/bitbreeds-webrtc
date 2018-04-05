@@ -86,5 +86,9 @@ public class BindingService  {
     }
 
 
+    public byte[] createStunRequest() {
+        return new byte[0];
+    }
+
 
 }

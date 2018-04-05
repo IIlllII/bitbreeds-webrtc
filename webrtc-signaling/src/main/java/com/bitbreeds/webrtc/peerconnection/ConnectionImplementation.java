@@ -399,7 +399,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-channel-12">data channel spec</a>
      */
     @Override
-    public void handleMessage(Deliverable deliverable) {
+    public void presentToUser(Deliverable deliverable) {
         DataChannel definition = dataChannels.get(deliverable.getStreamId());
 
         if (deliverable.getProtocolId() == SCTPPayloadProtocolId.WEBRTC_DCEP) {
