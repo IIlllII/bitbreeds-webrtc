@@ -26,17 +26,33 @@ public class BufferedSent implements Comparable<BufferedSent> {
     private final LocalDateTime lastSendTime;
     private final long tsn;
     private final int resends;
+    private final int fastResendNum;
 
-    public BufferedSent(SendData data, SendBufferedState bufferState, LocalDateTime lastSendTime, long tsn, int resends) {
+    public boolean canFastResend() {
+        return !fastResent && fastResendNum>=3;
+    }
+
+    private final boolean fastResent;
+
+    public BufferedSent(
+            SendData data,
+            SendBufferedState bufferState,
+            LocalDateTime lastSendTime,
+            long tsn,
+            int resends,
+            int fastResendNum,
+            boolean fastResent) {
         this.data = data;
         this.bufferState = bufferState;
         this.lastSendTime = lastSendTime;
         this.tsn = tsn;
         this.resends = resends;
+        this.fastResendNum = fastResendNum;
+        this.fastResent = fastResent;
     }
 
     public static BufferedSent buffer(SendData data,long tsn) {
-        return new BufferedSent(data,SendBufferedState.STORED,null,tsn,0);
+        return new BufferedSent(data,SendBufferedState.STORED,null,tsn,0,0,false);
     }
 
     public boolean canBeOverwritten() {
@@ -44,15 +60,23 @@ public class BufferedSent implements Comparable<BufferedSent> {
     }
 
     public BufferedSent acknowledge() {
-        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,this.lastSendTime,tsn,this.resends);
+        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,lastSendTime,tsn,resends,fastResendNum,fastResent);
     }
 
     public BufferedSent resend() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends+1);
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends+1,fastResendNum,fastResent);
+    }
+
+    public BufferedSent fastResend() {
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends,fastResendNum,true);
+    }
+
+    public BufferedSent markFast() {
+        return new BufferedSent(data, SendBufferedState.SENT,lastSendTime,tsn,resends,fastResendNum+1,fastResent);
     }
 
     public BufferedSent send() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends);
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends,fastResendNum,fastResent);
     }
 
     public SendData getData() {

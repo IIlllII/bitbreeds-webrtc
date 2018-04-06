@@ -270,15 +270,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         int length = transport.receive(buf, 0, buf.length, DEFAULT_WAIT_MILLIS);
                         if (length >= 0) {
                             byte[] handled = Arrays.copyOf(buf, length);
-                            processPool.submit(() -> {
-                                try {
-                                    List<WireRepresentation> data = sctp.handleRequest(handled);
-                                    data.forEach(i->putDataOnWire(i.getPayload()));
-                                } catch (Exception e) {
-                                    logger.error("Failed handling message: ", e);
-                                }
-                            });
-                            logger.debug("Input: " + Hex.encodeHexString(handled));
+                            processReceivedMessage(handled);
                         }
                     }
                 }
@@ -311,6 +303,19 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             logger.info("Controlled shutdown of workPool failed, due to: ",e);
             workPool.shutdownNow();
         }
+    }
+
+    @Override
+    public void processReceivedMessage(byte[] buf) {
+        processPool.submit(() -> {
+            try {
+                List<WireRepresentation> data = sctp.handleRequest(buf);
+                data.forEach(i->putDataOnWire(i.getPayload()));
+            } catch (Exception e) {
+                logger.error("Failed handling message: ", e);
+            }
+        });
+        logger.debug("Input: " + Hex.encodeHexString(buf));
     }
 
     /**

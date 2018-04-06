@@ -37,4 +37,6 @@ public interface ConnectionInternalApi {
 
     int getPort();
 
+    void processReceivedMessage(byte[] data);
+
 }

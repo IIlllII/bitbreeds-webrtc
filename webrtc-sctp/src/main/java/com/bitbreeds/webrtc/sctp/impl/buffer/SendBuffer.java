@@ -131,8 +131,9 @@ public class SendBuffer {
      * Set remote buffer size.
      *
      * @param sack acknowledgement
+     * @return fastresend data
      */
-    public void receiveSack(SackData sack) {
+    public List<BufferedSent> receiveSack(SackData sack) {
         logger.debug("Handling sack " + sack);
         synchronized (lock) {
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
@@ -155,12 +156,44 @@ public class SendBuffer {
 
                 inFlight.keySet().removeAll(tsns);
 
+                List<GapAck> gapAcks = sack.getTsns();
+                if(!gapAcks.isEmpty()) {
+                    GapAck ack = gapAcks.get(gapAcks.size()-1);
+
+                    List<Long> fastAck = inFlight.keySet().stream()
+                            .filter(i -> i < ack.start).collect(Collectors.toList());
+
+                    List<BufferedSent> marked = fastAck.stream()
+                            .map(fast -> inFlight.get(fast))
+                            .collect(Collectors.toList());
+
+                    List<BufferedSent> canResend = marked.stream()
+                            .filter(BufferedSent::canFastResend)
+                            .map(BufferedSent::markFast)
+                            .collect(Collectors.toList());
+
+                    List<BufferedSent> resend = canResend.stream()
+                            .min(BufferedSent::compareTo)
+                            .map(BufferedSent::fastResend)
+                            .map(Collections::singletonList)
+                            .orElse(Collections.emptyList());
+
+                    canResend.forEach(
+                            i->inFlight.put(i.getTsn(),i)
+                    );
+                    resend.forEach(
+                            i->inFlight.put(i.getTsn(),i)
+                    );
+                    return resend;
+                }
+
                 logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
             }
             else {
                 logger.info("Out of order sack" + sack);
             }
         }
+        return Collections.emptyList();
     }
 
     private boolean acknowledged(SackData data,BufferedSent inFlight) {
@@ -199,6 +232,9 @@ public class SendBuffer {
 
         return toSend;
     }
+
+
+
 
     /**
      * Pull earliest message for retransmission

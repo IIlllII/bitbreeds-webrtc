@@ -120,7 +120,11 @@ public class SCTPImpl implements SCTP  {
      * @param sackData acknowledgement
      */
     void updateAcknowledgedTSNS(SackData sackData) {
-        sendBuffer.receiveSack(sackData);
+        List<BufferedSent> fastRetransmit = sendBuffer.receiveSack(sackData);
+        fastRetransmit.forEach(i ->
+                getConnection().putDataOnWire(i.getData().getSctpPayload())
+        );
+
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
         if(toSend.isEmpty()) {
             retransmissionCalculator.stop();
@@ -136,6 +140,7 @@ public class SCTPImpl implements SCTP  {
     void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
         sendBuffer.initializeRemote(remoteReceiveBufferSize,initialTSN);
     }
+
     /**
      * Receive initial TSN
      */

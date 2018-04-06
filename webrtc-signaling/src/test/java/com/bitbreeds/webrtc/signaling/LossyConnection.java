@@ -24,7 +24,11 @@ import java.util.Random;
 
 
 /**
- * Created for testing a lossy connection
+ *
+ * Creates a connection that will drop a certain percentage of messages.
+ *
+ * This connection is made to allow simple testing of recovery.
+ *
  */
 public class LossyConnection extends ConnectionImplementation {
 
@@ -40,10 +44,30 @@ public class LossyConnection extends ConnectionImplementation {
         this.packetlossPercentage = packetlossPercentage;
     }
 
+    /**
+     * Ensure that the connection will not send a certain
+     * percentage of messages (simulating a drop).
+     *
+     * @param out data to send
+     */
     @Override
     public void putDataOnWire(byte[] out) {
         if(random.nextInt(100) > packetlossPercentage) {
             super.putDataOnWire(out);
+        }
+    }
+
+
+    /**
+     * Ensure that the connection will not process this message
+     * for some percentage of messages, simulating a drop.
+     *
+     * @param buf with received bytes
+     */
+    @Override
+    public void processReceivedMessage(byte[] buf) {
+        if(random.nextInt(100) > packetlossPercentage) {
+            super.processReceivedMessage(buf);
         }
     }
 }
