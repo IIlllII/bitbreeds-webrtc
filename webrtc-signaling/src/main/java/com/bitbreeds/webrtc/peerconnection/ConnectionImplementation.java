@@ -29,9 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
@@ -79,7 +77,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         return peerConnection;
     }
 
-    enum ConnectionMode {BINDING,HANDSHAKE,TRANSFER};
+    enum ConnectionMode {STUN_BINDING, DTLS_HANDSHAKE, SCTP};
 
     private final ReentrantLock lock = new ReentrantLock(true);
 
@@ -141,7 +139,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         this.socket.setSendBufferSize(2000000);
         this.port = socket.getLocalPort();
         this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
-        this.mode = ConnectionMode.BINDING;
+        this.mode = ConnectionMode.STUN_BINDING;
         this.peerConnection = new PeerConnection(this);
         /*
          * Get address which external system can reach
@@ -206,7 +204,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             byte[] bt = new byte[DEFAULT_BUFFER_SIZE];
 
                 try {
-                    if (mode == ConnectionMode.BINDING) {
+                    if (mode == ConnectionMode.STUN_BINDING) {
                         logger.info("Listening for binding on: " + socket.getLocalSocketAddress() + " - " + socket.getPort());
                         Thread.sleep(5); //No reason to hammer on this
 
@@ -236,10 +234,10 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         pc.setSocketAddress(sender);
                         socket.send(pc);
 
-                        this.mode = ConnectionMode.HANDSHAKE; //Go to handshake mode
+                        this.mode = ConnectionMode.DTLS_HANDSHAKE; //Go to handshake mode
                         logger.info("-> DTLS handshake");
                     }
-                    else if(mode == ConnectionMode.HANDSHAKE) {
+                    else if(mode == ConnectionMode.DTLS_HANDSHAKE) {
                         Thread.sleep(5);
 
                         if(transport == null) {
@@ -256,10 +254,10 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         }
 
                         sctp = new SCTPImpl(this);
-                        mode = ConnectionMode.TRANSFER;
+                        mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");
                     }
-                    else if(mode == ConnectionMode.TRANSFER) {
+                    else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");
                         /*
                          * Here we receive message and put them to a worker thread for handling
@@ -361,7 +359,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      */
     @Override
     public void send(byte[] data,SCTPPayloadProtocolId ppid,int streamId) {
-        if(mode == ConnectionMode.TRANSFER && running) {
+        if(mode == ConnectionMode.SCTP && running) {
             /*
              * Payload can be fragmented if more then 1024 bytes
              */
