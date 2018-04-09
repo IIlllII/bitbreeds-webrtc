@@ -56,6 +56,8 @@ public class SCTPImpl implements SCTP  {
 
     private final static int DEFAULT_SEND_BUFFER_SIZE = 2000000;
 
+    private volatile SCTPState state = SCTPState.CLOSED;
+
     /**
      * The impl access to write data to the socket
      */
