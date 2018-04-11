@@ -21,6 +21,8 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.HashMap;
+import java.util.HashSet;
 
 /**
  * Copyright (c) 16/04/16, Jonas Waage
@@ -93,6 +95,31 @@ public class SimpleSignalingExample {
         ctx.start();
     }
 
+    /**
+     *
+     * @return context with a route containing a server which can create lossy connections
+     * @throws Exception
+     */
+    public static CamelContext camelContextLossy(int lossIn, int lossOut) throws Exception {
+        JndiRegistry reg = new JndiRegistry(new JndiContext());
+        reg.bind("sslContextParameters",sslParameters());
+
+        SimplePeerServer peerConnectionServer = new SimplePeerServer(
+                keyStoreInfo,
+                (i) -> new LossyConnection(keyStoreInfo,i,lossIn,lossOut)
+        );
+
+        setupPeerConnection(peerConnectionServer);
+
+
+        CamelContext ctx = new DefaultCamelContext(reg);
+        ctx.addRoutes(new SimpleSignalingExample.WebsocketRouteNoSSL(peerConnectionServer));
+        ctx.addRoutes(new SimpleSignalingExample.OutRoute());
+        ctx.addRoutes(new SimpleSignalingExample.DelayRoute());
+        ctx.setUseMDCLogging(true);
+        ctx.setTracing(true);
+        return ctx;
+    }
 
 
     public static CamelContext camelContext() throws Exception {
@@ -114,6 +141,9 @@ public class SimpleSignalingExample {
     }
 
     private static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
+
+        HashSet<String> messages = new HashSet<>();
+
         peerConnectionServer.onConnection = (connection) -> {
 
             connection.onDataChannel = (dataChannel) -> {
@@ -125,8 +155,13 @@ public class SimpleSignalingExample {
 
                 dataChannel.onMessage = (ev) -> {
                     String in = new String(ev.getData());
-                    logger.debug("Running onMessage: " + in);
+                    logger.info("Running onMessage: " + in);
                     dataChannel.send("echo-" + in);
+
+                    if(messages.contains(in)) {
+                        throw new IllegalStateException("Duplicate" + in);
+                    }
+                    messages.add(in);
                 };
 
                 dataChannel.onClose = (ev) -> {

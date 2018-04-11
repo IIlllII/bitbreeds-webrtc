@@ -4,6 +4,8 @@ import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +37,8 @@ import java.util.stream.Collectors;
  *
  */
 public class ReceiveBuffer {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final Object lock = new Object();
     private final BufferedReceived[] buffer;
@@ -116,11 +120,18 @@ public class ReceiveBuffer {
 
         int position = posFromTSN(data.getTSN());
         synchronized (lock) {
+            logger.info("Storing {} with {} in {}",data,data.getTSN(),position);
             if(!initialReceived) {
                 throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
             }
+
+
             BufferedReceived old = buffer[position];
-            if(old == null || old.canBeOverwritten()) {
+            if(data.getTSN() <= cumulativeTSN) {
+                duplicates.add(data.getTSN());
+                logger.info("{} was a duplicate, ignore",data.getTSN());
+            }
+            else if(old == null || old.canBeOverwritten()) {
                 buffer[position] = new BufferedReceived(data, ReceiveBufferedState.RECEIVED,DeliveredState.READY);
                 this.maxReceivedTSN = Math.max(this.maxReceivedTSN,data.getTSN());
                 this.capacity -= data.getPayload().length;
@@ -128,6 +139,7 @@ public class ReceiveBuffer {
             }
             else if(data.getTSN() == old.getData().getTSN()){
                 duplicates.add(data.getTSN());
+                logger.info("{} was a duplicate, ignore",data.getTSN());
             }
             else {
                 /*
@@ -156,7 +168,7 @@ public class ReceiveBuffer {
             Set<Long> received = getReceived();
             data = new SackData(
                     newCumulativeTSN,
-                    SackUtil.getGapAckList(received),
+                    SackUtil.getGapAckList(newCumulativeTSN,received),
                     duplicates,
                     capacity);
             duplicates = new ArrayList<>();

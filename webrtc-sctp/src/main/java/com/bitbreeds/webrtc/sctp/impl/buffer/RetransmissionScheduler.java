@@ -1,5 +1,8 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -22,6 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 public class RetransmissionScheduler {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final AtomicReference<RetransmissionTimeout> timeout =
             new AtomicReference<>(RetransmissionTimeout.initial());
@@ -70,13 +75,16 @@ public class RetransmissionScheduler {
 
     public void stop() {
         ScheduledFuture<?> toCancel = current.getAndSet(null);
+        logger.debug("Attempting stop of {}",toCancel);
         if(toCancel != null) {
             toCancel.cancel(false);
+            logger.debug("Performed stop of {}",toCancel);
         }
     }
 
     private ScheduledFuture<?> createScheduler(ScheduledFuture<?> existing,Runnable action) {
         if(existing == null) {
+            logger.debug("Scheduling timer with time {}",timeout.get().getRetransmissionTimeoutMillis());
             return scheduler.schedule(
                     action,
                     timeout.get().getRetransmissionTimeoutMillis(),

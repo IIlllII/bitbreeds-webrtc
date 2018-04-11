@@ -71,7 +71,7 @@ public class SendBufferTest {
         assertEquals(2,toSend.get(1).getTsn());
         assertEquals(3,toSend.get(2).getTsn());
 
-        SackData sack = new SackData(1L, SackUtil.getGapAckList(SetUtil.newHashSet(3L)), Collections.emptyList(),750);
+        SackData sack = new SackData(1L, SackUtil.getGapAckList(1L,SetUtil.newHashSet(3L)), Collections.emptyList(),750);
         buffer.receiveSack(sack);
 
         assertEquals(1,buffer.getInflightSize());

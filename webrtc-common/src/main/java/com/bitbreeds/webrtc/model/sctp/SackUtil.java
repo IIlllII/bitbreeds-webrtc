@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Copyright (c) 07/06/16, Jonas Waage
@@ -24,8 +25,10 @@ import java.util.Set;
  */
 public class SackUtil {
 
-    public static List<GapAck> getGapAckList(Set<Long> received) {
-        List<Long> ls = new ArrayList<>(received);
+    public static List<GapAck> getGapAckList(Long newCumulativeTSN,Set<Long> tsns) {
+        List<Long> ls = tsns.stream()
+                .map(i -> i - newCumulativeTSN)
+                .collect(Collectors.toList());
 
         if(ls.isEmpty()) {
             return new ArrayList<>();

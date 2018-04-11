@@ -133,10 +133,12 @@ public class SendBuffer {
      * @param sack acknowledgement
      * @return fastresend data
      */
-    public List<BufferedSent> receiveSack(SackData sack) {
-        logger.debug("Handling sack " + sack);
+    public SackResult receiveSack(SackData sack) {
         synchronized (lock) {
+            logger.debug("Handling sack {} with inflight {} and cumTSN {}", sack,inFlight,remoteCumulativeTSN);
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
+                boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
+
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
 
@@ -160,52 +162,54 @@ public class SendBuffer {
                 if(!gapAcks.isEmpty()) {
                     GapAck ack = gapAcks.get(gapAcks.size()-1);
 
+                    Long largest = sack.getCumulativeTSN()+ack.end;
+
                     List<Long> fastAck = inFlight.keySet().stream()
-                            .filter(i -> i < ack.start).collect(Collectors.toList());
+                            .filter(i -> i < largest).collect(Collectors.toList());
 
                     List<BufferedSent> marked = fastAck.stream()
                             .map(fast -> inFlight.get(fast))
-                            .collect(Collectors.toList());
-
-                    List<BufferedSent> canResend = marked.stream()
-                            .filter(BufferedSent::canFastResend)
                             .map(BufferedSent::markFast)
                             .collect(Collectors.toList());
 
-                    List<BufferedSent> resend = canResend.stream()
-                            .min(BufferedSent::compareTo)
+                    Optional<BufferedSent> resend = marked.stream()
+                            .filter(BufferedSent::canFastResend)
+                            .min(BufferedSent::compareTo);
+
+                    List<BufferedSent> resendList = resend
                             .map(BufferedSent::fastResend)
                             .map(Collections::singletonList)
                             .orElse(Collections.emptyList());
 
-                    canResend.forEach(
+                    marked.forEach(
                             i->inFlight.put(i.getTsn(),i)
                     );
-                    resend.forEach(
+                    resendList.forEach(
                             i->inFlight.put(i.getTsn(),i)
                     );
-                    return resend;
+                    return new SackResult(resendList,updatedCumTSN);
                 }
 
                 logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
+                return new SackResult(Collections.emptyList(),updatedCumTSN);
             }
             else {
                 logger.info("Out of order sack" + sack);
             }
         }
-        return Collections.emptyList();
+        return new SackResult(Collections.emptyList(),false);
     }
 
     private boolean acknowledged(SackData data,BufferedSent inFlight) {
         return data.getCumulativeTSN() >= inFlight.getTsn() ||
-                inGapAck(data.getTsns(),inFlight.getTsn());
+                inGapAck(data.getCumulativeTSN(),data.getTsns(),inFlight.getTsn());
     }
 
 
-    private boolean inGapAck(List<GapAck> acks,long inflightTSN) {
+    private boolean inGapAck(Long cumulativeTSN,List<GapAck> acks,long inflightTSN) {
         return acks.stream()
                 .reduce(false,
-                        (a,b) -> b.inRange(inflightTSN),
+                        (a,b) -> b.inRange(inflightTSN-cumulativeTSN),
                         (a,b) -> a || b);
     }
 

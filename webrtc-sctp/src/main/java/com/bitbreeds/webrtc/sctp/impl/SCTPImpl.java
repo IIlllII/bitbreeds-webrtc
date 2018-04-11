@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,7 +57,7 @@ public class SCTPImpl implements SCTP  {
 
     private final static int DEFAULT_SEND_BUFFER_SIZE = 2000000;
 
-    private volatile SCTPState state = SCTPState.CLOSED;
+    private final AtomicReference<SCTPState> state = new AtomicReference<>(SCTPState.CLOSED);
 
     /**
      * The impl access to write data to the socket
@@ -100,6 +101,11 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
+    public void establish() {
+        state.updateAndGet(SCTPState::moveToEstablished);
+    }
+
+
     HeartBeatService getHeartBeatService() {
         return heartBeatService;
     }
@@ -110,7 +116,7 @@ public class SCTPImpl implements SCTP  {
 
 
     private void doRetransmission() {
-        //TODO implement
+        logger.info("Retransmission started {}" );
         List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
         retransmissionCalculator.restart();
         toSend.forEach(i ->
@@ -122,18 +128,22 @@ public class SCTPImpl implements SCTP  {
      * @param sackData acknowledgement
      */
     void updateAcknowledgedTSNS(SackData sackData) {
-        List<BufferedSent> fastRetransmit = sendBuffer.receiveSack(sackData);
-        fastRetransmit.forEach(i ->
+        logger.debug("Got sack {}",sackData );
+
+        SackResult result = sendBuffer.receiveSack(sackData);
+        if(sendBuffer.getInflightSize() == 0) {
+            retransmissionCalculator.stop();
+        }
+        else if (result.isUpdatedCumulative()){
+            retransmissionCalculator.restart();
+        }
+
+        result.getFastRetransmits().forEach(i ->
                 getConnection().putDataOnWire(i.getData().getSctpPayload())
         );
 
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
-        if(toSend.isEmpty()) {
-            retransmissionCalculator.stop();
-        }
-        else {
-            retransmissionCalculator.restart();
-        }
+
         toSend.forEach(i ->
                 getConnection().putDataOnWire(i.getData().getSctpPayload())
         );
@@ -186,6 +196,9 @@ public class SCTPImpl implements SCTP  {
         }
         SackData sackData = receiveBuffer.getSackDataToSend();
         Optional<SCTPMessage> message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
+        message.ifPresent(
+                i-> logger.info("Created sack {} to send",i)
+        );
         return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
     }
 
@@ -260,10 +273,10 @@ public class SCTPImpl implements SCTP  {
 
         receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
+        sendSack(); //Sack all messages immediately
         deliverables.forEach(
                 i -> getConnection().presentToUser(i)
         );
-        sendSack(); //Sack all messages immediately
     }
 
     /**
@@ -275,12 +288,27 @@ public class SCTPImpl implements SCTP  {
         );
     }
 
+    void receiveShutDown() {
+        state.updateAndGet(SCTPState::receivedShutdown);
+
+        /*
+         * Todo send and wait for acks
+         */
+
+        state.updateAndGet(SCTPState::shutDownAck);
+
+    }
+
 
     @Override
     public void shutdown() {
+
+        state.updateAndGet(SCTPState::shutDown);
         /*
-         * Todo move to shutdown state
+         * Todo move to shutdown state, if all sent and acked
          */
+        state.updateAndGet(SCTPState::sendShutdown);
+
     }
 
     /**
@@ -298,6 +326,7 @@ public class SCTPImpl implements SCTP  {
         logger.info("Remote buffer: " + sendBuffer.getRemoteBufferSize());
         logger.info("Local send buffer: " + sendBuffer.getCapacity());
         logger.info("Local buffer: " + receiveBuffer.getCapacity());
+        logger.info("State: " + state.get());
     }
 
     @Override

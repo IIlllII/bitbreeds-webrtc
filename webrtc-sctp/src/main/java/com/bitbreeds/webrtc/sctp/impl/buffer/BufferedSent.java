@@ -29,7 +29,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
     private final int fastResendNum;
 
     public boolean canFastResend() {
-        return !fastResent && fastResendNum>=3;
+        return !fastResent && fastResendNum >= 3;
     }
 
     private final boolean fastResent;

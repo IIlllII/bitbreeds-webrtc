@@ -28,7 +28,7 @@ public class RetransmissionTimeout {
     private final double rttvar;
     private final double rto;
 
-    public static RetransmissionTimeout initial() {
+    static RetransmissionTimeout initial() {
         return new RetransmissionTimeout(-1,-1,INITIAL);
     }
 
@@ -38,15 +38,15 @@ public class RetransmissionTimeout {
         this.rto = Math.min(Math.max(rto,MIN),MAX);
     }
 
-    public int getRetransmissionTimeoutMillis() {
-        return (int)Math.floor(rto*1000000.0);
+    int getRetransmissionTimeoutMillis() {
+        return (int)Math.floor(rto*1000.0);
     }
 
     public RetransmissionTimeout backOff() {
         return new RetransmissionTimeout(srtt,rttvar,rto*2.0);
     }
 
-    public RetransmissionTimeout addMeasurement(double rtt) {
+    RetransmissionTimeout addMeasurement(double rtt) {
         if(srtt < 0) {
             double nextRttvar = rtt / 2.0;
             double nextRto = srtt + 4 * rttvar;

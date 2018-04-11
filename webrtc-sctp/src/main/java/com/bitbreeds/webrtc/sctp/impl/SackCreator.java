@@ -53,8 +53,8 @@ public class SackCreator {
 
         for(int i = 1; i<acks.size(); i++) {
             GapAck ack = acks.get(i);
-            int start = (int)(ack.start - sackData.getCumulativeTSN());
-            int end = (int)(ack.end - sackData.getCumulativeTSN());
+            int start = (int)(ack.start);
+            int end = (int)(ack.end);
             varData.add(twoBytesFromInt(start));
             varData.add(twoBytesFromInt(end));
         }

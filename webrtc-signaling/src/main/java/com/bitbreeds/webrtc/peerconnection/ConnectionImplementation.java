@@ -85,7 +85,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private SCTP sctp = new SCTPNoopImpl();
 
-    private final static int DEFAULT_WAIT_MILLIS = 10000;
+    private final static int DEFAULT_WAIT_MILLIS = 60000;
     private final static int DEFAULT_MTU = 1500;
     private final static int DEFAULT_BUFFER_SIZE = 20000;
 
@@ -129,67 +129,70 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     public ConnectionImplementation(
             KeyStoreInfo keyStoreInfo,
-            PeerDescription remoteDescription)
-            throws IOException {
+            PeerDescription remoteDescription) {
         logger.info("Initializing {}",this.getClass().getName());
         this.remoteDescription = remoteDescription;
         this.dtlsServer = new WebrtcDtlsServer(keyStoreInfo);
-        this.socket = new DatagramSocket();
-        this.socket.setReceiveBufferSize(2000000);
-        this.socket.setSendBufferSize(2000000);
-        this.port = socket.getLocalPort();
-        this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
-        this.mode = ConnectionMode.STUN_BINDING;
-        this.peerConnection = new PeerConnection(this);
-        /*
-         * Get address which external system can reach
-         * TODO ensure this works
-         */
-        String localAddress = InetAddress.getLocalHost().getHostAddress();
-        String address = System.getProperty("com.bitbreeds.ip",localAddress);
-        logger.info("Adr: {}", address);
+        try {
+            this.socket = new DatagramSocket();
+            this.socket.setReceiveBufferSize(2000000);
+            this.socket.setSendBufferSize(2000000);
+            this.port = socket.getLocalPort();
+            this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
+            this.mode = ConnectionMode.STUN_BINDING;
+            this.peerConnection = new PeerConnection(this);
+            /*
+             * Get address which external system can reach
+             * TODO ensure this works
+             */
+            String localAddress = InetAddress.getLocalHost().getHostAddress();
+            String address = System.getProperty("com.bitbreeds.ip", localAddress);
+            logger.info("Adr: {}", address);
 
-        /*
-         * Create candidate from connections
-         * Todo random is weird
-         */
-        Random random = new Random();
-        int number = random.nextInt(1000000);
-        this.iceCandidate = new IceCandidate(BigInteger.valueOf(number),this.port,address,2122252543L);
+            /*
+             * Create candidate from connections
+             * Todo random is weird
+             */
+            Random random = new Random();
+            int number = random.nextInt(1000000);
+            this.iceCandidate = new IceCandidate(BigInteger.valueOf(number), this.port, address, 2122252543L);
 
-        /*
-         * Print monitoring information from connection
-         */
-        this.monitor = () -> {
-            while(running && socket.isBound()) {
-                try {
-                    Thread.sleep(3000);
-                    sctp.runMonitoring();
+            /*
+             * Print monitoring information from connection
+             */
+            this.monitor = () -> {
+                while (running && socket.isBound()) {
+                    try {
+                        Thread.sleep(3000);
+                        sctp.runMonitoring();
+                    } catch (Exception e) {
+                        logger.error("Logging error", e);
+                    }
                 }
-                catch (Exception e) {
-                    logger.error("Logging error",e);
-                }
-            }
-        };
+            };
 
-        /*
-         * Create heartbeat message
-         */
-        this.heartBeat = () ->  {
-            while(running && socket.isBound()) {
-                try {
-                    Thread.sleep(5000);
-                    sctp.createHeartBeat().ifPresent(beat -> {
-                        logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
-                        processPool.submit(() ->
-                                putDataOnWire(beat.getPayload())
-                        );
-                    });
-                } catch (Exception e) {
-                    logger.error("HeartBeat error: ",e);
+            /*
+             * Create heartbeat message
+             */
+            this.heartBeat = () -> {
+                while (running && socket.isBound()) {
+                    try {
+                        Thread.sleep(5000);
+                        sctp.createHeartBeat().ifPresent(beat -> {
+                            logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
+                            processPool.submit(() ->
+                                    putDataOnWire(beat.getPayload())
+                            );
+                        });
+                    } catch (Exception e) {
+                        logger.error("HeartBeat error: ", e);
+                    }
                 }
-            }
-        };
+            };
+
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to start connection:", e);
+        }
 
     }
 
@@ -256,6 +259,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         sctp = new SCTPImpl(this);
                         mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");
+                        new Thread(monitor).start();
+                        new Thread(heartBeat).start();
                     }
                     else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");

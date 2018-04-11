@@ -58,7 +58,7 @@ public class ReceiveBufferFragmentationTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(1,sack.getCumulativeTSN());
-        assertEquals(sack.getTsns(), SackUtil.getGapAckList(SetUtil.newHashSet(3L)));
+        assertEquals(sack.getTsns(), SackUtil.getGapAckList(0L,SetUtil.newHashSet(2L)));
         assertEquals(sack.getDuplicates(),Collections.emptyList());
 
         buffer.store(mid);

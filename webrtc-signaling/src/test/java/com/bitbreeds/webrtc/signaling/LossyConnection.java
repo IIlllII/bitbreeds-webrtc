@@ -1,7 +1,11 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
+import org.apache.commons.codec.binary.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Random;
@@ -32,16 +36,24 @@ import java.util.Random;
  */
 public class LossyConnection extends ConnectionImplementation {
 
-    private final Integer packetlossPercentage;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final Integer packetlossPercentageIn;
+    private final Integer packetlossPercentageOut;
     private final Random random = new Random(System.currentTimeMillis());
 
     public LossyConnection(KeyStoreInfo keyStoreInfo,
-                           PeerDescription remoteDescription, Integer packetlossPercentage) throws IOException {
+                           PeerDescription remoteDescription,
+                           Integer packetlossPercentageIn,
+                           Integer packetlossPercentageOut) {
         super(keyStoreInfo,remoteDescription);
-        if(packetlossPercentage < 0 || packetlossPercentage > 100) {
-            throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentage);
+        if(packetlossPercentageIn < 0 || packetlossPercentageIn > 100) {
+            throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentageIn);
         }
-        this.packetlossPercentage = packetlossPercentage;
+        if(packetlossPercentageOut < 0 || packetlossPercentageOut > 100) {
+            throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentageOut);
+        }
+        this.packetlossPercentageIn = packetlossPercentageIn;
+        this.packetlossPercentageOut = packetlossPercentageOut;
     }
 
     /**
@@ -52,8 +64,12 @@ public class LossyConnection extends ConnectionImplementation {
      */
     @Override
     public void putDataOnWire(byte[] out) {
-        if(random.nextInt(100) > packetlossPercentage) {
+        int rd = random.nextInt(100);
+        if(rd > packetlossPercentageOut) {
             super.putDataOnWire(out);
+        }
+        else {
+            logger.info("Dropped out message with rd {} and data {}",rd, Hex.encodeHexString(out));
         }
     }
 
@@ -66,8 +82,12 @@ public class LossyConnection extends ConnectionImplementation {
      */
     @Override
     public void processReceivedMessage(byte[] buf) {
-        if(random.nextInt(100) > packetlossPercentage) {
+        int rd = random.nextInt(100);
+        if(rd > packetlossPercentageIn) {
             super.processReceivedMessage(buf);
+        }
+        else {
+            logger.info("Dropped received message with rd {} and data {}",rd, Hex.encodeHexString(buf));
         }
     }
 }

@@ -98,7 +98,7 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(2,sack.getCumulativeTSN());
-        assertEquals( SackUtil.getGapAckList(Stream.of(4L).collect(Collectors.toSet())),sack.getTsns());
+        assertEquals( SackUtil.getGapAckList(0L,Stream.of(2L).collect(Collectors.toSet())),sack.getTsns());
         assertEquals(sack.getDuplicates(),Collections.emptyList());
     }
 

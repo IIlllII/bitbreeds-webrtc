@@ -32,7 +32,7 @@ public enum SCTPState {
 
     private boolean canSendAndReceive;
 
-    private SCTPState(boolean canSendAndReceive) {
+    SCTPState(boolean canSendAndReceive) {
         this.canSendAndReceive = canSendAndReceive;
     }
 

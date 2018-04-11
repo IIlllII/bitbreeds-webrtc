@@ -40,7 +40,7 @@ public class SackUtilTest {
 
         ls.add(10L);
 
-        List<GapAck> ackList = getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(0L,ls);
 
         assertEquals(3,ackList.size());
 
@@ -64,7 +64,7 @@ public class SackUtilTest {
     public void testGapAckGenEmpty() {
         HashSet<Long> ls = new HashSet<>();
 
-        List<GapAck> ackList = getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(0L,ls);
 
         assertEquals(0,ackList.size());
     }
@@ -81,7 +81,7 @@ public class SackUtilTest {
         ls.add(4L);
 
 
-        List<GapAck> ackList = getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(0L,ls);
 
         assertEquals(1,ackList.size());
 
@@ -97,7 +97,7 @@ public class SackUtilTest {
         HashSet<Long> ls = new HashSet<>();
         ls.add(0L);
 
-        List<GapAck> ackList = getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(0L,ls);
 
         assertEquals(1,ackList.size());
 
@@ -116,7 +116,7 @@ public class SackUtilTest {
         ls.add(10L);
         ls.add(20L);
 
-        List<GapAck> ackList = getGapAckList(ls);
+        List<GapAck> ackList = getGapAckList(0L,ls);
 
         assertEquals(3,ackList.size());
 

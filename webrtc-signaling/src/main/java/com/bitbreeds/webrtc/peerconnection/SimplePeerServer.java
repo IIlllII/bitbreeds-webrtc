@@ -12,6 +12,7 @@ import javax.sdp.SessionDescription;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /*
  * Copyright (c) 26/04/16, Jonas Waage
@@ -38,6 +39,24 @@ public class SimplePeerServer {
 
     private final static Logger logger = LoggerFactory.getLogger(SimplePeerServer.class);
 
+    /**
+     * Function that allows interception of connection methods
+     */
+    private final Function<PeerDescription,ConnectionImplementation> connectionWrapper;
+
+    public SimplePeerServer(
+            KeyStoreInfo keyStoreInfo,
+            Function<PeerDescription,ConnectionImplementation> connectionWrapper) {
+        this.connectionWrapper = connectionWrapper;
+        this.keyStoreInfo = keyStoreInfo;
+    }
+
+    public SimplePeerServer(KeyStoreInfo keyStoreInfo) {
+        this.keyStoreInfo = keyStoreInfo;
+        this.connectionWrapper = null;
+    }
+
+
     private ConcurrentHashMap<Integer,ConnectionImplementation> connections = new ConcurrentHashMap<>();
     public Consumer<PeerConnection> onConnection = (i) -> {};
 
@@ -45,10 +64,6 @@ public class SimplePeerServer {
      * Server keystore for encryption
      */
     private KeyStoreInfo keyStoreInfo;
-
-    public SimplePeerServer(KeyStoreInfo keyStoreInfo) {
-        this.keyStoreInfo = keyStoreInfo;
-    }
 
 
     /**
@@ -72,7 +87,10 @@ public class SimplePeerServer {
                 keyStoreInfo.getAlias(),
                 keyStoreInfo.getPassword());
 
-        ConnectionImplementation ds = new ConnectionImplementation(keyStoreInfo,remotePeer);
+        ConnectionImplementation ds = connectionWrapper != null ?
+                connectionWrapper.apply(remotePeer) :
+                new ConnectionImplementation(keyStoreInfo,remotePeer);
+
         onConnection.accept(ds.getPeerConnection());
         connections.put(ds.getPort(),ds);
         new Thread(ds).start();
