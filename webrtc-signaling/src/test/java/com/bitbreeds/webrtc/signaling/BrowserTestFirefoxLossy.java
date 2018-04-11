@@ -50,7 +50,7 @@ public class BrowserTestFirefoxLossy {
 
 
     @Test
-    public void testAllMessages() throws Exception {
+    public void testAllMessagesFinished() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
@@ -58,33 +58,21 @@ public class BrowserTestFirefoxLossy {
         CamelContext ctx = SimpleSignalingExample.camelContextLossy(5,5);
         ctx.start();
 
-        File fl = new File(".././web/transfer-loss.html");
+        File fl = new File(".././web/transfer.html");
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
         driver.get(url);
 
-        (new WebDriverWait(driver, 30)).until(
+        (new WebDriverWait(driver, 20)).until(
                 (ExpectedCondition<Boolean>) d -> {
                     assert d != null;
-                    String data  = d.findElement(By.id("all-received")).getText();
-                    logger.info("Data {}",data);
-                    if(data.contains("echo-msg-")) {
-                        String out = data.substring(9, data.length());
-                        return Integer.valueOf(out) > 75;
-                    }
-                    else {
-                        return false;
-                    }
+                    return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");
                 }
         );
 
         ctx.stop();
     }
-
-
-
-
 
 
 }
