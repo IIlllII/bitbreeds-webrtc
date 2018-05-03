@@ -6,6 +6,7 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.websocket.WebsocketComponent;
 import org.apache.camel.component.websocket.WebsocketConstants;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.impl.JndiRegistry;
@@ -21,7 +22,6 @@ import org.slf4j.MDC;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.HashMap;
 import java.util.HashSet;
 
 /**
@@ -87,6 +87,9 @@ public class SimpleSignalingExample {
         setupPeerConnection(peerConnectionServer);
 
         CamelContext ctx = new DefaultCamelContext(reg);
+        WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
+        component.setMinThreads(1);
+        component.setMaxThreads(15);
         ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());
@@ -113,6 +116,9 @@ public class SimpleSignalingExample {
 
 
         CamelContext ctx = new DefaultCamelContext(reg);
+        WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
+        component.setMinThreads(1);
+        component.setMaxThreads(15);
         ctx.addRoutes(new SimpleSignalingExample.WebsocketRouteNoSSL(peerConnectionServer));
         ctx.addRoutes(new SimpleSignalingExample.OutRoute());
         ctx.addRoutes(new SimpleSignalingExample.DelayRoute());
@@ -122,7 +128,7 @@ public class SimpleSignalingExample {
     }
 
 
-    public static CamelContext camelContext() throws Exception {
+    public static CamelContext initContext() throws Exception {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
         reg.bind("sslContextParameters",sslParameters());
 
@@ -130,8 +136,11 @@ public class SimpleSignalingExample {
 
         setupPeerConnection(peerConnectionServer);
 
-
         CamelContext ctx = new DefaultCamelContext(reg);
+        WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
+        component.setMinThreads(1);
+        component.setMaxThreads(15);
+
         ctx.addRoutes(new WebsocketRouteNoSSL(peerConnectionServer));
         ctx.addRoutes(new OutRoute());
         ctx.addRoutes(new DelayRoute());

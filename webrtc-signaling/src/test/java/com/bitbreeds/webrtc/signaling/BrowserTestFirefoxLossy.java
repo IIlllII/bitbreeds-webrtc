@@ -39,6 +39,7 @@ public class BrowserTestFirefoxLossy {
 
     @Before
     public void setup() {
+        TestKeystoreParams.initialize();
         WebDriverManager.firefoxdriver().setup();
         driver = new FirefoxDriver();
     }

@@ -34,6 +34,7 @@ public class BrowserTestFirefox {
 
     @Before
     public void setup() {
+        TestKeystoreParams.initialize();
         WebDriverManager.firefoxdriver().setup();
         driver = new FirefoxDriver();
     }
@@ -45,11 +46,8 @@ public class BrowserTestFirefox {
 
     @Test
     public void testOpen() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignalingExample.camelContext();
+        CamelContext ctx = SimpleSignalingExample.initContext();
         ctx.start();
 
         File fl = new File(".././web/index.html");
@@ -71,11 +69,8 @@ public class BrowserTestFirefox {
 
     @Test
     public void testAllMessages() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignalingExample.camelContext();
+        CamelContext ctx = SimpleSignalingExample.initContext();
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

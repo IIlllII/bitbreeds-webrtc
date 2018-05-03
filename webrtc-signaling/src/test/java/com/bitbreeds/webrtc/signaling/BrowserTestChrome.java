@@ -8,7 +8,6 @@ import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -35,6 +34,7 @@ public class BrowserTestChrome {
 
     @Before
     public void setupDriver() {
+        TestKeystoreParams.initialize();
         WebDriverManager.chromedriver().setup();
         driver = new ChromeDriver();
     }
@@ -48,11 +48,8 @@ public class BrowserTestChrome {
 
     @Test
     public void testOpen() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignalingExample.camelContext();
+        CamelContext ctx = SimpleSignalingExample.initContext();
         ctx.start();
 
         File fl = new File(".././web/index.html");
@@ -73,11 +70,8 @@ public class BrowserTestChrome {
 
     @Test
     public void testAllMessages() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignalingExample.camelContext();
+        CamelContext ctx = SimpleSignalingExample.initContext();
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

@@ -39,6 +39,7 @@ public class BrowserTestChromeLossy {
 
     @Before
     public void setup() {
+        TestKeystoreParams.initialize();
         WebDriverManager.chromedriver().setup();
         driver = new ChromeDriver();
     }
@@ -51,9 +52,6 @@ public class BrowserTestChromeLossy {
 
     @Test
     public void testAllMessagesFinished() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
         CamelContext ctx = SimpleSignalingExample.camelContextLossy(5,5);
         ctx.start();

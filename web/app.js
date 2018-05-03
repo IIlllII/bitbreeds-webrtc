@@ -114,7 +114,7 @@ dataChannel.onopen = function (e) {
     dataChannel.send("Hello World!");
 
     var time = new Date().getTime();
-
+    var i = 0;
     window.setTimeout(function () {
 
         var transfer = window.setInterval(function () {
@@ -122,7 +122,8 @@ dataChannel.onopen = function (e) {
             try {
                 if(transmit) {
                     if (dataChannel.bufferedAmount <= BUFF_MAX && dataChannel.readyState === "open") {
-                        dataChannel.send(out);
+                        dataChannel.send(out+i);
+                        i++;
                         sent = sent + out.length;
                         count++;
                         console.log("sent " + out.length + " bytes");
