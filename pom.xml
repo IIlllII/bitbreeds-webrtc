@@ -18,6 +18,9 @@
         <contributor>
             <name>Jonas Waage</name>
             <email>jonaswaage@mac.com</email>
+            <roles>
+                <role>maintainer</role>
+            </roles>
         </contributor>
     </contributors>
 

@@ -3,8 +3,7 @@ bitbreeds-webrtc
 
 ### Goal
 The goal for bitbreeds-webrtc is to eventually make a simple Java peer for
-talking directly to one or several browsers or
-other WebRTC peers through an unordered/unreliable or 
+talking directly to one or several browsers or other WebRTC peers through an unordered/unreliable or 
 unordered/reliable DataChannel.
 
 At the moment the goal is to only allow it to be used as the "server"
@@ -36,12 +35,13 @@ java -jar -Dcom.bitbreeds.keystore="../src/main/resources/ws2.jks" webrtc-exampl
 java -Dcom.bitbreeds.keystore=path-to-your-keystore -Dcom.bitbreeds.keystore.alias=your-key-alias -Dcom.bitbreeds.keystore.pass=your-key-pass -Dcom.bitbreeds.ip="192.168.1.5" -jar webrtc-example-1.0-SNAPSHOT-capsule.jar
 ```
 
-If the server has problems finding its own public ip, you can supply the
-ip to send as a candidate manually like this.
-
+If the server has problems finding its own public IP address, you can supply the
+IP address like this.
 ```
 -Dcom.bitbreeds.ip=192.168.1.5
 ```
+This might be needed since we must send a candidate to the other peer.
+
 
 The keystore parameters are pretty self explanatory (you need to make an RSA cert though):
 ```
@@ -87,7 +87,7 @@ peerconnection.
 
 
 ### Debug
-To start firefox with logging, take a look in ./firefox_osx_webrtc_logging.sh: 
+To start firefox with logging (this might be outdated), take a look in ./firefox_osx_webrtc_logging.sh: 
 ```
 #!/bin/bash
 dat=`echo ~`
