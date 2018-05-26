@@ -25,6 +25,7 @@
                         </goals>
                         <configuration>
                             <appClass>com.bitbreeds.webrtc.example.DatachannelServer</appClass>
+                            <type>fat</type>
                         </configuration>
                     </execution>
                 </executions>
