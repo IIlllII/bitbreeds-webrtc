@@ -1,5 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.peerconnection.IceCandidate;
+import com.bitbreeds.webrtc.peerconnection.ProcessSignals;
 import org.apache.camel.Exchange;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.impl.DefaultExchange;

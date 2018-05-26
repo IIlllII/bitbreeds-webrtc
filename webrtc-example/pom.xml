@@ -17,48 +17,14 @@
             <plugin>
                 <groupId>com.github.chrischristo</groupId>
                 <artifactId>capsule-maven-plugin</artifactId>
-                <version>1.1.2</version>
+                <version>1.2.0</version>
                 <executions>
                     <execution>
                         <goals>
                             <goal>build</goal>
                         </goals>
                         <configuration>
-                            <appClass>com.bitbreeds.webrtc.example.SimpleSignalingExample</appClass>
-                            <!--
-                            <caplets>co.paralleluniverse:capsule-daemon:0.2.0</caplets>
-
-                            <manifest>
-                                <entry>
-                                    <key>Daemon-Start-Class</key>
-                                    <value>com.bitbreeds.duelserver.server.ServerBoot</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-Start-Method</key>
-                                    <value>main</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-User</key>
-                                    <value>crackling</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-Cwd</key>
-                                    <value>/Users/crackling/working-dir-capsule</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-Stdout-File</key>
-                                    <value>/Users/crackling/working-dir-capsule/info.log</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-Stderr-File</key>
-                                    <value>/Users/crackling/working-dir-capsule/error.log</value>
-                                </entry>
-                                <entry>
-                                    <key>Daemon-PID-File</key>
-                                    <value>/Users/crackling/working-dir-capsule/duelserver.PID</value>
-                                </entry>
-                            </manifest>
-                            -->
+                            <appClass>com.bitbreeds.webrtc.example.DatachannelServer</appClass>
                         </configuration>
                     </execution>
                 </executions>
@@ -92,6 +58,19 @@
             <artifactId>camel-core</artifactId>
             <version>2.21.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+
     </dependencies>
 
 </project>

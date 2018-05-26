@@ -3,7 +3,6 @@ package com.bitbreeds.webrtc.peerconnection;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.signaling.*;
-import org.pcollections.ConsPStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.signaling;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
+import com.bitbreeds.webrtc.peerconnection.PeerDescription;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

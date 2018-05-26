@@ -1,13 +1,13 @@
-package com.bitbreeds.webrtc.signaling;
+package com.bitbreeds.webrtc.peerconnection;
 
-import com.bitbreeds.webrtc.peerconnection.IceCandidate;
-import org.junit.Test;
-
-import javax.sdp.SessionDescription;
-import java.math.BigInteger;
+import com.google.gson.JsonObject;
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Copyright (c) 05/02/2018, Jonas Waage
+ * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -21,14 +21,26 @@ import java.math.BigInteger;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class SDPTest {
 
-    @Test
-    public void testSdpGen() {
 
-        SessionDescription sdp = SDPUtil.createSDP(new IceCandidate(BigInteger.valueOf(123L),35400,"127.0.0.1",123),"user","pwd","AA","data");
-        System.out.println(sdp.toString());
+/**
+ * Creates JSON from SDP answer to send back to browser
+ */
+public class IceCandidateToJSON implements Processor {
 
+    private final static Logger logger = LoggerFactory.getLogger(IceCandidateToJSON.class);
+
+    public void process(Exchange exchange) throws Exception {
+        IceCandidate ex = (IceCandidate)exchange.getIn().getBody();
+        JsonObject obj = new JsonObject();
+        obj.addProperty("candidate",ex.candidateString());
+        obj.addProperty("sdpMid","data");
+        obj.addProperty("sdpMLineIndex",0);
+
+        String out = obj.toString();
+        logger.info("Send candidate: " +out) ;
+
+        exchange.getIn().setBody(out);
     }
 
 

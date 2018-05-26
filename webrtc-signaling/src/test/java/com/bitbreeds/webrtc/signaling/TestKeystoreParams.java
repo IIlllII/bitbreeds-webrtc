@@ -1,5 +1,7 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.peerconnection.ServerProperties;
+
 /**
  * Copyright (c) 12/04/2018, Jonas Waage
  * <p>

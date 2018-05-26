@@ -1,13 +1,9 @@
-package com.bitbreeds.webrtc.signaling;
+package com.bitbreeds.webrtc.peerconnection;
 
-import com.bitbreeds.webrtc.peerconnection.IceCandidate;
-import org.junit.Test;
-
-import javax.sdp.SessionDescription;
 import java.math.BigInteger;
 
 /**
- * Copyright (c) 05/02/2018, Jonas Waage
+ * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -21,15 +17,38 @@ import java.math.BigInteger;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class SDPTest {
 
-    @Test
-    public void testSdpGen() {
 
-        SessionDescription sdp = SDPUtil.createSDP(new IceCandidate(BigInteger.valueOf(123L),35400,"127.0.0.1",123),"user","pwd","AA","data");
-        System.out.println(sdp.toString());
+/**
+ * Representation of an ICE candidate
+ */
+public class IceCandidate {
 
+    private final int port;
+    private final String ip;
+    private final long priority;
+    private final BigInteger number;
+
+    public IceCandidate(BigInteger number, int port, String ip, long priority) {
+        this.port = port;
+        this.ip = ip;
+        this.priority = priority;
+        this.number = number;
     }
 
+    public String candidateString() {
+        return "candidate:"+number+" 1 UDP 2122252543 " + this.getIp() + " " + this.getPort() + " typ host generation 0 ufrag Qhj8 network-cost 50";
+    }
 
+    public int getPort() {
+        return port;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public long getPriority() {
+        return priority;
+    }
 }

@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Copyright (c) 27/06/16, Jonas Waage
@@ -56,7 +55,7 @@ public class BrowserTestFirefoxLossy {
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignalingExample.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

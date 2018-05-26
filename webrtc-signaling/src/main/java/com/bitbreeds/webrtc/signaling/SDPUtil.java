@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.peerconnection.IceCandidate;
 import gov.nist.javax.sdp.MediaDescriptionImpl;
 import gov.nist.javax.sdp.fields.*;
 

@@ -8,7 +8,6 @@ import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
@@ -53,7 +52,7 @@ public class BrowserTestChromeLossy {
     @Test
     public void testAllMessagesFinished() throws Exception {
 
-        CamelContext ctx = SimpleSignalingExample.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

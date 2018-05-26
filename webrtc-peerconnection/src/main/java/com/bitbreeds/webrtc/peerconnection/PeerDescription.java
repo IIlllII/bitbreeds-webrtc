@@ -1,13 +1,9 @@
-package com.bitbreeds.webrtc.signaling;
-
-import com.bitbreeds.webrtc.peerconnection.IceCandidate;
-import org.junit.Test;
+package com.bitbreeds.webrtc.peerconnection;
 
 import javax.sdp.SessionDescription;
-import java.math.BigInteger;
 
 /**
- * Copyright (c) 05/02/2018, Jonas Waage
+ * Copyright (c) 22/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -21,15 +17,27 @@ import java.math.BigInteger;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class SDPTest {
+public class PeerDescription {
 
-    @Test
-    public void testSdpGen() {
+    private final UserData userData;
+    private final String mediaStreamId;
+    private final SessionDescription sdp;
 
-        SessionDescription sdp = SDPUtil.createSDP(new IceCandidate(BigInteger.valueOf(123L),35400,"127.0.0.1",123),"user","pwd","AA","data");
-        System.out.println(sdp.toString());
-
+    public PeerDescription(UserData userData, String mediaStreamId, SessionDescription sdp) {
+        this.userData = userData;
+        this.mediaStreamId = mediaStreamId;
+        this.sdp = sdp;
     }
 
+    public UserData getUserData() {
+        return userData;
+    }
 
+    public String getMediaStreamId() {
+        return mediaStreamId;
+    }
+
+    public SessionDescription getSdp() {
+        return sdp;
+    }
 }
