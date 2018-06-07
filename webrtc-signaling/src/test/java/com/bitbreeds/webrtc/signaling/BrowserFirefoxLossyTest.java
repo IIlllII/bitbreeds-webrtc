@@ -10,6 +10,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
@@ -28,9 +30,11 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BrowserTestFirefox {
+public class BrowserFirefoxLossyTest {
 
     WebDriver driver;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Before
     public void setup() {
@@ -44,33 +48,14 @@ public class BrowserTestFirefox {
         driver.quit();
     }
 
-    @Test
-    public void testOpen() throws Exception {
-
-        CamelContext ctx = SimpleSignaling.initContext();
-        ctx.start();
-
-        File fl = new File(".././web/index.html");
-
-        String url = "file://" + fl.getAbsolutePath();
-        System.out.println(url);
-        driver.get(url);
-
-        (new WebDriverWait(driver, 20)).until(
-                (ExpectedCondition<Boolean>) d -> {
-                    assert d != null;
-                    return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
-                }
-        );
-
-        ctx.stop();
-    }
-
 
     @Test
-    public void testAllMessages() throws Exception {
+    public void testAllMessagesFinished() throws Exception {
+        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
+        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
+        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignaling.initContext();
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");
@@ -88,7 +73,6 @@ public class BrowserTestFirefox {
 
         ctx.stop();
     }
-
 
 
 }

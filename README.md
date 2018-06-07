@@ -15,16 +15,17 @@ it is not something I am interested in writing, since I do not need it at this m
 bitbreeds webrtc is __experimental__ and not even close to complete and __not__ ready for
 any kind serious use.
 
+
 ### How to run
 #### Run locally.
 
-Main class `com.bitbreeds.webrtc.example.DatachannelServer` will start a websocket server on port 8443.
+Main class `com.bitbreeds.webrtc.example.DatachannelServer` will start a server on port 8443 accepting websocket connections.
 
 Then run `./web/index.html` in firefox to connect to the server, share candicates and 
 using WebRTC. If it works it should say _ONMESSAGE_
 
 #### Run on a server
-If you build webrtc-example, you can start the _webrtc-example-1.0-SNAPSHOT-capsule.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
+If you build webrtc-example, you can start the _webrtc-example-<version-with-deps>-.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
 
 Using the default keystore in src/resources. ONLY FOR TESTING.
 ```
@@ -40,10 +41,10 @@ IP address like this.
 ```
 -Dcom.bitbreeds.ip=192.168.1.5
 ```
-This might be needed since we must send a candidate to the other peer.
+This might be needed since you must send a candidate to the other peer.
 
 
-The keystore parameters are pretty self explanatory (you need to make an RSA cert though):
+The keystore parameters are pretty self explanatory:
 ```
 -Dcom.bitbreeds.keystore=./ws2.jks
 -Dcom.bitbreeds.keystore.alias=websocket
@@ -80,7 +81,7 @@ peerConnectionServer.onConnection = (connection) -> {
 
 
 #### Run a complete selenium test
-class `BrowserTestChrome/Firefox` runs a full test against a browser.
+class `Browser<Chrome/Firefox>*Test` runs a full test against a browser.
 It will start the server, open the browser and connect. Then end
 once it has opened the WebRTC connection, or sent a bunch of messages over the 
 peerconnection.

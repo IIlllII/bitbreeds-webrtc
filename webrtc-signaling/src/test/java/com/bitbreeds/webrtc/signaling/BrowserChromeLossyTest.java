@@ -10,6 +10,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
@@ -28,12 +30,14 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BrowserTestChrome {
+public class BrowserChromeLossyTest {
 
-    private WebDriver driver;
+    WebDriver driver;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Before
-    public void setupDriver() {
+    public void setup() {
         TestKeystoreParams.initialize();
         WebDriverManager.chromedriver().setup();
         driver = new ChromeDriver();
@@ -45,33 +49,10 @@ public class BrowserTestChrome {
         driver.quit();
     }
 
-
     @Test
-    public void testOpen() throws Exception {
+    public void testAllMessagesFinished() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext();
-        ctx.start();
-
-        File fl = new File(".././web/index.html");
-
-        String url = "file://" + fl.getAbsolutePath();
-        System.out.println(url);
-        driver.get(url);
-
-        (new WebDriverWait(driver, 20)).until(
-                (ExpectedCondition<Boolean>) d -> {
-                    assert d != null;
-                    return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
-                }
-        );
-
-        ctx.stop();
-    }
-
-    @Test
-    public void testAllMessages() throws Exception {
-
-        CamelContext ctx = SimpleSignaling.initContext();
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");
@@ -89,7 +70,5 @@ public class BrowserTestChrome {
 
         ctx.stop();
     }
-
-
 
 }
