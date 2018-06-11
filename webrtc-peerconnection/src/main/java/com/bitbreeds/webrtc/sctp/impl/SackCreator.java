@@ -33,7 +33,8 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  *
  * This class handles creation of SCTP sack
  *
- * @see <a hred="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP SACK spec</a>
+ * @see <a href="https://tools.ietf.org/html/rfc3758#section-3.2">Partial reliability spec</a>
+ * @see <a href="https://tools.ietf.org/html/rfc4960#section-3.3.4">SCTP SACK spec</a>
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
  */
@@ -107,5 +108,34 @@ public class SackCreator {
         return Optional.of(SCTPUtil.addChecksum(msg));
     }
 
+
+    /**
+     *
+     * @param forwardTSN calculated forward tsn
+     * @return Chunk to send attached to data or sack
+     */
+    static SCTPChunk creatForwardTsnChunk(long forwardTSN) {
+        SCTPFixedAttribute cum_tsn =
+                new SCTPFixedAttribute(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK,
+                        longToFourBytes(forwardTSN));
+
+        HashMap<SCTPFixedAttributeType,SCTPFixedAttribute> fixed = new HashMap<>();
+        fixed.put(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK,
+                cum_tsn);
+
+        int sum = fixed.keySet()
+                .stream()
+                .map(SCTPFixedAttributeType::getLgt).reduce(0, Integer::sum);
+
+        byte[] data = joinBytesArrays(new byte[]{}); //Add ordered streams with skipped tsns
+
+        return new SCTPChunk(
+                SCTPMessageType.FORWARD_TSN,
+                SCTPOrderFlag.fromValue((byte)0),
+                4 + sum + data.length,
+                fixed,
+                new HashMap<>(),
+                SignalUtil.padToMultipleOfFour(data));
+    }
 
 }

@@ -16,5 +16,14 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 public enum SendBufferedState {
-    STORED,SENT,ACKNOWLEDGED
+    STORED(false),SENT(true),ACKNOWLEDGED(false),ABANDONED(false);
+
+    private SendBufferedState(boolean canResend) {
+        this.canResend = canResend;
+    }
+    private boolean canResend;
+
+    public boolean isCanResend() {
+        return canResend;
+    }
 }
