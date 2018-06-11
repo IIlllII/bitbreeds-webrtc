@@ -75,7 +75,11 @@ public enum SCTPMessageType {
     COOKIE_ECHO(10,new ArrayList<>(),true),
     COOKIE_ACK(11,new ArrayList<>(),true),
     CWR(13,new ArrayList<>(),true),
-    SHUTDOWN_COMPLETE(14,new ArrayList<>(),true);
+    SHUTDOWN_COMPLETE(14,new ArrayList<>(),true),
+
+    FORWARD_TSN(192,Arrays.asList(
+            SCTPFixedAttributeType.CUMULATIVE_TSN_ACK)
+            ,true);
 
     /**
      * Message identifier
