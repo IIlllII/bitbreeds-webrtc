@@ -98,6 +98,7 @@ public class InitiationHandler implements MessageHandler {
 
         Map<SCTPAttributeType,SCTPAttribute> variableAttr  = new HashMap<>();
         variableAttr.put(SCTPAttributeType.STATE_COOKIE,cookie);
+        variableAttr.put(SCTPAttributeType.FORWARD_TSN,new SCTPAttribute(SCTPAttributeType.FORWARD_TSN,new byte[]{}));
 
         int chunkSize = 4 +
                 attr.values().stream().
