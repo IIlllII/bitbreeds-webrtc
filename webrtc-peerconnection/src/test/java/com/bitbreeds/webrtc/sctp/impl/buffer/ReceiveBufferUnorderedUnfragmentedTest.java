@@ -8,6 +8,7 @@ import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -50,7 +51,7 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
-        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1,ds.getStreamId(),ds.getProtocolId())),del);
+        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),0,ds.getStreamId(),ds.getProtocolId())),del);
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(1,sack.getCumulativeTSN());
@@ -158,9 +159,9 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
         assertEquals(4,del3.size());
 
         List<byte[]> data = del3.stream()
+                .sorted(Comparator.comparingInt(o -> o.getData()[0]))
                 .map(Deliverable::getData)
                 .collect(Collectors.toList());
-
 
         assertArrayEquals(new byte[]{0,0,0},data.get(0));
         assertArrayEquals(new byte[]{1,1,1},data.get(1));

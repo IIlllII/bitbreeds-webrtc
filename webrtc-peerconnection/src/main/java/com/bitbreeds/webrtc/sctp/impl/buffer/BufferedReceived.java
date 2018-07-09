@@ -38,7 +38,7 @@ public class BufferedReceived implements Comparable<BufferedReceived>{
     public Deliverable toDeliverable() {
         return new Deliverable(
                 data.getPayload(),
-                data.getFlag().isOrdered() ? data.getStreamSequence() : 1,
+                data.getStreamSequence(),
                 data.getStreamId(),
                 data.getProtocolId());
     }
