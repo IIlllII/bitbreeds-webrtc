@@ -40,6 +40,9 @@ public class SignalUtilTest {
 
         b = SignalUtil.sign(128);
         assertEquals(-128,b);
+
+        b = SignalUtil.sign(192);
+        assertEquals(-64,b);
     }
 
     @Test

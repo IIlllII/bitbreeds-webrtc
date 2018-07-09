@@ -155,10 +155,7 @@ dataChannel.onopen = function (e) {
 
 /* Seems to not be implemented, use once it is */
 dataChannel.onbufferedamountlow = function(e) {
-    if(transmit) {
-        dataChannel.send(out);
-        console.log("low: " + JSON.stringify(e));
-    }
+
 };
 
 dataChannel.onclose = function (e) {

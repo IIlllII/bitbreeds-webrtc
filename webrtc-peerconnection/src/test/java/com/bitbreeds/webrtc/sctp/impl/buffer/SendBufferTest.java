@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SetUtil;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
@@ -32,6 +33,7 @@ public class SendBufferTest {
 
     private List<SendData> makeData(long tsn) {
         return Collections.singletonList(new SendData(tsn,0,0, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, SCTPPayloadProtocolId.WEBRTC_BINARY,
+                SCTPReliability.createUnordered(),
                 new byte[] {0,0,0,0,0,0,1,1,1,1,1}));
     }
 

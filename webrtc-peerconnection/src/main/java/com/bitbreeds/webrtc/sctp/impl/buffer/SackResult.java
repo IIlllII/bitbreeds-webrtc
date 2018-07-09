@@ -19,12 +19,23 @@ import java.util.List;
  */
 public class SackResult {
 
-    final List<BufferedSent> fastRetransmits;
-    final boolean updatedCumulative;
+    private final List<BufferedSent> fastRetransmits;
+    private final boolean updatedCumulative;
+    private final FwdAckPoint advancedAckPoint;
+    private final long remoteCumulativeTSN;
 
-    public SackResult(List<BufferedSent> fastRetransmits, boolean updatedCumulative) {
+    public SackResult(List<BufferedSent> fastRetransmits,
+                      boolean updatedCumulative,
+                      long remoteCumulativeTSN,
+                      FwdAckPoint advancedAckPoint) {
         this.fastRetransmits = fastRetransmits;
         this.updatedCumulative = updatedCumulative;
+        this.advancedAckPoint = advancedAckPoint;
+        this.remoteCumulativeTSN = remoteCumulativeTSN;
+    }
+
+    public long getRemoteCumulativeTSN() {
+        return remoteCumulativeTSN;
     }
 
     public List<BufferedSent> getFastRetransmits() {
@@ -33,5 +44,19 @@ public class SackResult {
 
     public boolean isUpdatedCumulative() {
         return updatedCumulative;
+    }
+
+    public FwdAckPoint getAdvancedAckPoint() {
+        return advancedAckPoint;
+    }
+
+    @Override
+    public String toString() {
+        return "SackResult{" +
+                "fastRetransmits=" + fastRetransmits +
+                ", updatedCumulative=" + updatedCumulative +
+                ", advancedAckPoint=" + advancedAckPoint +
+                ", remoteCumulativeTSN=" + remoteCumulativeTSN +
+                '}';
     }
 }

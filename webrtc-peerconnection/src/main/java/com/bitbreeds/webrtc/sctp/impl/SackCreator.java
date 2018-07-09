@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.model.sctp.GapAck;
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.buffer.FwdAckPoint;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
@@ -45,7 +46,7 @@ public class SackCreator {
     /**
      * @return attempt to create a SCTP SACK message.
      */
-    static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
+    public static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
 
         //Calculate gap acks from only relevant data.
         List<GapAck> acks = sackData.getTsns();
@@ -111,13 +112,13 @@ public class SackCreator {
 
     /**
      *
-     * @param forwardTSN calculated forward tsn
+     * @param forwardAckPt calculated forward tsn
      * @return Chunk to send attached to data or sack
      */
-    static SCTPChunk creatForwardTsnChunk(long forwardTSN) {
+    public static SCTPChunk creatForwardTsnChunk(FwdAckPoint forwardAckPt) {
         SCTPFixedAttribute cum_tsn =
                 new SCTPFixedAttribute(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK,
-                        longToFourBytes(forwardTSN));
+                        longToFourBytes(forwardAckPt.getAckPoint()));
 
         HashMap<SCTPFixedAttributeType,SCTPFixedAttribute> fixed = new HashMap<>();
         fixed.put(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK,

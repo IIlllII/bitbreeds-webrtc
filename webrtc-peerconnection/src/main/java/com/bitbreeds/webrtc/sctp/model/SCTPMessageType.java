@@ -4,6 +4,7 @@ import com.bitbreeds.webrtc.common.SignalUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -77,7 +78,7 @@ public enum SCTPMessageType {
     CWR(13,new ArrayList<>(),true),
     SHUTDOWN_COMPLETE(14,new ArrayList<>(),true),
 
-    FORWARD_TSN(192,Arrays.asList(
+    FORWARD_TSN(192, Collections.singletonList(
             SCTPFixedAttributeType.CUMULATIVE_TSN_ACK)
             ,true);
 
@@ -123,9 +124,8 @@ public enum SCTPMessageType {
         return new byte[] {SignalUtil.sign(nr)};
     }
 
-    public static SCTPMessageType fromByte(byte bt) {
-        return Arrays.asList(values())
-                .stream()
+    public static SCTPMessageType fromByte(int bt) {
+        return Arrays.stream(values())
                 .filter(i-> i.getNr() == bt)
                 .findFirst().orElse(NOT_KNOWN);
     }

@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.signaling;
 
-import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.peerconnection.PeerDescription;
@@ -8,10 +7,9 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Random;
 
-/**
+/*
  * Copyright (c) 11/03/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated

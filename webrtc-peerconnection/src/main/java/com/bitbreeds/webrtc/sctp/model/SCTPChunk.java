@@ -114,7 +114,7 @@ public class SCTPChunk {
                     + " length: " + bytes.length + "  data:" + Hex.encodeHexString(bytes));
         }
 
-        SCTPMessageType type = SCTPMessageType.fromByte(bytes[0]);
+        SCTPMessageType type = SCTPMessageType.fromByte(SignalUtil.unsign(bytes[0]));
 
         int flags = SignalUtil.unsign(bytes[1]);
         int length = SignalUtil.intFromTwoBytes(Arrays.copyOfRange(bytes,2,4));
@@ -185,6 +185,27 @@ public class SCTPChunk {
 
     public Map<SCTPAttributeType, SCTPAttribute> getVariable() {
         return variable;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SCTPChunk sctpChunk = (SCTPChunk) o;
+        return length == sctpChunk.length &&
+                type == sctpChunk.type &&
+                flags == sctpChunk.flags &&
+                Objects.equals(fixed, sctpChunk.fixed) &&
+                Objects.equals(variable, sctpChunk.variable) &&
+                Arrays.equals(rest, sctpChunk.rest);
+    }
+
+    @Override
+    public int hashCode() {
+
+        int result = Objects.hash(type, flags, length, fixed, variable);
+        result = 31 * result + Arrays.hashCode(rest);
+        return result;
     }
 
     @Override

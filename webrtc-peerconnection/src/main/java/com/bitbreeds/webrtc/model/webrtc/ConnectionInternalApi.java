@@ -19,6 +19,7 @@ package com.bitbreeds.webrtc.model.webrtc;
 
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 
 /**
  * The Connection interface that SCTP use internally
@@ -27,11 +28,7 @@ public interface ConnectionInternalApi {
 
     void presentToUser(Deliverable deliverable);
 
-    void send(byte[] data);
-
-    void send(byte[] data, SCTPPayloadProtocolId id, int streamId);
-
-    void send(String data);
+    void send(byte[] data, SCTPPayloadProtocolId id, int streamId, SCTPReliability partialReliability);
 
     void putDataOnWire(byte[] data);
 

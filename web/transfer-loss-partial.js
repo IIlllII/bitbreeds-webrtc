@@ -71,7 +71,8 @@ peerConnection.onpeeridentity = function(ev) {
 
 
 var dataChannel = peerConnection.createDataChannel("channel",
-    {ordered:false});
+    {ordered:false,maxRetransmits:0}
+    );
 
 var sent = 0;
 var received = 0;
@@ -150,11 +151,27 @@ dataChannel.onopen = function (e) {
 
     }, 1000);
 
+
+    window.setTimeout(function () {
+        var allRec = true;
+        var missing = [];
+        for (var i = 0; i < messages; i++) {
+            var expected = "echo-msg-" + i;
+            allRec = msgReceived.includes(expected);
+            if (!allRec) {
+                missing.push(expected);
+            }
+        }
+        if (missing.length > 0 && missing.length < messages/2) {
+            var allReceived = document.getElementById("all-received");
+            allReceived.innerHTML = "PARTIAL RECEIVED";
+        }
+    }, 10000);
+
 };
 
 /* Seems to not be implemented, use once it is */
 dataChannel.onbufferedamountlow = function(e) {
-
 };
 
 dataChannel.onclose = function (e) {
@@ -173,26 +190,15 @@ reader.onloadend = function () {
     console.log("Got message: " + reader.result);
 };
 
+
 dataChannel.onmessage = function (e) {
     if(e.data != null) {
-        console.log(e.data);
+        console.log("Data received: "+e.data);
         msgReceived.push(e.data);
         received = received + e.data.length;
     }
 
-    console.log("" + msgReceived.length);
-
-    if(msgReceived.length >= messages) {
-        var allRec = true;
-        for (var i = 0; i < messages; i++) {
-            allRec = allRec && msgReceived.includes("echo-msg-"+i);
-        }
-        if(allRec) {
-            var allReceived = document.getElementById("all-received");
-            allReceived.innerHTML = "ALL RECEIVED";
-        }
-    }
-
+    console.log("Num messages received: " + msgReceived.length);
     var sts = document.getElementById("status");
     sts.innerHTML = "ONMESSAGE";
 };

@@ -1,29 +1,44 @@
-package com.bitbreeds.webrtc.sctp.impl.buffer;
-
-/**
- * Copyright (c) 19/02/2018, Jonas Waage
- * <p>
+package com.bitbreeds.webrtc;/*
+ *
+ * Copyright (c) 08/07/2018, Jonas Waage
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
  * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * <p>
+ *
  * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * <p>
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
  * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
  */
-public enum SendBufferedState {
-    STORED(false),SENT(true),ACKNOWLEDGED(false),ABANDONED(false);
 
-    SendBufferedState(boolean canResend) {
-        this.canResend = canResend;
-    }
-    private boolean canResend;
+import com.bitbreeds.webrtc.sctp.impl.ForwardTsnHandler;
+import com.bitbreeds.webrtc.sctp.impl.SackCreator;
+import com.bitbreeds.webrtc.sctp.impl.buffer.FwdAckPoint;
+import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
+import org.junit.Test;
 
-    public boolean isCanResend() {
-        return canResend;
+import java.util.Arrays;
+
+import static org.junit.Assert.assertEquals;
+
+public class FwsAckPtTest {
+
+    @Test
+    public void testForwardTsn() {
+        SCTPChunk chunk = SackCreator.creatForwardTsnChunk(new FwdAckPoint(123L, Arrays.asList(1,2)));
+
+        byte[] data = chunk.toBytes();
+
+        SCTPChunk out = SCTPChunk.fromBytes(data);
+
+        assertEquals(
+                chunk,
+                out);
     }
+
 }

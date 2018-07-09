@@ -42,11 +42,11 @@ public class DataChannel {
     public Consumer<OpenEvent> onOpen = (i)->{};
 
     public void send(String data) {
-        connection.send(data.getBytes(), SCTPPayloadProtocolId.WEBRTC_STRING,streamId);
+        connection.send(data.getBytes(), SCTPPayloadProtocolId.WEBRTC_STRING,streamId,reliabilityParameters.getSctpReliability());
     }
 
     public void send(byte[] data) {
-        connection.send(data, SCTPPayloadProtocolId.WEBRTC_BINARY,streamId);
+        connection.send(data, SCTPPayloadProtocolId.WEBRTC_BINARY,streamId,reliabilityParameters.getSctpReliability());
     }
 
     public int getStreamId() {

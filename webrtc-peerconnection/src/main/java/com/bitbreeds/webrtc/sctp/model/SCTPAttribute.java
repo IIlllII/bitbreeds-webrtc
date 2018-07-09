@@ -3,6 +3,9 @@ package com.bitbreeds.webrtc.sctp.model;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import org.apache.commons.codec.binary.Hex;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Copyright (c) 18/05/16, Jonas Waage
  * <p>
@@ -46,6 +49,23 @@ public class SCTPAttribute {
                 SignalUtil.twoBytesFromInt(getLength()),
                 data
                 ));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SCTPAttribute that = (SCTPAttribute) o;
+        return type == that.type &&
+                Arrays.equals(data, that.data);
+    }
+
+    @Override
+    public int hashCode() {
+
+        int result = Objects.hash(type);
+        result = 31 * result + Arrays.hashCode(data);
+        return result;
     }
 
     @Override

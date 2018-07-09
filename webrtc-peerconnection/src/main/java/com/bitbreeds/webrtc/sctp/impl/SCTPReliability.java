@@ -38,7 +38,7 @@ public class SCTPReliability {
         return new SCTPReliability(param,Type.TIME,ordered);
     }
 
-    public static SCTPReliability creatMaxRetransmits(int param, boolean ordered) {
+    public static SCTPReliability createMaxRetransmits(int param, boolean ordered) {
         return new SCTPReliability(param,Type.RETRANSMITNUMBER,ordered);
     }
 
@@ -61,7 +61,7 @@ public class SCTPReliability {
     }
 
     public boolean shouldAbandon(int number) {
-        return number > param;
+        return number >= param;
     }
 
 

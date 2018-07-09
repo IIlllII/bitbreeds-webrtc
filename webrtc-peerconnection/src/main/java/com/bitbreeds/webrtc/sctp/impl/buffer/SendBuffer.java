@@ -53,6 +53,11 @@ public class SendBuffer {
 
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
+
+    /**
+     * <a href="https://tools.ietf.org/html/rfc3758#section-3.5">Partial reliability</a>
+     */
+    private long advancedAckPoint;
     private boolean remoteIsInitialized = false;
 
     private long bytesSent = 0;
@@ -125,6 +130,7 @@ public class SendBuffer {
         return inFlight.size();
     }
 
+
     /**
      * Remove packets acknowledged in sack from inflight.
      *
@@ -139,8 +145,13 @@ public class SendBuffer {
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
 
+                logger.info("Sack received {} gaps {}",sack.getCumulativeTSN(),sack.getTsns());
+
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
+                advancedAckPoint = advancedAckPoint < sack.getCumulativeTSN() ?
+                        sack.getCumulativeTSN() :
+                        advancedAckPoint;
 
                 List<BufferedSent> acked = inFlight.values().stream()
                         .filter(i -> acknowledged(sack, i))
@@ -160,6 +171,9 @@ public class SendBuffer {
 
                 List<GapAck> gapAcks = sack.getTsns();
                 if(!gapAcks.isEmpty()) {
+
+                    FwdAckPoint fwdAckPoint = abandonExpiredPackets(gapAcks);
+
                     GapAck ack = gapAcks.get(gapAcks.size()-1);
 
                     Long largest = sack.getCumulativeTSN()+ack.end;
@@ -169,6 +183,7 @@ public class SendBuffer {
 
                     List<BufferedSent> marked = fastAck.stream()
                             .map(fast -> inFlight.get(fast))
+                            .filter(BufferedSent::canResend)
                             .map(BufferedSent::markFast)
                             .collect(Collectors.toList());
 
@@ -187,17 +202,55 @@ public class SendBuffer {
                     resendList.forEach(
                             i->inFlight.put(i.getTsn(),i)
                     );
-                    return new SackResult(resendList,updatedCumTSN);
+                    return new SackResult(resendList,updatedCumTSN,remoteCumulativeTSN,fwdAckPoint);
                 }
 
                 logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
-                return new SackResult(Collections.emptyList(),updatedCumTSN);
+                return new SackResult(
+                        Collections.emptyList(),
+                        updatedCumTSN,remoteCumulativeTSN,
+                        new FwdAckPoint(advancedAckPoint,Collections.emptyList()));
             }
             else {
                 logger.info("Out of order sack" + sack);
             }
+            return new SackResult(Collections.emptyList(),
+                    false,
+                    remoteCumulativeTSN,
+                    new FwdAckPoint(advancedAckPoint,Collections.emptyList()));
         }
-        return new SackResult(Collections.emptyList(),false);
+    }
+
+    private FwdAckPoint abandonExpiredPackets(List<GapAck> gapAcks) {
+        List<BufferedSent> toAbandon = inFlight.values()
+                .stream().filter(BufferedSent::shouldAbandon)
+                .collect(Collectors.toList());
+
+        Set<Long> ids = toAbandon.stream()
+                .map(BufferedSent::getTsn)
+                .collect(Collectors.toSet());
+
+        while(ids.contains(advancedAckPoint + 1) ||
+                inGapAck(remoteCumulativeTSN,gapAcks,advancedAckPoint + 1)) {
+            advancedAckPoint += 1;
+        }
+
+        List<Integer> streams = toAbandon.stream()
+                .filter(i->i.getData().getReliability().isOrdered())
+                .map(i->i.getData().getStreamId())
+                .collect(Collectors.toList());
+
+        toAbandon.forEach(buff ->
+                inFlight.put(buff.getTsn(),buff.abandon())
+        );
+
+        logger.info("Abandoning {} {} {}",toAbandon.stream()
+                .map(BufferedSent::getTsn)
+                .collect(Collectors.toList()),advancedAckPoint,remoteCumulativeTSN);
+
+        //inFlight.keySet().removeAll(ids); Hmm, why does not chrome update based on chunk
+
+        return new FwdAckPoint(advancedAckPoint,streams);
     }
 
     private boolean acknowledged(SackData data,BufferedSent inFlight) {
@@ -248,7 +301,10 @@ public class SendBuffer {
     public List<BufferedSent> getDataToRetransmit() {
         synchronized (lock) {
 
+            abandonExpiredPackets(Collections.emptyList());
+
             List<BufferedSent> bufferedSents = inFlight.values().stream()
+                    .filter(BufferedSent::canResend)
                     .min(BufferedSent::compareTo)
                     .map(Collections::singletonList)
                     .orElse(Collections.emptyList());

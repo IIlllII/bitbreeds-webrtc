@@ -50,7 +50,7 @@ public class SDPUtil {
             sdp.setAttribute("t","0 0");
 
             AttributeField fa = createAttribute("group","BUNDLE "+mid);
-            AttributeField fb = createAttribute("msid-semantic"," WMS");
+            AttributeField fb = createAttribute("msid-semantic"," WMS *");
             Vector<SDPField> vec = new Vector<>();
             vec.add(fa);
             vec.add(fb);
@@ -115,11 +115,11 @@ public class SDPUtil {
             media.setAttribute("ice-options","trickle");
             media.setAttribute("fingerprint",fingerprint);
             media.setAttribute("setup","passive");
-            media.setAttribute("rtcp-mux","");
             media.setAttribute("sendrecv ","");
             media.setAttribute("mid",mid);
             //Type of channel and amount of streams
             media.setAttribute("sctpmap","5000 webrtc-datachannel 256");
+            media.setAttribute("max-message-size","1073741823");
             return media;
         }
         catch (SdpException e) {

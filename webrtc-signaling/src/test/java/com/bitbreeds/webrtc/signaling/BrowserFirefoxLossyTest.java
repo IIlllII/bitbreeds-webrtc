@@ -32,7 +32,7 @@ import java.io.File;
  */
 public class BrowserFirefoxLossyTest {
 
-    WebDriver driver;
+    private WebDriver driver;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -64,7 +64,7 @@ public class BrowserFirefoxLossyTest {
         System.out.println(url);
         driver.get(url);
 
-        (new WebDriverWait(driver, 20)).until(
+        (new WebDriverWait(driver, 60)).until(
                 (ExpectedCondition<Boolean>) d -> {
                     assert d != null;
                     return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");

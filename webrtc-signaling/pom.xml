@@ -16,12 +16,6 @@
 
         <dependency>
             <groupId>com.bitbreeds.webrtc</groupId>
-            <artifactId>webrtc-stun</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.bitbreeds.webrtc</groupId>
             <artifactId>webrtc-peerconnection</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>

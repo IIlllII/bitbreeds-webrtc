@@ -102,11 +102,21 @@ public class PayloadCreator {
             byte[] data,
             SCTPPayloadProtocolId ppid,
             SCTPHeader base,
-            boolean order,
-            int stream) {
+            int stream,
+            SCTPReliability reliability) {
 
         if (data.length <= MAX_DATA_CHUNKSIZE) {
-            SendData single = createPayloadMessage(data, ppid, base, SCTPOrderFlag.UNORDERED_UNFRAGMENTED, 0, getSingleTSN(), stream);
+
+            SendData single = createPayloadMessage(
+                    data,
+                    ppid,
+                    base,
+                    SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
+                    0,
+                    getSingleTSN(),
+                    stream,
+                    reliability);
+
             return Collections.singletonList(single);
         } else {
 
@@ -121,8 +131,11 @@ public class PayloadCreator {
                     dataSplit.get(0),
                     ppid,
                     base,
-                    order ? SCTPOrderFlag.ORDERED_START_FRAGMENT : SCTPOrderFlag.UNORDERED_START_FRAGMENT,
-                    ssn, TSNs.get(0), stream);
+                    reliability.isOrdered() ? SCTPOrderFlag.ORDERED_START_FRAGMENT : SCTPOrderFlag.UNORDERED_START_FRAGMENT,
+                    ssn,
+                    TSNs.get(0),
+                    stream,
+                    reliability);
             outPut.add(start);
 
             for (int i = 1; i < dataSplit.size() - 1; i++) {
@@ -130,8 +143,12 @@ public class PayloadCreator {
                         dataSplit.get(i),
                         ppid,
                         base,
-                        order ? SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT : SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT,
-                        ssn, TSNs.get(i), stream);
+                        reliability.isOrdered() ? SCTPOrderFlag.ORDERED_MIDDLE_FRAGMENT : SCTPOrderFlag.UNORDERED_MIDDLE_FRAGMENT,
+                        ssn,
+                        TSNs.get(i),
+                        stream,
+                        reliability);
+
                 outPut.add(mid);
             }
 
@@ -139,9 +156,12 @@ public class PayloadCreator {
                     dataSplit.get(dataSplit.size() - 1),
                     ppid,
                     base,
-                    order ? SCTPOrderFlag.ORDERED_END_FRAGMENT : SCTPOrderFlag.UNORDERED_END_FRAGMENT,
+                    reliability.isOrdered() ? SCTPOrderFlag.ORDERED_END_FRAGMENT : SCTPOrderFlag.UNORDERED_END_FRAGMENT,
                     ssn,
-                    TSNs.get(dataSplit.size() - 1), stream);
+                    TSNs.get(dataSplit.size() - 1),
+                    stream,
+                    reliability);
+
             outPut.add(end);
 
             return outPut;
@@ -162,7 +182,8 @@ public class PayloadCreator {
             SCTPOrderFlag flag,
             int ssn,
             long myTSN,
-            Integer stream) {
+            Integer stream,
+            SCTPReliability partialReliability) {
 
         int streamId = stream == null ? 0 : stream;
 
@@ -196,6 +217,6 @@ public class PayloadCreator {
 
         logger.debug("Sending payload with TSN: " + myTSN + " and data: " + Hex.encodeHexString(finalOut));
 
-        return new SendData(myTSN, streamId, ssn, flag, ppid, finalOut);
+        return new SendData(myTSN, streamId, ssn, flag, ppid, partialReliability ,finalOut);
     }
 }

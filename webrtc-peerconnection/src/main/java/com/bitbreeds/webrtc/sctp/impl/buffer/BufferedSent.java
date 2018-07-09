@@ -1,8 +1,11 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 /**
  * Copyright (c) 19/02/2018, Jonas Waage
@@ -23,13 +26,18 @@ public class BufferedSent implements Comparable<BufferedSent> {
 
     private final SendData data;
     private final SendBufferedState bufferState;
+    private final LocalDateTime firstSendTime;
     private final LocalDateTime lastSendTime;
     private final long tsn;
     private final int resends;
     private final int fastResendNum;
 
     public boolean canFastResend() {
-        return !fastResent && fastResendNum >= 3;
+        return bufferState.isCanResend() && !fastResent && fastResendNum >= 3;
+    }
+
+    public boolean canResend() {
+        return bufferState.isCanResend();
     }
 
     private final boolean fastResent;
@@ -37,6 +45,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
     public BufferedSent(
             SendData data,
             SendBufferedState bufferState,
+            LocalDateTime firstSendTime,
             LocalDateTime lastSendTime,
             long tsn,
             int resends,
@@ -44,6 +53,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
             boolean fastResent) {
         this.data = data;
         this.bufferState = bufferState;
+        this.firstSendTime = firstSendTime;
         this.lastSendTime = lastSendTime;
         this.tsn = tsn;
         this.resends = resends;
@@ -52,31 +62,56 @@ public class BufferedSent implements Comparable<BufferedSent> {
     }
 
     public static BufferedSent buffer(SendData data,long tsn) {
-        return new BufferedSent(data,SendBufferedState.STORED,null,tsn,0,0,false);
+        return new BufferedSent(data,SendBufferedState.STORED,null,null,tsn,0,0,false);
     }
 
     public boolean canBeOverwritten() {
         return SendBufferedState.ACKNOWLEDGED.equals(bufferState);
     }
 
+    public BufferedSent abandon() {
+        return new BufferedSent(data, SendBufferedState.ABANDONED,firstSendTime,lastSendTime,tsn,resends,fastResendNum,fastResent);
+    }
+
+    /**
+     * @return whether this should be abandoned or not
+     */
+    public boolean shouldAbandon() {
+        return data.getReliability().getType().map(tp -> {
+                    if (SCTPReliability.Type.TIME.equals(tp)) {
+                        //TODO Slow and weird, use currentTimeMillis
+                        if(firstSendTime == null) {
+                            return false;
+                        }
+
+                        long a = firstSendTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+                        long b = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+                        return data.getReliability().shouldAbandon((int) (b - a));
+                    } else {
+                        return data.getReliability().shouldAbandon(resends + fastResendNum);
+                    }
+                }
+        ).orElse(false);
+    }
+
     public BufferedSent acknowledge() {
-        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,lastSendTime,tsn,resends,fastResendNum,fastResent);
+        return new BufferedSent(data, SendBufferedState.ACKNOWLEDGED,firstSendTime,lastSendTime,tsn,resends,fastResendNum,fastResent);
     }
 
     public BufferedSent resend() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends+1,fastResendNum,fastResent);
+        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,LocalDateTime.now(),tsn,resends+1,fastResendNum,fastResent);
     }
 
     public BufferedSent fastResend() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends,fastResendNum,true);
+        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,LocalDateTime.now(),tsn,resends,fastResendNum,true);
     }
 
     public BufferedSent markFast() {
-        return new BufferedSent(data, SendBufferedState.SENT,lastSendTime,tsn,resends,fastResendNum+1,fastResent);
+        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,lastSendTime,tsn,resends,fastResendNum+1,fastResent);
     }
 
     public BufferedSent send() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),tsn,resends,fastResendNum,fastResent);
+        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),LocalDateTime.now(),tsn,resends,fastResendNum,fastResent);
     }
 
     public SendData getData() {

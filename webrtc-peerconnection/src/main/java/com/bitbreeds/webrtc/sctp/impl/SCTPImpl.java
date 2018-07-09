@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,7 +44,9 @@ import java.util.stream.Stream;
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
  * TODO implement state transitions, and more correct handling of messages when receiven in different states
- * TODO implement resend functionality
+ * TODO implement resend backoff
+ * TODO implement resend maxRetries
+ * TODO implement
  */
 public class SCTPImpl implements SCTP  {
 
@@ -73,11 +74,6 @@ public class SCTPImpl implements SCTP  {
     private SCTPContext context;
 
     /**
-     * ChannelParameters
-     */
-    private final ConcurrentHashMap<Integer,ReliabilityParameters> dataChannels = new ConcurrentHashMap<>();
-
-    /**
      *
      * @param connection interface to socket
      */
@@ -98,6 +94,7 @@ public class SCTPImpl implements SCTP  {
         map.put(SCTPMessageType.HEARTBEAT,new HeartBeatHandler());
         map.put(SCTPMessageType.DATA,new PayloadHandler());
         map.put(SCTPMessageType.SELECTIVE_ACK,new SelectiveAckHandler());
+        map.put(SCTPMessageType.FORWARD_TSN,new ForwardTsnHandler());
         return map;
     }
 
@@ -119,8 +116,27 @@ public class SCTPImpl implements SCTP  {
         logger.info("Retransmission started {}" );
         List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
         retransmissionCalculator.restart();
-        toSend.forEach(i ->
-                getConnection().putDataOnWire(i.getData().getSctpPayload())
+        toSend.forEach(i -> {
+                    logger.info("Retransmit {}", i);
+                    getConnection().putDataOnWire(i.getData().getSctpPayload());
+                }
+        );
+    }
+
+
+    /**
+     *
+     * @param pt ack pt
+     */
+    void updateAckPoint(long pt) {
+        ForwardAccResult result = receiveBuffer.receiveForwardAckPoint(pt);
+        createSackMessage(result.getSackData()).ifPresent(i -> {
+                    logger.info("Send sack {}", i);
+                    getConnection().putDataOnWire(i.getPayload());
+                }
+        );
+        result.getToDeliver().forEach(i->
+            getConnection().presentToUser(i)
         );
     }
 
@@ -138,8 +154,21 @@ public class SCTPImpl implements SCTP  {
             retransmissionCalculator.restart();
         }
 
-        result.getFastRetransmits().forEach(i ->
-                getConnection().putDataOnWire(i.getData().getSctpPayload())
+        if(result.getAdvancedAckPoint().getAckPoint() > result.getRemoteCumulativeTSN()) {
+            SCTPChunk chunk = SackCreator.creatForwardTsnChunk(result.getAdvancedAckPoint());
+            SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
+
+            SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
+            getConnection().putDataOnWire(withChecksum.toBytes());
+
+            retransmissionCalculator.start();
+            logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
+        }
+
+        result.getFastRetransmits().forEach(i -> {
+                    logger.info("Fast retransmit {}",i);
+                    getConnection().putDataOnWire(i.getData().getSctpPayload());
+                }
         );
 
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
@@ -170,18 +199,25 @@ public class SCTPImpl implements SCTP  {
      * @param data payload to send
      * @return messages to send now
      */
-    public List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId ppid, Integer stream) {
+    public List<WireRepresentation> bufferForSending(
+            byte[] data,
+            SCTPPayloadProtocolId ppid,
+            Integer stream,
+            SCTPReliability reliability) {
+
         List<SendData> messages = payloadCreator.createPayloadMessage(
                 data,ppid,
                 SCTPUtil.baseHeader(context),
-                false,
-                stream);
+                stream,
+                reliability);
 
         sendBuffer.buffer(messages);
+
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
         if(!toSend.isEmpty()) {
             retransmissionCalculator.start();
         }
+
         return toSend.stream()
                 .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
                 .collect(Collectors.toList());
@@ -190,11 +226,10 @@ public class SCTPImpl implements SCTP  {
     /**
      * @return message with acks
      */
-    private Optional<WireRepresentation> createSackMessage() {
+    private Optional<WireRepresentation> createSackMessage(SackData sackData) {
         if(context == null) {
             return Optional.empty();
         }
-        SackData sackData = receiveBuffer.getSackDataToSend();
         Optional<SCTPMessage> message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
         message.ifPresent(
                 i-> logger.info("Created sack {} to send",i)
@@ -220,6 +255,7 @@ public class SCTPImpl implements SCTP  {
      * @return responses
      */
     public List<WireRepresentation> handleRequest(byte[] input) {
+        logger.warn(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
         logger.debug("Input Parsed: " + inFullMessage );
@@ -283,7 +319,8 @@ public class SCTPImpl implements SCTP  {
      *
      */
     private void sendSack() {
-        createSackMessage().ifPresent(i ->
+        SackData sackData = receiveBuffer.getSackDataToSend();
+        createSackMessage(sackData).ifPresent(i ->
                 getConnection().putDataOnWire(i.getPayload())
         );
     }

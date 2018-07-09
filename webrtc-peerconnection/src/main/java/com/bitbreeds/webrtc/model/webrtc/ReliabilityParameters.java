@@ -30,6 +30,7 @@ public class ReliabilityParameters {
     private final DataChannelPriority priority;
     private final byte[] label;
     private final byte[] protocol;
+    private final SCTPReliability sctpReliability;
 
     public ReliabilityParameters(
             int parameter,
@@ -43,6 +44,7 @@ public class ReliabilityParameters {
         this.priority = priority;
         this.label = label;
         this.protocol = protocol;
+        sctpReliability = this.initReliability();
     }
 
     public int getParameter() {
@@ -65,32 +67,7 @@ public class ReliabilityParameters {
         return protocol;
     }
 
-
-    public SCTPReliability getWebRtcInitReliability() {
-        if(DataChannelType.DATA_CHANNEL_RELIABLE.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else if(DataChannelType.DATA_CHANNEL_RELIABLE_UNORDERED.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_TIMED.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED.equals(type)) {
-            return SCTPReliability.createOrdered();
-        }
-        else {
-            throw new IllegalStateException("Bad params");
-        }
-    }
-
-    public SCTPReliability getSctpReliability() {
+    private SCTPReliability initReliability() {
         if(DataChannelType.DATA_CHANNEL_RELIABLE.equals(type)) {
             return SCTPReliability.createOrdered();
         }
@@ -104,14 +81,18 @@ public class ReliabilityParameters {
             return SCTPReliability.createTimed(parameter,false);
         }
         else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT.equals(type)) {
-            return SCTPReliability.creatMaxRetransmits(parameter,true);
+            return SCTPReliability.createMaxRetransmits(parameter,true);
         }
         else if(DataChannelType.DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED.equals(type)) {
-            return SCTPReliability.creatMaxRetransmits(parameter,false);
+            return SCTPReliability.createMaxRetransmits(parameter,false);
         }
         else {
             throw new IllegalStateException("Bad params");
         }
+    }
+
+    public SCTPReliability getSctpReliability() {
+        return sctpReliability;
     }
 
     @Override

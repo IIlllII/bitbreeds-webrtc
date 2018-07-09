@@ -48,7 +48,7 @@ public interface SCTP {
      * @param stream if set, this message is sent ordered on this stream
      * @return messages that SCTP means should be sent now
      */
-    List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream);
+    List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream,SCTPReliability partialReliability);
 
     /**
      * Log useful monitoring values.

@@ -21,6 +21,7 @@ import java.util.Objects;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
 public class SackData {
     private final List<GapAck> tsns;
     private final List<Long> duplicates;

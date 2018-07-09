@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
+import com.bitbreeds.webrtc.sctp.error.DroppedDataException;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -177,6 +178,63 @@ public class ReceiveBuffer {
     }
 
 
+    public ForwardAccResult receiveForwardAckPoint(long advancedAckPoint) {
+        synchronized (lock) {
+            if (advancedAckPoint > cumulativeTSN) {
+
+                if (Math.abs(advancedAckPoint - cumulativeTSN) > buffer.length * 2) {
+                    throw new IllegalArgumentException("Bad ack");
+                }
+
+                long diff = advancedAckPoint - cumulativeTSN;
+                List<BufferedReceived> toDeliver = new ArrayList<>();
+                for (int i = 1; i <= diff; i++) {
+                    long tsn = cumulativeTSN + i;
+                    BufferedReceived bf = getBuffered(tsn);
+                    if (bf != null) {
+                        if (!bf.isDelivered()) {
+                            toDeliver.add(bf);
+                            setBuffered(tsn,bf.deliver().finish());
+                        }
+                        else {
+                            setBuffered(tsn,bf.finish());
+                        }
+                    }
+                }
+
+                List<BufferedReceived> unfragmented = toDeliver
+                        .stream()
+                        .filter(i->i.getData().getFlag().isUnFragmented())
+                        .sorted()
+                        .collect(Collectors.toList());
+
+                List<Deliverable> deliverables = new ArrayList<>();
+
+                unfragmented.forEach(i-> {
+                    if(i.getData().getFlag().isUnordered()) {
+                        Deliverable dl = i.toDeliverable();
+                        deliverables.add(dl);
+                    }
+                    else {
+                        Deliverable dl = i.toDeliverable();
+                        if(nextInStream(i.getData())) {
+                            orderedStreams.put(i.getData().getStreamId(),i.getData().getStreamSequence()+1);
+                            deliverables.add(dl);
+                        }
+                        else {
+                            throw new DroppedDataException("Ordered stream dropped data");
+                        }
+                    }
+                });
+
+                cumulativeTSN = advancedAckPoint;
+                return new ForwardAccResult(getSackDataToSend(),deliverables);
+            }
+
+            return new ForwardAccResult(getSackDataToSend(),Collections.emptyList());
+        }
+    }
+
     /**
      * @return get messages for next layer
      */
@@ -190,11 +248,8 @@ public class ReceiveBuffer {
                 if (bf != null) {
                     if (bf.readyForUnorderedDelivery()) {
                         if (bf.getData().getFlag().isUnFragmented()) {
-                            dl.add(new Deliverable(
-                                    bf.getData().getPayload(),
-                                    1,
-                                    bf.getData().getStreamId(),
-                                    bf.getData().getProtocolId()));
+                            //Add to list of deliverables
+                            dl.add(bf.toDeliverable());
                             setBuffered(tsn, bf.deliver());
                         } else {
                             if (bf.getData().getFlag().isStart()) {
@@ -251,11 +306,7 @@ public class ReceiveBuffer {
         if(nextInStream(buffered.getData())) {
             setBuffered(buffered.getData().getTSN(), buffered.deliver());
             orderedStreams.put(buffered.getData().getStreamId(),buffered.getData().getStreamSequence()+1);
-            return Optional.of(new Deliverable(
-                    buffered.getData().getPayload(),
-                    1,
-                    buffered.getData().getStreamId(),
-                    buffered.getData().getProtocolId()));
+            return Optional.of(buffered.toDeliverable());
         }
         return Optional.empty();
     }
@@ -306,6 +357,8 @@ public class ReceiveBuffer {
     private void setBuffered(long tsn,BufferedReceived buffered) {
         buffer[posFromTSN(tsn)] = buffered;
     }
+
+
 
     /**
      * Not thread safe, must happen in lock

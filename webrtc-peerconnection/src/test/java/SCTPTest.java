@@ -67,4 +67,21 @@ public class SCTPTest {
 
 
     }
+
+
+    @Test
+    public void testMsg() throws DecoderException {
+
+        String msg = "13881388a42416bcb1cd9c5ac0000008089a3a60";
+
+        byte[] bt = Hex.decodeHex(msg.toCharArray());
+
+        SCTPMessage parsed = SCTPMessage.fromBytes(bt);
+
+        System.out.println("Message: " + parsed);
+
+
+    }
+
+
 }

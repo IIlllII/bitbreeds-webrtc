@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl.model;
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 
 /**
@@ -28,13 +29,22 @@ public class SendData {
     private final SCTPPayloadProtocolId protocolId;
     private final byte[] sctpPayload;
     private final long tsn;
+    private final SCTPReliability reliability;
 
-    public SendData(long tsn,int streamId, int streamSequence, SCTPOrderFlag flags, SCTPPayloadProtocolId protocolId, byte[] payload) {
+    public SendData(
+            long tsn,
+            int streamId,
+            int streamSequence,
+            SCTPOrderFlag flags,
+            SCTPPayloadProtocolId protocolId,
+            SCTPReliability reliability,
+            byte[] payload) {
         this.tsn = tsn;
         this.streamId = streamId;
         this.streamSequence = streamSequence;
         this.flags = flags;
         this.protocolId = protocolId;
+        this.reliability = reliability;
         this.sctpPayload = payload;
     }
 
@@ -60,5 +70,9 @@ public class SendData {
 
     public byte[] getSctpPayload() {
         return sctpPayload;
+    }
+
+    public SCTPReliability getReliability() {
+        return reliability;
     }
 }

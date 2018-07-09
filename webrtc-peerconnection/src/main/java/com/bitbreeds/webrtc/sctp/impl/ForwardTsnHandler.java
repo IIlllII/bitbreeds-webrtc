@@ -1,15 +1,19 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
-import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
-import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
+import com.bitbreeds.webrtc.common.ByteRange;
+import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.model.sctp.GapAck;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
+import com.bitbreeds.webrtc.sctp.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Copyright (c) 29/06/16, Jonas Waage
+ * Copyright (c) 12/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -24,38 +28,33 @@ import java.util.Optional;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
 /**
- * Noon SCTP implementation.
- * This is a do nothing implementation so we have something to initalize with.
+ * Parses the sack to a representation that is then passed back to the
+ * SCTPhandler for processing.
+ *
+ * @see <a href=https://tools.ietf.org/html/rfc4960#section-3.3.4>SACK spec</a>
  */
-public class SCTPNoopImpl implements SCTP {
+public class ForwardTsnHandler implements MessageHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(ForwardTsnHandler.class);
+
     @Override
-    public Optional<WireRepresentation> createHeartBeat() {
+    public Optional<SCTPMessage> handleMessage(
+            SCTPImpl handler,
+            SCTPContext ctx,
+            SCTPHeader header,
+            SCTPChunk data) {
+
+        logger.debug("Received fwd tsn message {}",data);
+
+        SCTPFixedAttribute cum_tsn = data.getFixed().get(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK);
+
+        long ackpt = SignalUtil.bytesToLong(cum_tsn.getData());
+
+        handler.updateAckPoint(ackpt);
+
         return Optional.empty();
     }
 
-    @Override
-    public List<WireRepresentation> handleRequest(byte[] data) {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public List<WireRepresentation> bufferForSending(
-            byte[] data,
-            SCTPPayloadProtocolId id,
-            Integer stream,
-            SCTPReliability partialReliability) {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public void runMonitoring() {}
-
-    @Override
-    public ConnectionInternalApi getConnection() {
-        return null;
-    }
-
-    @Override
-    public void shutdown() { }
 }

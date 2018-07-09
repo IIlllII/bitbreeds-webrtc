@@ -1,8 +1,9 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
+import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
-/**
+/*
  * Copyright (c) 19/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -17,7 +18,9 @@ import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BufferedReceived {
+
+
+public class BufferedReceived implements Comparable<BufferedReceived>{
 
     private final ReceivedData data;
     private final ReceiveBufferedState bufferState;
@@ -30,6 +33,14 @@ public class BufferedReceived {
         this.data = data;
         this.bufferState = state;
         this.deliverState = deliverState;
+    }
+
+    public Deliverable toDeliverable() {
+        return new Deliverable(
+                data.getPayload(),
+                data.getFlag().isOrdered() ? data.getStreamSequence() : 1,
+                data.getStreamId(),
+                data.getProtocolId());
     }
 
     public ReceivedData getData() {
@@ -75,5 +86,10 @@ public class BufferedReceived {
                 ", bufferState=" + bufferState +
                 ", deliverState=" + deliverState +
                 '}';
+    }
+
+    @Override
+    public int compareTo(BufferedReceived o) {
+        return this.getData().compareTo(o.getData());
     }
 }

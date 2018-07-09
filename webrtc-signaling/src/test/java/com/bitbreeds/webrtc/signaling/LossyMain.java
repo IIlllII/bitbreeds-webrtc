@@ -7,9 +7,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
@@ -28,67 +30,19 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BrowserFirefoxTest {
 
-    private WebDriver driver;
 
-    @Before
-    public void setup() {
-        TestKeystoreParams.initialize();
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
-    }
+/**
+ *
+ * Run to start a server starting lossy peerconnections.
+ *
+ */
+public class LossyMain {
 
-    @After
-    public void tearDown() {
-        driver.quit();
-    }
+    public static void main(String[] args) throws Exception {
 
-    @Test
-    public void testOpen() throws Exception {
-
-        CamelContext ctx = SimpleSignaling.initContext();
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
-
-        File fl = new File(".././web/index.html");
-
-        String url = "file://" + fl.getAbsolutePath();
-        System.out.println(url);
-        driver.get(url);
-
-        (new WebDriverWait(driver, 20)).until(
-                (ExpectedCondition<Boolean>) d -> {
-                    assert d != null;
-                    return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
-                }
-        );
-
-        ctx.stop();
     }
-
-
-    @Test
-    public void testAllMessages() throws Exception {
-
-        CamelContext ctx = SimpleSignaling.initContext();
-        ctx.start();
-
-        File fl = new File(".././web/transfer.html");
-
-        String url = "file://" + fl.getAbsolutePath();
-        System.out.println(url);
-        driver.get(url);
-
-        (new WebDriverWait(driver, 20)).until(
-                (ExpectedCondition<Boolean>) d -> {
-                    assert d != null;
-                    return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");
-                }
-        );
-
-        ctx.stop();
-    }
-
-
 
 }

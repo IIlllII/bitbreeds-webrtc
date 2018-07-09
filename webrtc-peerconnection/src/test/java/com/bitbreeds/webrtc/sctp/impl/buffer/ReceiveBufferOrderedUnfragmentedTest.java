@@ -58,7 +58,7 @@ public class ReceiveBufferOrderedUnfragmentedTest {
         buffer.store(ds);
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
-        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),1,del.get(0).getStreamId(),del.get(0).getProtocolId())),del);
+        assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),0,del.get(0).getStreamId(),del.get(0).getProtocolId())),del);
 
         SackData sack = buffer.getSackDataToSend();
         assertEquals(1,sack.getCumulativeTSN());

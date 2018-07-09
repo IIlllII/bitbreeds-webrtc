@@ -10,6 +10,7 @@ import com.bitbreeds.webrtc.model.webrtc.*;
 import com.bitbreeds.webrtc.sctp.impl.SCTP;
 import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
 import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.stun.BindingService;
 import org.apache.commons.codec.binary.Hex;
@@ -323,33 +324,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         logger.debug("Input: " + Hex.encodeHexString(buf));
     }
 
-    /**
-     * Data is sent as a SCTPMessage
-     * @param data String in default charset
-     */
-    @Override
-    public void send(String data) {
-        send(data,Charset.defaultCharset());
-    }
-
-
-    /**
-     * Data is sent as a SCTPMessage
-     * @param data String sent with given charset
-     */
-    public void send(String data, Charset charset) {
-        send(data.getBytes(charset));
-    }
-
-    /**
-     * Data is sent as a SCTPMessage
-     * @param data bytes to send
-     */
-    @Override
-    public void send(byte[] data) {
-        send(data, SCTPPayloadProtocolId.WEBRTC_STRING,dataChannels.values().stream().findFirst().map(i->i.getStreamId()).orElse(0));
-    }
-
 
     /**
      *
@@ -365,12 +339,12 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      * @param data bytes to send
      */
     @Override
-    public void send(byte[] data,SCTPPayloadProtocolId ppid,int streamId) {
+    public void send(byte[] data,SCTPPayloadProtocolId ppid,int streamId, SCTPReliability partialReliability) {
         if(mode == ConnectionMode.SCTP && running) {
             /*
              * Payload can be fragmented if more then 1024 bytes
              */
-            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,streamId);
+            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,streamId,partialReliability);
             processPool.submit(() ->
                 out.forEach(i->putDataOnWire(i.getPayload()))
             );
@@ -420,8 +394,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                     return; //Already open data channel, unsure how to handle
                 }
 
-                logger.debug("Received open: " + Hex.encodeHexString(msgData));
-                DataChannelType type = DataChannelType.fromInt(unsign(msgData[2]));
+                logger.warn("Received open: " + Hex.encodeHexString(msgData));
+                DataChannelType type = DataChannelType.fromInt(unsign(msgData[1]));
                 DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
                         copyRange(msgData, new ByteRange(2, 4))));
                 int relParam = intFromFourBytes(copyRange(msgData, new ByteRange(4, 8)));
@@ -442,7 +416,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                  * Send ack
                  */
                 byte[] ack = new byte[] {sign(DataChannelMessageType.ACK.getType())};
-                this.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP,deliverable.getStreamId());
+                this.send(ack,SCTPPayloadProtocolId.WEBRTC_DCEP,deliverable.getStreamId(),SCTPReliability.createUnordered());
 
                 DataChannel nuDef = new DataChannel(this,deliverable.getStreamId(), parameters);
 
