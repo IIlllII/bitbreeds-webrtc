@@ -135,7 +135,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             PeerDescription remoteDescription) {
         logger.info("Initializing {}",this.getClass().getName());
         this.remoteDescription = remoteDescription;
-        this.dtlsServer = new WebrtcDtlsServer(keyStoreInfo);
+        this.dtlsServer = new WebrtcDtlsServer(keyStoreInfo,remoteDescription);
         try {
             this.socket = new DatagramSocket();
             this.socket.setReceiveBufferSize(2000000);

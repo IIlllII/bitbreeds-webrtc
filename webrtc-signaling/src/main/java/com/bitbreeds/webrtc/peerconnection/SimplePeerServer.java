@@ -79,7 +79,11 @@ public class SimplePeerServer {
         String user = med.getAttribute("ice-ufrag");
         String mid = med.getAttribute("mid");
 
-        PeerDescription remotePeer = new PeerDescription(new UserData(user,pwd),mid,sdp);
+        //Chrome and firefox puts this in different SDP parts.
+        String signature = sdp.getAttribute("fingerprint");
+        signature = signature != null ? signature : med.getAttribute("fingerprint");
+
+        PeerDescription remotePeer = new PeerDescription(new UserData(user,pwd),mid,signature,sdp);
 
         String fingerPrint = CertUtil.getCertFingerPrint(
                 keyStoreInfo.getFilePath(),

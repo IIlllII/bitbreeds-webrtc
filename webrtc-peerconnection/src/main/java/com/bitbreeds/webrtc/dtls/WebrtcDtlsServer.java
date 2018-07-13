@@ -16,6 +16,7 @@ package com.bitbreeds.webrtc.dtls;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import com.bitbreeds.webrtc.peerconnection.PeerDescription;
 import javafx.util.Pair;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Certificate;
@@ -28,8 +29,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.KeyPair;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.Vector;
+
+import static com.bitbreeds.webrtc.dtls.CertUtil.createFingerprintString;
 
 
 /**
@@ -40,12 +45,16 @@ public class WebrtcDtlsServer
 
     private org.bouncycastle.crypto.tls.Certificate cert;
 
-    Pair<java.security.cert.Certificate,KeyPair> pair;
+    private Pair<java.security.cert.Certificate,KeyPair> pair;
 
     private final Logger logger = LoggerFactory.getLogger(WebrtcDtlsServer.class);
 
-    public WebrtcDtlsServer(KeyStoreInfo keyStoreInfo) {
+    private final PeerDescription remote;
+
+    public WebrtcDtlsServer(KeyStoreInfo keyStoreInfo, PeerDescription remote) {
         super();
+
+        this.remote = remote;
 
         cert = DTLSUtils.loadCert(keyStoreInfo.getFilePath(),
                 keyStoreInfo.getAlias(),
@@ -105,11 +114,32 @@ public class WebrtcDtlsServer
     public void notifyClientCertificate(org.bouncycastle.crypto.tls.Certificate clientCertificate)
             throws IOException {
         Certificate[] chain = clientCertificate.getCertificateList();
-        logger.info("DTLS server received client certificate chain of length " + chain.length);
+        logger.info("DTLS server received client certificate chain of length: " + chain.length);
+
+        boolean hasHit = false;
+
         for (int i = 0; i != chain.length; i++) {
             Certificate entry = chain[i];
-            // TODO Create fingerprint based on certificate signature algorithm digest
-            logger.info("fingerprint:SHA-256 {} ( {} )",entry.getSignature().toString(),entry.getSubject());
+
+            MessageDigest md;
+            try {
+                md = MessageDigest.getInstance("SHA-256");
+                byte[] dat = md.digest(entry.getEncoded());
+
+                String fingerprint = createFingerprintString(dat);
+
+                logger.info("Received cert fingerprint - {}", fingerprint);
+                logger.info("Offer fingerprint - {}", remote.getSignature());
+                if (remote.getSignature().equalsIgnoreCase(fingerprint)) {
+                    hasHit = true;
+                }
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException("Missing SHA-256 hash implementation");
+            }
+        }
+
+        if(!hasHit) {
+            throw new IllegalStateException("Bad cert signature, not found in chain");
         }
     }
 
