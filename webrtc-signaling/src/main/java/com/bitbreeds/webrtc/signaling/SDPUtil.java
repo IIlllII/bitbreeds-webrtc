@@ -29,7 +29,8 @@ public class SDPUtil {
             String user,
             String pwd,
             String fingerprint,
-            String mid) {
+            String mid,
+            boolean isIceLite) {
 
         try {
             SdpFactory factory = SdpFactory.getInstance();
@@ -54,6 +55,9 @@ public class SDPUtil {
             Vector<SDPField> vec = new Vector<>();
             vec.add(fa);
             vec.add(fb);
+            if(isIceLite) {
+                vec.add(createAttribute("ice-lite",""));
+            }
             sdp.setAttributes(vec);
 
             Vector<MediaDescription> vec2 = new Vector<>();

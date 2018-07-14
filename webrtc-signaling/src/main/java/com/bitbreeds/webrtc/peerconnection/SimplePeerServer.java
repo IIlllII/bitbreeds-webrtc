@@ -103,7 +103,8 @@ public class SimplePeerServer {
                 ds.getLocal().getUserName(),
                 ds.getLocal().getPassword(),
                 fingerPrint,
-                mid
+                mid,
+                true
         );
 
         logger.info("Answer: "+ answerSdp);

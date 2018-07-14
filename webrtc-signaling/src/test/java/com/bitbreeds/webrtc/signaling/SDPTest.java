@@ -26,7 +26,7 @@ public class SDPTest {
     @Test
     public void testSdpGen() {
 
-        SessionDescription sdp = SDPUtil.createSDP(new IceCandidate(BigInteger.valueOf(123L),35400,"127.0.0.1",123),"user","pwd","AA","data");
+        SessionDescription sdp = SDPUtil.createSDP(new IceCandidate(BigInteger.valueOf(123L),35400,"127.0.0.1",123),"user","pwd","AA","data",true);
         System.out.println(sdp.toString());
 
     }
