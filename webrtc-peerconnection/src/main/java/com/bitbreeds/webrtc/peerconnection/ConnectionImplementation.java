@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
@@ -135,7 +134,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             PeerDescription remoteDescription) {
         logger.info("Initializing {}",this.getClass().getName());
         this.remoteDescription = remoteDescription;
-        this.dtlsServer = new WebrtcDtlsServer(keyStoreInfo,remoteDescription);
         try {
             this.socket = new DatagramSocket();
             this.socket.setReceiveBufferSize(2000000);
@@ -144,6 +142,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
             this.mode = ConnectionMode.STUN_BINDING;
             this.peerConnection = new PeerConnection(this);
+            this.dtlsServer = new WebrtcDtlsServer(this,keyStoreInfo,remoteDescription);
+
             /*
              * Get address which external system can reach
              * TODO ensure this works
@@ -153,7 +153,9 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             logger.info("Adr: {}", address);
 
             /*
-             * Create candidate from connections
+             * Create candidate from connections, since we only give one priority makes little sense so just adding a
+             * number
+             *
              * Todo random is weird
              */
             Random random = new Random();
@@ -176,6 +178,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
             /*
              * Create heartbeat message
+             * TODO move to SCTP implementation so it can be shut down properly
              */
             this.heartBeat = () -> {
                 while (running && socket.isBound()) {
@@ -196,7 +199,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         } catch (IOException e) {
             throw new IllegalStateException("Failed to start connection:", e);
         }
-
     }
 
 
@@ -283,7 +285,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 catch (Exception e) {
                     logger.error("Com error:",e);
                     logger.info("Shutting down, we cannot continue here");
-                    running = false; //Need to quit socket now
+                    closeConnection();
                 }
         }
 
@@ -324,9 +326,24 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         logger.debug("Input: " + Hex.encodeHexString(buf));
     }
 
+    /**
+     * Stop running so all receive loop will stop, and then close socket
+     */
+    @Override
+    public void closeConnection() {
+
+        //Give DCs a chance to notify user
+        dataChannels.values().forEach(i->
+                workPool.submit(() -> i.onClose.accept(new CloseEvent()))
+        );
+
+        this.setRunning(false);
+        socket.close();
+    }
+
 
     /**
-     *
+     * Perform controlled shutdown of the SCTP association
      */
     public void close() {
         sctp.shutdown();

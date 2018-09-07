@@ -79,7 +79,7 @@ public enum SCTPOrderFlag {
      * @return flagenum from bytes;
      */
     public static SCTPOrderFlag fromValue(int b) {
-        return Arrays.asList(values()).stream()
+        return Arrays.stream(values())
                 .filter(i->i.byteRep == b)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No flag combination has value: "+ b));
@@ -111,6 +111,14 @@ public enum SCTPOrderFlag {
 
     public boolean isUnFragmented() {
         return this.equals(UNORDERED_UNFRAGMENTED) || this.equals(ORDERED_UNFRAGMENTED);
+    }
+
+    /**
+     * @return tag bit set
+     */
+    public boolean isTagBitSet() {
+        int mask = 0x01;
+        return (byteRep & mask) == 1;
     }
 
     /**

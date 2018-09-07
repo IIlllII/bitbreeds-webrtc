@@ -15,7 +15,7 @@ package com.bitbreeds.webrtc.dtls;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-import javafx.util.Pair;
+
 import org.bouncycastle.crypto.RuntimeCryptoException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +38,7 @@ public class DTLSUtils {
 
     public static org.bouncycastle.crypto.tls.Certificate loadCert(String keystore,String alias,String password) {
         try {
-            byte[] data = getCert(keystore,alias,password).getKey().getEncoded();
+            byte[] data = getCert(keystore,alias,password).getCert().getEncoded();
             org.bouncycastle.asn1.x509.Certificate[] cert = {org.bouncycastle.asn1.x509.Certificate.getInstance(data)};
             return new org.bouncycastle.crypto.tls.Certificate(cert);
         } catch (Exception e) {
@@ -47,7 +47,7 @@ public class DTLSUtils {
         }
     }
 
-    public static Pair<Certificate,KeyPair> getCert(String keystore, String alias, String password) {
+    public static CertKeyPair getCert(String keystore, String alias, String password) {
         logger.info("Loading cert from {} with alias {}",keystore,alias);
         KeyStore ks  = null;
         try {
@@ -58,7 +58,7 @@ public class DTLSUtils {
             final Key key = ks.getKey(alias, password.toCharArray());
             Certificate cert = ks.getCertificate(alias);
             KeyPair kp = new KeyPair(cert.getPublicKey(), (PrivateKey) key);
-            return new Pair<>(ks.getCertificate(alias), kp);
+            return new CertKeyPair(ks.getCertificate(alias), kp);
         } catch (Exception e) {
             logger.error("Error loading certificate: ",e);
             throw new RuntimeCryptoException("Problem loading certificate");

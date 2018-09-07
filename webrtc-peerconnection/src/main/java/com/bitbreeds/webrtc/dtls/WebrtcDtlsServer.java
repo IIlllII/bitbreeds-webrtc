@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.dtls;
 
-/**
+/*
  * Copyright (c) 16/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -16,8 +16,8 @@ package com.bitbreeds.webrtc.dtls;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.peerconnection.PeerDescription;
-import javafx.util.Pair;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateCrtKey;
@@ -45,15 +44,17 @@ public class WebrtcDtlsServer
 
     private org.bouncycastle.crypto.tls.Certificate cert;
 
-    private Pair<java.security.cert.Certificate,KeyPair> pair;
+    private CertKeyPair pair;
 
     private final Logger logger = LoggerFactory.getLogger(WebrtcDtlsServer.class);
 
     private final PeerDescription remote;
+    private final ConnectionInternalApi peerConnection;
 
-    public WebrtcDtlsServer(KeyStoreInfo keyStoreInfo, PeerDescription remote) {
+    public WebrtcDtlsServer(ConnectionInternalApi peerConnection, KeyStoreInfo keyStoreInfo, PeerDescription remote) {
         super();
 
+        this.peerConnection = peerConnection;
         this.remote = remote;
 
         cert = DTLSUtils.loadCert(keyStoreInfo.getFilePath(),
@@ -67,6 +68,7 @@ public class WebrtcDtlsServer
 
     }
 
+    @Override
     public void notifyAlertRaised(short alertLevel, short alertDescription, String message, Throwable cause) {
         logger.warn("DTLS server raised alert: " + AlertLevel.getText(alertLevel)
                 + ", " + AlertDescription.getText(alertDescription));
@@ -79,11 +81,18 @@ public class WebrtcDtlsServer
         if (cause != null) {
             logger.error("Cause ",cause);
         }
+
+        //Close connection, no point in continuing
+        peerConnection.closeConnection();
     }
 
+    @Override
     public void notifyAlertReceived(short alertLevel, short alertDescription) {
         logger.warn("DTLS server received alert: " + AlertLevel.getText(alertLevel)
                 + ", " + AlertDescription.getText(alertDescription));
+
+        //Close connection, no point in continuing
+        peerConnection.closeConnection();
     }
 
     protected int[] getCipherSuites() {
@@ -94,7 +103,7 @@ public class WebrtcDtlsServer
                         });
     }
 
-    public CertificateRequest getCertificateRequest() throws IOException {
+    public CertificateRequest getCertificateRequest() {
         short[] certificateTypes = new short[]{ClientCertificateType.rsa_sign,
                 ClientCertificateType.dss_sign, ClientCertificateType.ecdsa_sign};
 
@@ -151,8 +160,7 @@ public class WebrtcDtlsServer
         return ProtocolVersion.DTLSv10;
     }
 
-    protected TlsEncryptionCredentials getRSAEncryptionCredentials()
-            throws IOException {
+    protected TlsEncryptionCredentials getRSAEncryptionCredentials() {
 
         return new DefaultTlsEncryptionCredentials(context,
                 cert,
@@ -160,9 +168,9 @@ public class WebrtcDtlsServer
     }
 
 
-    protected TlsSignerCredentials getRSASignerCredentials() throws IOException {
+    protected TlsSignerCredentials getRSASignerCredentials() {
 
-        RSAPrivateCrtKey key = (RSAPrivateCrtKey)(pair.getValue().getPrivate());
+        RSAPrivateCrtKey key = (RSAPrivateCrtKey)(pair.getKeyPair().getPrivate());
         return new DefaultTlsSignerCredentials(context,
                 cert,
                 new RSAKeyParameters(true,key.getModulus(),key.getPrivateExponent()),

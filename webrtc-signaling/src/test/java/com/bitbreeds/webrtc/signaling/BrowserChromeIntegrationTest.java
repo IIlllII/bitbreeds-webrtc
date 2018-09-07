@@ -7,15 +7,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
-/**
+/*
  * Copyright (c) 27/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -30,32 +28,50 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class BrowserFirefoxLossyTest {
+public class BrowserChromeIntegrationTest {
 
     private WebDriver driver;
 
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
     @Before
-    public void setup() {
+    public void setupDriver() {
         TestKeystoreParams.initialize();
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
     }
 
     @After
     public void tearDown() {
+        driver.close();
         driver.quit();
     }
 
 
     @Test
-    public void testAllMessagesFinished() throws Exception {
-        System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
-        System.setProperty("com.bitbreeds.keystore.alias", "websocket");
-        System.setProperty("com.bitbreeds.keystore.pass", "websocket");
+    public void testOpen() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.initContext();
+        ctx.start();
+
+        File fl = new File(".././web/index.html");
+
+        String url = "file://" + fl.getAbsolutePath();
+        System.out.println(url);
+        driver.get(url);
+
+        (new WebDriverWait(driver, 20)).until(
+                (ExpectedCondition<Boolean>) d -> {
+                    assert d != null;
+                    return d.findElement(By.id("status")).getText().equalsIgnoreCase("ONMESSAGE");
+                }
+        );
+
+        ctx.stop();
+    }
+
+    @Test
+    public void testAllMessages() throws Exception {
+
+        CamelContext ctx = SimpleSignaling.initContext();
         ctx.start();
 
         File fl = new File(".././web/transfer.html");
@@ -64,7 +80,7 @@ public class BrowserFirefoxLossyTest {
         System.out.println(url);
         driver.get(url);
 
-        (new WebDriverWait(driver, 60)).until(
+        (new WebDriverWait(driver, 20)).until(
                 (ExpectedCondition<Boolean>) d -> {
                     assert d != null;
                     return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");
@@ -73,6 +89,7 @@ public class BrowserFirefoxLossyTest {
 
         ctx.stop();
     }
+
 
 
 }

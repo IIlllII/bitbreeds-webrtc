@@ -7,7 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Optional;
 
-/**
+/*
  * Copyright (c) 12/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -25,7 +25,7 @@ import java.util.Optional;
 
 
 /**
- * Creates a response message to a initiation request
+ * Creates a cockie ack response to a coockie echo
  */
 public class CookieEchoHandler implements MessageHandler {
 
@@ -51,10 +51,10 @@ public class CookieEchoHandler implements MessageHandler {
                 new byte[] {});
 
         SCTPMessage out = new SCTPMessage(hdr, Collections.singletonList(chunk));
+
+        handler.establish(); //Move to established state
+
       return Optional.of(out);
     }
-
-
-
 
 }

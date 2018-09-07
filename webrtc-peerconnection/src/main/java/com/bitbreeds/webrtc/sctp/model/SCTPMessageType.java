@@ -80,7 +80,9 @@ public enum SCTPMessageType {
 
     FORWARD_TSN(192, Collections.singletonList(
             SCTPFixedAttributeType.CUMULATIVE_TSN_ACK)
-            ,true);
+            ,true),
+    RE_CONFIG(130,Collections.singletonList(
+            SCTPFixedAttributeType.CUMULATIVE_TSN_ACK),true);
 
     /**
      * Message identifier

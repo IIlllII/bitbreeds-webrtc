@@ -13,24 +13,33 @@
 
     <build>
         <plugins>
-            <!-- Capsule build -->
             <plugin>
-                <groupId>com.github.chrischristo</groupId>
-                <artifactId>capsule-maven-plugin</artifactId>
-                <version>1.2.0</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>2.6</version>
                 <executions>
                     <execution>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals> <goal>single</goal> </goals>
                         <configuration>
-                            <appClass>com.bitbreeds.webrtc.example.DatachannelServer</appClass>
+                            <archive>
+                                <manifest>
+                                    <mainClass>com.bitbreeds.webrtc.example.DatachannelServer</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
+
     </build>
+
+
 
     <dependencies>
 

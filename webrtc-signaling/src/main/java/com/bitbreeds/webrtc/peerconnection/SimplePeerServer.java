@@ -65,6 +65,10 @@ public class SimplePeerServer {
     private KeyStoreInfo keyStoreInfo;
 
 
+    public Map<Integer, ConnectionImplementation> getConnections() {
+        return connections;
+    }
+
     /**
      *
      * @param offer the received offer

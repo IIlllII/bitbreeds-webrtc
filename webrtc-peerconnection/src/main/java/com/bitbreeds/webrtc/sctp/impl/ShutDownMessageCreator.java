@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
 
 import java.util.Collections;
@@ -21,10 +22,10 @@ import java.util.HashMap;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-public class ShutDownMessageCreator {
+class ShutDownMessageCreator {
 
 
-    SCTPMessage createShutDown(SCTPHeader header,long cumulativeTSN) {
+    static SCTPMessage createShutDown(SCTPHeader header,long cumulativeTSN) {
 
         byte[] data = SignalUtil.longToFourBytes(cumulativeTSN);
 
@@ -37,22 +38,22 @@ public class ShutDownMessageCreator {
                 SignalUtil.padToMultipleOfFour(data)
         );
 
-        return new SCTPMessage(header, Collections.singletonList(sack));
+        return SCTPUtil.addChecksum(new SCTPMessage(header, Collections.singletonList(sack)));
     }
 
-    SCTPMessage createShutDownAck(SCTPHeader header) {
-        return createEmpty(SCTPMessageType.SHUTDOWN_COMPLETE,header);
+    static SCTPMessage createShutDownAck(SCTPHeader header) {
+        return SCTPUtil.addChecksum(createEmpty(SCTPMessageType.SHUTDOWN_COMPLETE,header));
     }
 
-    SCTPMessage createShutDownComp(SCTPHeader header) {
-        return createEmpty(SCTPMessageType.SHUTDOWN_ACK,header);
+    static SCTPMessage createShutDownComp(SCTPHeader header) {
+        return SCTPUtil.addChecksum(createEmpty(SCTPMessageType.SHUTDOWN_ACK,header));
     }
 
-    SCTPMessage createAbort(SCTPHeader header) {
-        return createEmpty(SCTPMessageType.ABORT,header);
+    static SCTPMessage createAbort(SCTPHeader header) {
+        return SCTPUtil.addChecksum(createEmpty(SCTPMessageType.ABORT,header));
     }
 
-    private SCTPMessage createEmpty(SCTPMessageType messageType,SCTPHeader header) {
+    static private SCTPMessage createEmpty(SCTPMessageType messageType,SCTPHeader header) {
         SCTPChunk sack = new SCTPChunk(
                 messageType,
                 SCTPOrderFlag.fromValue((byte)0),

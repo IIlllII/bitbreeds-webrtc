@@ -25,7 +25,7 @@ import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.HashSet;
 
-/**
+/*
  * Copyright (c) 16/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -63,7 +63,7 @@ public class SimpleSignaling {
         }
     }
 
-    private static KeyStoreInfo keyStoreInfo = new KeyStoreInfo(
+    static KeyStoreInfo keyStoreInfo = new KeyStoreInfo(
             findKeystore(),
             "websocket",
             "websocket");
@@ -146,7 +146,7 @@ public class SimpleSignaling {
         return ctx;
     }
 
-    private static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
+    public static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
 
         HashSet<String> messages = new HashSet<>();
 
@@ -229,7 +229,7 @@ public class SimpleSignaling {
      * good for actual signaling.
      *
      */
-    private static class WebsocketRouteNoSSL extends RouteBuilder {
+    static class WebsocketRouteNoSSL extends RouteBuilder {
 
         private final SimplePeerServer peerConnection;
 
@@ -256,7 +256,7 @@ public class SimpleSignaling {
         }
     }
 
-    private static class OutRoute extends RouteBuilder {
+    static class OutRoute extends RouteBuilder {
 
         @Override
         public void configure() throws Exception {
@@ -266,7 +266,7 @@ public class SimpleSignaling {
         }
     }
 
-    private static class DelayRoute extends RouteBuilder {
+    static class DelayRoute extends RouteBuilder {
 
         @Override
         public void configure() throws Exception {

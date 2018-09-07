@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.peerconnection;
 
+import com.bitbreeds.webrtc.model.webrtc.CloseEvent;
 import com.bitbreeds.webrtc.model.webrtc.DataChannel;
 
 import java.util.function.Consumer;

@@ -1,51 +1,39 @@
-package com.bitbreeds.webrtc.sctp.impl;
-
-/**
- * Copyright (c) 12/06/16, Jonas Waage
- * <p>
+package com.bitbreeds.webrtc.dtls;/*
+ *
+ * Copyright (c) 16/07/2018, Jonas Waage
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
  * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * <p>
+ *
  * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * <p>
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
  * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
  */
 
-import com.bitbreeds.webrtc.common.SignalUtil;
+import java.security.KeyPair;
+import java.security.cert.Certificate;
+import java.util.Objects;
 
-/**
- * Information needed in SCTP
- */
-public class SCTPContext {
+class CertKeyPair {
+    private java.security.cert.Certificate cert;
+    private KeyPair keyPair;
 
-    private final byte[] initiateTag;
-    private final int sourcePort;
-    private final int destPort;
-
-    public SCTPContext(byte[] initiateTag, int sourcePort, int destPort) {
-        this.initiateTag = initiateTag;
-        this.sourcePort = sourcePort;
-        this.destPort = destPort;
+    CertKeyPair(java.security.cert.Certificate cert, KeyPair keyPair) {
+        this.cert = Objects.requireNonNull(cert);
+        this.keyPair = Objects.requireNonNull(keyPair);
     }
 
-    public long tagAsLong() {
-        return SignalUtil.bytesToLong(initiateTag);
+    public Certificate getCert() {
+        return cert;
     }
 
-    public byte[] getInitiateTag() {
-        return initiateTag;
-    }
-
-    public int getSourcePort() {
-        return sourcePort;
-    }
-
-    public int getDestPort() {
-        return destPort;
+    public KeyPair getKeyPair() {
+        return keyPair;
     }
 }

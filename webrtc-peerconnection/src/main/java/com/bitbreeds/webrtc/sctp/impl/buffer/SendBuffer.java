@@ -130,6 +130,16 @@ public class SendBuffer {
         return inFlight.size();
     }
 
+    /**
+     *
+     * @return whether there are buffered messages left to be sent
+     */
+    public boolean hasMessagesBuffered() {
+        synchronized (lock) {
+            return getInflightSize() > 0 || queue.size() > 0;
+        }
+    }
+
 
     /**
      * Remove packets acknowledged in sack from inflight.
@@ -325,6 +335,8 @@ public class SendBuffer {
         return maxInflight - inFlight.size() > 0
                 && remoteBufferSize > data.getData().getSctpPayload().length;
     }
+
+
 
 
 

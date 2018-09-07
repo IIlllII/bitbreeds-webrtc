@@ -40,13 +40,9 @@ import java.util.stream.Stream;
  *
  * The handling of specific chunks is passed to the correct {@link MessageHandler}.
  *
- * TODO implement shutdown messages
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
- * TODO implement state transitions, and more correct handling of messages when receiven in different states
  * TODO implement resend backoff
- * TODO implement resend maxRetries
- * TODO implement
  */
 public class SCTPImpl implements SCTP  {
 
@@ -70,7 +66,8 @@ public class SCTPImpl implements SCTP  {
     private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
     private final RetransmissionScheduler retransmissionCalculator = new RetransmissionScheduler(this::doRetransmission);
-    private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use
+    private final SingleTimedAction shutdownAction = new SingleTimedAction(this::shutDownTask,200); //Not in use yet
+    private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use yet
     private SCTPContext context;
 
     /**
@@ -88,18 +85,32 @@ public class SCTPImpl implements SCTP  {
 
     private Map<SCTPMessageType,MessageHandler> createHandlerMap() {
         HashMap<SCTPMessageType, MessageHandler> map = new HashMap<>();
+
+        //Init handling
         map.put(SCTPMessageType.INITIATION,new InitiationHandler());
         map.put(SCTPMessageType.COOKIE_ECHO,new CookieEchoHandler());
+
+        //Open
         map.put(SCTPMessageType.HEARTBEAT_ACK,new HeartBeatAckHandler());
         map.put(SCTPMessageType.HEARTBEAT,new HeartBeatHandler());
         map.put(SCTPMessageType.DATA,new PayloadHandler());
         map.put(SCTPMessageType.SELECTIVE_ACK,new SelectiveAckHandler());
         map.put(SCTPMessageType.FORWARD_TSN,new ForwardTsnHandler());
+
+        //Reconfig
+        map.put(SCTPMessageType.RE_CONFIG,new ReconfigurationHandler());
+
+        //Shutdown and abort handling
+        map.put(SCTPMessageType.ABORT,new AbortHandler());
+        map.put(SCTPMessageType.SHUTDOWN,new ShutdownHandler());
+        map.put(SCTPMessageType.SHUTDOWN_ACK,new ShutdownAckHandler());
+        map.put(SCTPMessageType.SHUTDOWN_COMPLETE,new ShutdownCompleteHandler());
         return map;
     }
 
     public void establish() {
-        state.updateAndGet(SCTPState::moveToEstablished);
+        SCTPState next = state.updateAndGet(SCTPState::moveToEstablished);
+        logger.info("Moved to {}",next);
     }
 
 
@@ -205,6 +216,10 @@ public class SCTPImpl implements SCTP  {
             Integer stream,
             SCTPReliability reliability) {
 
+        if(!state.get().canSend()) {
+            throw new IllegalStateException("Buffering should only happen in the established state");
+        }
+
         List<SendData> messages = payloadCreator.createPayloadMessage(
                 data,ppid,
                 SCTPUtil.baseHeader(context),
@@ -258,11 +273,12 @@ public class SCTPImpl implements SCTP  {
         logger.warn(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.debug("Input Parsed: " + inFullMessage );
-        logger.debug("Flags: " + Hex.encodeHexString(new byte[]{input[13]}));
+        logger.debug("Input Parsed: " + inFullMessage);
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
+
+        //TODO https://tools.ietf.org/html/rfc4960#section-8.5.1, rules for INIT chunk
 
         return inChunks.stream()
                 .map(i->handleChunk(i,inHdr))
@@ -280,6 +296,7 @@ public class SCTPImpl implements SCTP  {
     private Stream<SCTPMessage> handleChunk(SCTPChunk chunk, SCTPHeader hdr) {
         MessageHandler handler = handlerMap.get(chunk.getType());
         if (handler != null) {
+            logger.info("Received: {} {}",hdr,chunk);
             Optional<SCTPMessage> out = handler.handleMessage(this, context, hdr, chunk);
             return out.map(Stream::of).orElse(Stream.empty());
         } else {
@@ -316,6 +333,15 @@ public class SCTPImpl implements SCTP  {
     }
 
     /**
+     * Perform abort of connection
+     */
+    void abort() {
+        SCTPState next = state.updateAndGet(SCTPState::close);
+        logger.info("Moved to {}",next);
+        getConnection().closeConnection();
+    }
+
+    /**
      *
      */
     private void sendSack() {
@@ -326,26 +352,60 @@ public class SCTPImpl implements SCTP  {
     }
 
     void receiveShutDown() {
-        state.updateAndGet(SCTPState::receivedShutdown);
-
-        /*
-         * Todo send and wait for acks
-         */
-
-        state.updateAndGet(SCTPState::shutDownAck);
-
+        SCTPState next = state.updateAndGet(SCTPState::receivedShutdown);
+        logger.info("Moved to {}",next);
+        shutdownAction.start();
     }
 
+    void finalSctpShutdown() {
+        SCTPState next = state.updateAndGet(SCTPState::close);
+        logger.info("Moved to {}",next);
+        shutdownAction.stop();
+        getConnection().closeConnection();
+    }
 
+    private void shutDownTask() {
+        SCTPState curr = this.state.get();
+        if(SCTPState.SHUTDOWN_PENDING.equals(curr)) {
+            if(!sendBuffer.hasMessagesBuffered()) {
+                long received = receiveBuffer.getCumulativeTSN();
+                SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context),received);
+                getConnection().putDataOnWire(msg.toBytes());
+                SCTPState next = state.updateAndGet(SCTPState::sendShutdown);
+                logger.info("Moved to {}",next);
+            }
+            shutdownAction.restart();
+        }
+        else if(SCTPState.SHUTDOWN_SENT.equals(curr)) {
+            long received = receiveBuffer.getCumulativeTSN();
+            SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context),received);
+            getConnection().putDataOnWire(msg.toBytes());
+            shutdownAction.restart();
+        }
+        else if(SCTPState.SHUTDOWN_RECEIVED.equals(curr)) {
+            if(!sendBuffer.hasMessagesBuffered()) {
+                SCTPMessage msg = ShutDownMessageCreator.createShutDownAck(SCTPUtil.baseHeader(context));
+                getConnection().putDataOnWire(msg.toBytes());
+                SCTPState next = state.updateAndGet(SCTPState::sendShutdownAck);
+                logger.info("Moved to {}",next);
+            }
+        }
+        else if(SCTPState.SHUTDOWN_ACK_SENT.equals(curr)) {
+            SCTPMessage msg = ShutDownMessageCreator.createShutDownComp(SCTPUtil.baseHeader(context));
+            getConnection().putDataOnWire(msg.toBytes());
+            SCTPState next = state.updateAndGet(SCTPState::sendShutdownAck);
+            logger.info("Moved to {}",next);
+        }
+    }
+
+    /**
+     * Do controlled shutdown (deliver already buffered before shutdown)
+     */
     @Override
     public void shutdown() {
-
-        state.updateAndGet(SCTPState::shutDown);
-        /*
-         * Todo move to shutdown state, if all sent and acked
-         */
-        state.updateAndGet(SCTPState::sendShutdown);
-
+        SCTPState next = state.updateAndGet(SCTPState::shutDown);
+        logger.info("Moved to {}",next);
+        shutdownAction.start();
     }
 
     /**

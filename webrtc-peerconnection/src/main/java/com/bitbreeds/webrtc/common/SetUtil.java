@@ -21,8 +21,9 @@ import java.util.Set;
  */
 public class SetUtil {
 
+    @SafeVarargs
     public static <T> Set<T> newHashSet(T ... data) {
-        return new HashSet<T>(Arrays.asList(data));
+        return new HashSet<>(Arrays.asList(data));
     }
 
 

@@ -1,6 +1,6 @@
 package com.bitbreeds.webrtc.sctp.model;
 
-/**
+/*
  * Copyright (c) 09/04/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -21,23 +21,33 @@ package com.bitbreeds.webrtc.sctp.model;
  *
  */
 public enum SCTPState {
-    CLOSED(false),
-    ESTABLISHED(true),
-    COOKIE_ECHOED(false),
-    COOKIE_WAIT(false),
-    SHUTDOWN_ACK_SENT(false),
-    SHUTDOWN_PENDING(true),
-    SHUTDOWN_SENT(true),
-    SHUTDOWN_RECEIVED(false);
+    CLOSED(false,false),
+    ESTABLISHED(true,true),
+    COOKIE_ECHOED(false,true),
+    COOKIE_WAIT(false,false),
+    SHUTDOWN_ACK_SENT(false,false),
+    SHUTDOWN_PENDING(false,true),
+    SHUTDOWN_SENT(false,true),
+    SHUTDOWN_RECEIVED(false,false);
 
-    private boolean canSendAndReceive;
+    private boolean canReceive;
+    private boolean canSend;
 
-    SCTPState(boolean canSendAndReceive) {
-        this.canSendAndReceive = canSendAndReceive;
+    SCTPState(boolean canSend, boolean canReceive) {
+        this.canSend = canSend;
+        this.canReceive = canReceive;
     }
 
     public boolean isCanSendAndReceive() {
-        return canSendAndReceive;
+        return canReceive && canSend;
+    }
+
+    public boolean canReceive() {
+        return canReceive;
+    }
+
+    public boolean canSend() {
+        return canSend;
     }
 
     /*
@@ -85,8 +95,8 @@ public enum SCTPState {
     }
 
 
-    public SCTPState shutDownAck() {
-        if(SHUTDOWN_SENT.equals(this) || SHUTDOWN_RECEIVED.equals(this)) {
+    public SCTPState sendShutdownAck() {
+        if(SHUTDOWN_RECEIVED.equals(this)) {
             return SHUTDOWN_ACK_SENT;
         }
         else {

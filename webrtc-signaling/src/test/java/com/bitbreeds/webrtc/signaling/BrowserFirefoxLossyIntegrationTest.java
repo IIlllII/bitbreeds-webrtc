@@ -4,7 +4,6 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.camel.CamelContext;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -31,9 +30,7 @@ import java.io.File;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-@Ignore //extension not supported yet in firefox
-public class BrowserFirefoxLossyPartialRelTest {
+public class BrowserFirefoxLossyIntegrationTest {
 
     private WebDriver driver;
 
@@ -53,7 +50,7 @@ public class BrowserFirefoxLossyPartialRelTest {
 
 
     @Test
-    public void testMessagesDroppedDueToPartialReliability() throws Exception {
+    public void testAllMessagesFinished() throws Exception {
         System.setProperty("com.bitbreeds.keystore", "./src/test/resources/ws2.jks");
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
@@ -61,7 +58,7 @@ public class BrowserFirefoxLossyPartialRelTest {
         CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
         ctx.start();
 
-        File fl = new File(".././web/transfer-loss-partial-reliability.html");
+        File fl = new File(".././web/transfer.html");
 
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
@@ -70,7 +67,7 @@ public class BrowserFirefoxLossyPartialRelTest {
         (new WebDriverWait(driver, 60)).until(
                 (ExpectedCondition<Boolean>) d -> {
                     assert d != null;
-                    return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("PARTIAL RECEIVED");
+                    return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");
                 }
         );
 
