@@ -39,16 +39,7 @@
 
     </build>
 
-
-
     <dependencies>
-
-        <dependency>
-            <groupId>co.paralleluniverse</groupId>
-            <artifactId>capsule</artifactId>
-            <version>1.0.3</version>
-            <scope>compile</scope>
-        </dependency>
 
         <dependency>
             <groupId>com.bitbreeds.webrtc</groupId>
