@@ -21,7 +21,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.HashSet;
 
-/**
+/*
  * Copyright (c) 16/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -50,7 +50,6 @@ public class DatachannelServer {
     private final static Logger logger = LoggerFactory.getLogger(DatachannelServer.class);
 
     /**
-     * Depending on where this is run from different paths can match
      * @return keystore path
      */
     private static String findKeystore() {
