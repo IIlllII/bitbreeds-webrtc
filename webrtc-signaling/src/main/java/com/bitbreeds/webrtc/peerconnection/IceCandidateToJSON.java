@@ -30,7 +30,7 @@ public class IceCandidateToJSON implements Processor {
 
     private final static Logger logger = LoggerFactory.getLogger(IceCandidateToJSON.class);
 
-    public void process(Exchange exchange) throws Exception {
+    public void process(Exchange exchange) {
         IceCandidate ex = (IceCandidate)exchange.getIn().getBody();
         JsonObject obj = new JsonObject();
         obj.addProperty("candidate",ex.candidateString());
