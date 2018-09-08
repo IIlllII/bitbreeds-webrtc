@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.sctp.impl.buffer;
 
-import com.bitbreeds.webrtc.common.SetUtil;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
