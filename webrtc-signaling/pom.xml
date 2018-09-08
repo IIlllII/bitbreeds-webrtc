@@ -8,9 +8,10 @@
         <groupId>com.bitbreeds.webrtc</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
+    <modelVersion>4.0.0</modelVersion>
     <artifactId>webrtc-signaling</artifactId>
+    <packaging>jar</packaging>
 
     <dependencies>
 
@@ -34,14 +35,8 @@
 
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-debug-jdk15on</artifactId>
-            <version>1.59</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-websocket</artifactId>
-            <version>2.21.0</version>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.60</version>
         </dependency>
 
         <dependency>
@@ -50,7 +45,26 @@
             <version>2.21.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.12</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.pcollections</groupId>
+            <artifactId>pcollections</artifactId>
+            <version>2.1.2</version>
+        </dependency>
+
         <!-- Test deps below here-->
+
+        <dependency>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-websocket</artifactId>
+            <version>2.21.0</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.camel</groupId>
@@ -59,20 +73,18 @@
             <scope>test</scope>
         </dependency>
 
-<!--
         <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-ext-debug-jdk15on</artifactId>
-            <version>1.59</version>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>2.9.3</version>
         </dependency>
--->
 
-
-        <!--<dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bctls-jdk15on</artifactId>
-            <version>1.59</version>
-        </dependency>-->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
 
 
         <dependency>
@@ -100,12 +112,28 @@
             <groupId>javax.xml.bind</groupId>
             <artifactId>jaxb-api</artifactId>
             <version>2.3.0</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.activation</groupId>
             <artifactId>activation</artifactId>
             <version>1.1.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>1.1.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.1.3</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
