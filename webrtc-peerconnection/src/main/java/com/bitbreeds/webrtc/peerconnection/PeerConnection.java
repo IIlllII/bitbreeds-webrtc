@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.peerconnection;
 import com.bitbreeds.webrtc.model.webrtc.CloseEvent;
 import com.bitbreeds.webrtc.model.webrtc.DataChannel;
 
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -30,6 +31,12 @@ import java.util.function.Consumer;
 public class PeerConnection {
 
     private ConnectionImplementation implementation;
+
+    public UUID getId() {
+        return id;
+    }
+
+    private final UUID id = UUID.randomUUID();
 
     PeerConnection(ConnectionImplementation implementation) {
         this.implementation = implementation;

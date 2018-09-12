@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.model.webrtc;
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -22,6 +23,12 @@ import java.util.function.Consumer;
 public class DataChannel {
 
     private final int streamId;
+
+    public UUID getId() {
+        return id;
+    }
+
+    private final UUID id = UUID.randomUUID();
 
     private final ReliabilityParameters reliabilityParameters;
 
