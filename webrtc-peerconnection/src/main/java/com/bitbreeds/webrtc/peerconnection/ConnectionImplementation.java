@@ -411,7 +411,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                     return; //Already open data channel, unsure how to handle
                 }
 
-                logger.warn("Received open: " + Hex.encodeHexString(msgData));
+                logger.info("Received open: " + Hex.encodeHexString(msgData));
                 DataChannelType type = DataChannelType.fromInt(unsign(msgData[1]));
                 DataChannelPriority priority = DataChannelPriority.fromInt(intFromTwoBytes(
                         copyRange(msgData, new ByteRange(2, 4))));

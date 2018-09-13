@@ -247,7 +247,7 @@ public class SCTPImpl implements SCTP  {
         }
         Optional<SCTPMessage> message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
         message.ifPresent(
-                i-> logger.info("Created sack {} to send",i)
+                i-> logger.debug("Created sack {} to send",i)
         );
         return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
     }
@@ -270,7 +270,7 @@ public class SCTPImpl implements SCTP  {
      * @return responses
      */
     public List<WireRepresentation> handleRequest(byte[] input) {
-        logger.warn(Hex.encodeHexString(input));
+        logger.debug(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
         logger.debug("Input Parsed: " + inFullMessage);
@@ -296,7 +296,7 @@ public class SCTPImpl implements SCTP  {
     private Stream<SCTPMessage> handleChunk(SCTPChunk chunk, SCTPHeader hdr) {
         MessageHandler handler = handlerMap.get(chunk.getType());
         if (handler != null) {
-            logger.info("Received: {} {}",hdr,chunk);
+            logger.debug("Received: {} {}",hdr,chunk);
             Optional<SCTPMessage> out = handler.handleMessage(this, context, hdr, chunk);
             return out.map(Stream::of).orElse(Stream.empty());
         } else {
