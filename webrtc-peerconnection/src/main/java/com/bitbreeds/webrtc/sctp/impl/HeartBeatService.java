@@ -60,7 +60,7 @@ public class HeartBeatService {
      *
      * @param heartBeatInfo from ack
      */
-    public void receiveHeartBeatAck(byte[] heartBeatInfo) {
+    public long receiveHeartBeatAck(byte[] heartBeatInfo) {
 
         UUID uuid = new UUID(
                 bytesToLong(copyRange(heartBeatInfo, new ByteRange(0, 8))),
@@ -75,6 +75,7 @@ public class HeartBeatService {
                 rttMap = rttMap.minus(uuid);
             }
         }
+        return rttMillis;
     }
 
 

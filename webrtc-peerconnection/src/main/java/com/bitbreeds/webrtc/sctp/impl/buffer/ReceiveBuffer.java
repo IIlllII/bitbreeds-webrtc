@@ -77,7 +77,7 @@ public class ReceiveBuffer {
     /**
      *
      * These getters are for monitoring, and can not be fully trusted
-     * since they are not synchronizes
+     * since they are not synchronized
      */
     public long getReceivedBytes() {
         return receivedBytes;
@@ -151,9 +151,9 @@ public class ReceiveBuffer {
                         .collect(Collectors.toList());
 
                 throw new OutOfBufferSpaceError("Can not store since out of buffer space: "
-                + "Buffer " + bad
-                + "Capacity: " + this.capacity
-                + "TSN: " + this.cumulativeTSN);
+                + " Buffer " + bad
+                + " Capacity: " + this.capacity
+                + " TSN: " + this.cumulativeTSN + " Position" + position + " TSN IN " + data.getTSN());
             }
         }
     }
@@ -242,7 +242,7 @@ public class ReceiveBuffer {
         List<Deliverable> dl = new ArrayList<>();
         synchronized (lock) {
             int diff = (int)(maxReceivedTSN - lowestDelivered);
-            for (int i = 1; i<=diff ;i++) {
+            for (int i = 1; i <= diff ;i++) {
                 long tsn = lowestDelivered+i;
                 BufferedReceived bf = getBuffered(tsn);
                 if (bf != null) {
@@ -384,7 +384,7 @@ public class ReceiveBuffer {
      */
     private void updateCumulativeTSN(long newCumulativeTSN) {
         long diff = newCumulativeTSN - cumulativeTSN;
-        for (int i = 0; i < diff; i++) {
+        for (int i = 0; i <= diff; i++) {
             long tsn = this.cumulativeTSN + i;
             BufferedReceived bf = getBuffered(tsn);
             if(bf != null) {

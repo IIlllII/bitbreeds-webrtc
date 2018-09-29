@@ -6,7 +6,7 @@
     <parent>
         <artifactId>bitbreeds-webrtc</artifactId>
         <groupId>com.bitbreeds.webrtc</groupId>
-        <version>1.0-SNAPSHOT</version>
+        <version>0.2.4-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -18,7 +18,7 @@
         <dependency>
             <groupId>com.bitbreeds.webrtc</groupId>
             <artifactId>webrtc-peerconnection</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>0.2.4-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -97,14 +97,14 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
-            <version>3.8.1</version>
+            <version>3.14.0</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.github.bonigarcia</groupId>
             <artifactId>webdrivermanager</artifactId>
-            <version>2.1.0</version>
+            <version>3.0.0</version>
             <scope>test</scope>
         </dependency>
 

@@ -2,7 +2,9 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
+import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +65,74 @@ public interface SCTP {
 
     /**
      *
+     * @param data from hb ack
+     */
+    void receiveHeartBeatAck(byte[] data);
+
+    /**
+     *
+     * @param ackPoint the point to update to
+     */
+    void updateAckPoint(long ackPoint);
+
+    /**
+     *
      */
     void shutdown();
+
+    /**
+     *
+     */
+    void establish();
+
+    /**
+     *
+     * @param context to initialize with
+     */
+    void setContext(SCTPContext context);
+
+    /**
+     *
+     * @return initial TSN
+     */
+    long getFirstTSN();
+
+    /**
+     *
+     * @return local initial buffer size
+     */
+    long getBufferCapacity();
+
+    /**
+     *
+     * @param remoteBufferSize remote initial buffer size
+     * @param localTSN the current local TSN
+     */
+    void initializeRemote(int remoteBufferSize, long localTSN);
+
+    /**
+     *
+     * @param remoteTsn the remote TSN
+     */
+    void handleReceiveInitialTSN(long remoteTsn);
+
+    /**
+     *
+     * @param storage
+     */
+    void handleSctpPayload(ReceivedData storage);
+
+    /**
+     *
+     * @param sack
+     */
+    void updateAcknowledgedTSNS(SackData sack);
+
+
+    void finalSctpShutdown();
+
+    void receiveShutDown();
+
+    void abort();
+
 }

@@ -111,7 +111,7 @@ public class PayloadCreator {
                     data,
                     ppid,
                     base,
-                    SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
+                    reliability.isOrdered() ? SCTPOrderFlag.ORDERED_UNFRAGMENTED : SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
                     0,
                     getSingleTSN(),
                     stream,

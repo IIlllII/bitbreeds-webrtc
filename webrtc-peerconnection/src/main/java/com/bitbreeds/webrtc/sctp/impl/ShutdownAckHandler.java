@@ -27,7 +27,7 @@ import java.util.Optional;
 public class ShutdownAckHandler implements MessageHandler {
 
     @Override
-    public Optional<SCTPMessage> handleMessage(SCTPImpl handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
+    public Optional<SCTPMessage> handleMessage(SCTP handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
         handler.finalSctpShutdown();
         return Optional.empty();
     }

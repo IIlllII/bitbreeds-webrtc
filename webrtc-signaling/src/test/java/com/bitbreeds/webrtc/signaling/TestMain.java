@@ -1,6 +1,6 @@
-package com.bitbreeds.webrtc.sctp.impl;/*
+package com.bitbreeds.webrtc.signaling;/*
  *
- * Copyright (c) 14/07/2018, Jonas Waage
+ * Copyright (c) 22/09/2018, Jonas Waage
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,22 +16,14 @@ package com.bitbreeds.webrtc.sctp.impl;/*
  *
  */
 
-import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
-import com.bitbreeds.webrtc.sctp.model.SCTPHeader;
-import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.camel.CamelContext;
 
-import java.util.Optional;
+public class TestMain {
 
-public class ShutdownHandler implements MessageHandler {
-
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
-    @Override
-    public Optional<SCTPMessage> handleMessage(SCTP handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
-        handler.receiveShutDown();
-        return Optional.empty();
+    public static void main(String[] args) throws Exception {
+        System.setProperty("com.bitbreeds.experiment.nocongestion","true");
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5, 5);
+        ctx.start();
     }
-    
+
 }

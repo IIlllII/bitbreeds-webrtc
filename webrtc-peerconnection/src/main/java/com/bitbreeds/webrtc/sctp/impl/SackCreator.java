@@ -43,11 +43,8 @@ public class SackCreator {
 
     private static final Logger logger = LoggerFactory.getLogger(SackCreator.class);
 
-    /**
-     * @return attempt to create a SCTP SACK message.
-     */
-    public static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
 
+    public static SCTPChunk createSackChunk(SackData sackData) {
         //Calculate gap acks from only relevant data.
         List<GapAck> acks = sackData.getTsns();
 
@@ -102,6 +99,14 @@ public class SackCreator {
                 new HashMap<>(),
                 SignalUtil.padToMultipleOfFour(data)
         );
+        return sack;
+    }
+
+    /**
+     * @return attempt to create a SCTP SACK message.
+     */
+    public static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
+        SCTPChunk sack = createSackChunk(sackData);
 
         SCTPMessage msg = new SCTPMessage(header, Collections.singletonList(sack));
 

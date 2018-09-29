@@ -1,10 +1,19 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
+import com.bitbreeds.webrtc.common.ByteRange;
+import com.bitbreeds.webrtc.sctp.impl.buffer.RetransmissionTimeout;
 import com.bitbreeds.webrtc.sctp.model.*;
+import org.joda.time.DateTime;
+import org.pcollections.HashPMap;
+import org.pcollections.HashTreePMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
+import java.util.UUID;
+
+import static com.bitbreeds.webrtc.common.SignalUtil.bytesToLong;
+import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
 
 /**
  * Copyright (c) 12/06/16, Jonas Waage
@@ -32,7 +41,7 @@ public class HeartBeatAckHandler implements MessageHandler {
 
     @Override
     public Optional<SCTPMessage> handleMessage(
-            SCTPImpl handler,
+            SCTP handler,
             SCTPContext ctx,
             SCTPHeader header,
             SCTPChunk data) {
@@ -44,7 +53,7 @@ public class HeartBeatAckHandler implements MessageHandler {
         /*
          * Should be related to a sent heartbeat so we can measure RTT.
          */
-        handler.getHeartBeatService().receiveHeartBeatAck(info.getData());
+        handler.receiveHeartBeatAck(info.getData());
 
         return Optional.empty();
     }

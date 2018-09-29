@@ -46,7 +46,7 @@ public class SendBuffer {
     private final Queue<BufferedSent> queue = new ArrayDeque<>();
     private Map<Long,BufferedSent> inFlight = new HashMap<>();
 
-    private final static int DEFAULT_MAX_INFLIGHT = 5;
+    private final static int DEFAULT_MAX_INFLIGHT = Integer.valueOf(System.getProperty("com.bitbreeds.maxinflight","5"));
     private final int maxInflight;
 
     private int capacity;

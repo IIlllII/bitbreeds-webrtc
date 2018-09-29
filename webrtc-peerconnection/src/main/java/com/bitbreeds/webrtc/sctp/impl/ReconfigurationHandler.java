@@ -30,7 +30,7 @@ public class ReconfigurationHandler implements MessageHandler {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Override
-    public Optional<SCTPMessage> handleMessage(SCTPImpl handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
+    public Optional<SCTPMessage> handleMessage(SCTP handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
         SCTPAttribute incoming = data.getVariable().get(SCTPAttributeType.INCOMING_SSN_RESET_REQUEST);
         SCTPAttribute outgoing = data.getVariable().get(SCTPAttributeType.OUTGOING_SSN_RESET_REQUEST);
         return Optional.empty();

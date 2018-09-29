@@ -1,18 +1,13 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
-import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.SignalUtil;
-import com.bitbreeds.webrtc.model.sctp.GapAck;
-import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
-/**
+/*
  * Copyright (c) 12/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -41,12 +36,12 @@ public class ForwardTsnHandler implements MessageHandler {
 
     @Override
     public Optional<SCTPMessage> handleMessage(
-            SCTPImpl handler,
+            SCTP handler,
             SCTPContext ctx,
             SCTPHeader header,
             SCTPChunk data) {
 
-        logger.debug("Received fwd tsn message {}",data);
+        logger.info("Received fwd tsn message {} {}",header,data);
 
         SCTPFixedAttribute cum_tsn = data.getFixed().get(SCTPFixedAttributeType.CUMULATIVE_TSN_ACK);
 

@@ -40,7 +40,7 @@ public class PayloadHandler implements MessageHandler {
 
     @Override
     public Optional<SCTPMessage> handleMessage(
-            SCTPImpl handler,
+            SCTP handler,
             SCTPContext ctx,
             SCTPHeader header,
             SCTPChunk data) {

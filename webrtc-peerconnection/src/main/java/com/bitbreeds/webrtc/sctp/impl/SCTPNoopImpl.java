@@ -2,7 +2,9 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
+import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,6 +31,7 @@ import java.util.Optional;
  * This is a do nothing implementation so we have something to initalize with.
  */
 public class SCTPNoopImpl implements SCTP {
+
     @Override
     public Optional<WireRepresentation> createHeartBeat() {
         return Optional.empty();
@@ -57,5 +60,70 @@ public class SCTPNoopImpl implements SCTP {
     }
 
     @Override
+    public void receiveHeartBeatAck(byte[] data) {
+
+    }
+
+    @Override
+    public void updateAckPoint(long ackPoint) {
+
+    }
+
+    @Override
     public void shutdown() { }
+
+    @Override
+    public void establish() {
+
+    }
+
+    @Override
+    public void setContext(SCTPContext context) {
+
+    }
+
+    @Override
+    public long getFirstTSN() {
+        return 0;
+    }
+
+    @Override
+    public long getBufferCapacity() {
+        return 0;
+    }
+
+    @Override
+    public void initializeRemote(int remoteBufferSize, long localTSN) {
+
+    }
+
+    @Override
+    public void handleReceiveInitialTSN(long remoteTsn) {
+
+    }
+
+    @Override
+    public void handleSctpPayload(ReceivedData storage) {
+
+    }
+
+    @Override
+    public void updateAcknowledgedTSNS(SackData sack) {
+
+    }
+
+    @Override
+    public void finalSctpShutdown() {
+
+    }
+
+    @Override
+    public void receiveShutDown() {
+
+    }
+
+    @Override
+    public void abort() {
+
+    }
 }

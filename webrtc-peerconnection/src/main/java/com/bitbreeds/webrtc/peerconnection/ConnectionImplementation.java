@@ -7,10 +7,7 @@ import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.dtls.WebrtcDtlsServer;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.webrtc.*;
-import com.bitbreeds.webrtc.sctp.impl.SCTP;
-import com.bitbreeds.webrtc.sctp.impl.SCTPImpl;
-import com.bitbreeds.webrtc.sctp.impl.SCTPNoopImpl;
-import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
+import com.bitbreeds.webrtc.sctp.impl.*;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.stun.BindingService;
 import org.apache.commons.codec.binary.Hex;
@@ -28,10 +25,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
@@ -89,7 +83,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private final static int DEFAULT_WAIT_MILLIS = 60000;
     private final static int DEFAULT_MTU = 1500;
-    private final static int DEFAULT_BUFFER_SIZE = 20000;
+    private final static int DEFAULT_BUFFER_SIZE = 4000;
 
     private final DTLSServerProtocol serverProtocol;
     private final DatagramSocket socket;
@@ -108,8 +102,33 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private final ConcurrentHashMap<Integer,DataChannel> dataChannels = new ConcurrentHashMap<>();
 
+    /**
+     * Pool for messages that should be sendt immediately (SACK,FWD_ACK_PT)
+     */
+    private final ExecutorService highPrioPool = Executors.newFixedThreadPool(1);
+
+    /**
+     * Pool for doing SCTP processing of received messages
+     */
     private final ExecutorService processPool = Executors.newFixedThreadPool(1);
-    private final ExecutorService workPool = Executors.newFixedThreadPool(1);
+
+
+    /**
+     * Pool sending messages over socket
+     */
+    private final ExecutorService normPrioPool = Executors.newFixedThreadPool(1);
+
+
+    /**
+     * Pool for processing messages sendt by used
+     */
+    private final ExecutorService sendPool = Executors.newFixedThreadPool(5);
+
+
+    /**
+     * Pool for running work of received messaged for user
+     */
+    private final ExecutorService workPool = Executors.newFixedThreadPool(5);
 
     private final Runnable heartBeat;
     private final Runnable monitor;
@@ -136,8 +155,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         this.remoteDescription = remoteDescription;
         try {
             this.socket = new DatagramSocket();
-            this.socket.setReceiveBufferSize(2000000);
-            this.socket.setSendBufferSize(2000000);
+            this.socket.setReceiveBufferSize(200000);
+            this.socket.setSendBufferSize(200000);
             this.port = socket.getLocalPort();
             this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
             this.mode = ConnectionMode.STUN_BINDING;
@@ -168,7 +187,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             this.monitor = () -> {
                 while (running && socket.isBound()) {
                     try {
-                        Thread.sleep(3000);
+                        Thread.sleep(1000);
                         sctp.runMonitoring();
                     } catch (Exception e) {
                         logger.error("Logging error", e);
@@ -186,7 +205,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         Thread.sleep(5000);
                         sctp.createHeartBeat().ifPresent(beat -> {
                             logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
-                            processPool.submit(() ->
+                            highPrioPool.submit(() ->
                                     putDataOnWire(beat.getPayload())
                             );
                         });
@@ -261,11 +280,16 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
-                        sctp = new SCTPImpl(this);
+                        boolean useSpecialUdpImpl = Boolean.valueOf(System.getProperty("com.bitbreeds.experiment.nocongestion","false"));
+                        sctp = useSpecialUdpImpl ? new TotallyUnreliableSCTP(this) : new SCTPImpl(this);
                         mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");
-                        new Thread(monitor).start();
-                        new Thread(heartBeat).start();
+                        Thread mn = new Thread(monitor);
+                        mn.setDaemon(true);
+                        Thread hb = new Thread(heartBeat);
+                        hb.setDaemon(true);
+                        mn.start();
+                        hb.start();
                     }
                     else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");
@@ -277,6 +301,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         byte[] buf = new byte[transport.getReceiveLimit()];
                         int length = transport.receive(buf, 0, buf.length, DEFAULT_WAIT_MILLIS);
                         if (length >= 0) {
+                            logger.info("Received on conn: {} at port: {} with length {}",peerConnection.getId(),port,length);
                             byte[] handled = Arrays.copyOf(buf, length);
                             processReceivedMessage(handled);
                         }
@@ -289,27 +314,26 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 }
         }
 
+        /*
+         * Shut down thread pools in a controlled manner
+         */
+        shutDownPoolControlled(processPool,"processpool");
+        shutDownPoolControlled(workPool,"workpool");
+        shutDownPoolControlled(sendPool,"sendpool");
+        shutDownPoolControlled(normPrioPool,"normPrioPool");
+        shutDownPoolControlled(highPrioPool,"highPrioPool");
+    }
 
-        logger.info("Shutting down processPool");
+    private void shutDownPoolControlled(ExecutorService threadPoolExecutor,String name) {
+        logger.info("Shutting down poll {} ",name);
         try {
-            processPool.shutdown();
-            processPool.awaitTermination(5,TimeUnit.SECONDS);
-            logger.info("Controlled shutdown of processPool finished");
+            threadPoolExecutor.shutdown();
+            threadPoolExecutor.awaitTermination(3,TimeUnit.SECONDS);
+            logger.info("Controlled shutdown of pool {} finished",name);
         }
         catch (Exception e) {
-            logger.info("Controlled shutdown of processPool failed, due to: ",e);
-            processPool.shutdownNow();
-        }
-
-        logger.info("Shutting down workPool");
-        try{
-            workPool.shutdown();
-            workPool.awaitTermination(5,TimeUnit.SECONDS);
-            logger.info("Controlled shutdown of workPool finished");
-        }
-        catch (Exception e) {
-            logger.info("Controlled shutdown of workPool failed, due to: ",e);
-            workPool.shutdownNow();
+            logger.info("Controlled shutdown of pool {} failed, due to: ",name,e);
+            threadPoolExecutor.shutdownNow();
         }
     }
 
@@ -356,23 +380,35 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      * @param data bytes to send
      */
     @Override
-    public void send(byte[] data,SCTPPayloadProtocolId ppid,int streamId, SCTPReliability partialReliability) {
-        if(mode == ConnectionMode.SCTP && running) {
+    public void send(byte[] data, SCTPPayloadProtocolId ppid, int streamId, SCTPReliability partialReliability) {
+        if (mode == ConnectionMode.SCTP && running) {
             /*
-             * Payload can be fragmented if more then 1024 bytes
+             * Payload must be fragmented if more then 1024 bytes
              */
-            List<WireRepresentation> out = sctp.bufferForSending(data, ppid,streamId,partialReliability);
-            processPool.submit(() ->
-                out.forEach(i->putDataOnWire(i.getPayload()))
+            sendPool.submit(() -> {
+                        try {
+                            List<WireRepresentation> out = sctp.bufferForSending(data, ppid, streamId, partialReliability);
+                            out.forEach(i -> putDataOnWireAsyncNormPrio(i.getPayload()));
+                        } catch (Exception ex) {
+                            logger.error("Sending failed for " + String.valueOf(Hex.encodeHex(data)), ex);
+                        }
+                    }
             );
-        }
-        else {
-            logger.error("Data {} not sent, socket not open",Hex.encodeHex(data));
+
+        } else {
+            logger.error("Data {} not sent, socket not open", String.valueOf(Hex.encodeHex(data)));
         }
     }
 
+    @Override
+    public void putDataOnWireAsyncNormPrio(byte[] out) {
+        normPrioPool.submit(() -> putDataOnWire(out));
+    }
 
-
+    @Override
+    public void putDataOnWireAsyncHighPrio(byte[] out) {
+        highPrioPool.submit(() -> putDataOnWire(out));
+    }
 
 
     /**
@@ -383,9 +419,9 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      */
     @Override
     public void putDataOnWire(byte[] out) {
-        logger.trace("Sending: " + Hex.encodeHexString(out));
         lock.lock();
         try {
+            logger.info("Sending on conn: {} data: {}",peerConnection.getId(),  Hex.encodeHexString(out));
             transport.send(out, 0, out.length);
         } catch (IOException e) {
             logger.error("Sending message {} failed", Hex.encodeHex(out), e);

@@ -9,7 +9,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
+/*
  * Copyright (c) 26/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 public class RetransmissionScheduler {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -51,7 +52,9 @@ public class RetransmissionScheduler {
      * @return new timeout calculation
      */
     public RetransmissionTimeout addMeasure(double rtt) {
-        return timeout.updateAndGet(i->i.addMeasurement(rtt));
+        RetransmissionTimeout tim = timeout.updateAndGet(i->i.addMeasurement(rtt));
+        logger.info("Update retransmission timeout to {}",tim);
+        return tim;
     }
 
     private void scheduleRetransmission() {

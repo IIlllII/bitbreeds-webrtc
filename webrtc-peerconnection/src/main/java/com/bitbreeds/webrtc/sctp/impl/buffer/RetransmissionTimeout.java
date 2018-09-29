@@ -17,12 +17,13 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
  */
 public class RetransmissionTimeout {
 
-    private final static double INITIAL = 3.0;
+    public final static long INITIAL_MILLIS = 3000L;
+    public final static double INITIAL = 3.0;
     private final static double ALPHA = 1/8.0;
     private final static double BETA = 1/4.0;
 
-    private final static double MIN = 1;
-    private final static double MAX = 60;
+    private final static double MIN = 1.0;
+    private final static double MAX = 60.0;
 
     private final double srtt ;
     private final double rttvar;

@@ -76,6 +76,7 @@ public class SCTPImpl implements SCTP  {
      */
     public SCTPImpl(ConnectionInternalApi connection) {
         this.connection = connection;
+        logger.warn("Starting normal SCTP impl {}",this.getClass());
     }
 
     /**
@@ -108,14 +109,18 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
+    /**
+     * Convert millis tp seconds
+     * @param heartBeatAck to associate with sent heartbeat
+     */
+    public void receiveHeartBeatAck(byte[] heartBeatAck) {
+        long rttMillis = heartBeatService.receiveHeartBeatAck(heartBeatAck);
+        retransmissionCalculator.addMeasure(rttMillis/1000.0);
+    }
+
     public void establish() {
         SCTPState next = state.updateAndGet(SCTPState::moveToEstablished);
         logger.info("Moved to {}",next);
-    }
-
-
-    HeartBeatService getHeartBeatService() {
-        return heartBeatService;
     }
 
     public void setContext(SCTPContext context) {
@@ -129,7 +134,7 @@ public class SCTPImpl implements SCTP  {
         retransmissionCalculator.restart();
         toSend.forEach(i -> {
                     logger.info("Retransmit {}", i);
-                    getConnection().putDataOnWire(i.getData().getSctpPayload());
+                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
                 }
         );
     }
@@ -139,11 +144,11 @@ public class SCTPImpl implements SCTP  {
      *
      * @param pt ack pt
      */
-    void updateAckPoint(long pt) {
+    public void updateAckPoint(long pt) {
         ForwardAccResult result = receiveBuffer.receiveForwardAckPoint(pt);
         createSackMessage(result.getSackData()).ifPresent(i -> {
-                    logger.info("Send sack {}", i);
-                    getConnection().putDataOnWire(i.getPayload());
+                    logger.info("Send sack due updated ack pt {}", i);
+                    getConnection().putDataOnWireAsyncHighPrio(i.getPayload());
                 }
         );
         result.getToDeliver().forEach(i->
@@ -154,7 +159,7 @@ public class SCTPImpl implements SCTP  {
     /**
      * @param sackData acknowledgement
      */
-    void updateAcknowledgedTSNS(SackData sackData) {
+    public void updateAcknowledgedTSNS(SackData sackData) {
         logger.debug("Got sack {}",sackData );
 
         SackResult result = sendBuffer.receiveSack(sackData);
@@ -170,7 +175,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWire(withChecksum.toBytes());
+            getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
 
             retransmissionCalculator.start();
             logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
@@ -178,18 +183,18 @@ public class SCTPImpl implements SCTP  {
 
         result.getFastRetransmits().forEach(i -> {
                     logger.info("Fast retransmit {}",i);
-                    getConnection().putDataOnWire(i.getData().getSctpPayload());
+                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
                 }
         );
 
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
 
         toSend.forEach(i ->
-                getConnection().putDataOnWire(i.getData().getSctpPayload())
+                getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload())
         );
     }
 
-    void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
+    public void initializeRemote(int remoteReceiveBufferSize,long initialTSN) {
         sendBuffer.initializeRemote(remoteReceiveBufferSize,initialTSN);
     }
 
@@ -201,7 +206,7 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-    long getFirstTSN() {
+    public long getFirstTSN() {
         return payloadCreator.getFirstTSN();
     }
 
@@ -273,7 +278,7 @@ public class SCTPImpl implements SCTP  {
         logger.debug(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.debug("Input Parsed: " + inFullMessage);
+        logger.info("Input Parsed: " + inFullMessage);
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
@@ -306,7 +311,8 @@ public class SCTPImpl implements SCTP  {
     }
 
 
-    long getBufferCapacity() {
+    @Override
+    public long getBufferCapacity() {
         return receiveBuffer.getCapacity();
     }
 
@@ -316,7 +322,7 @@ public class SCTPImpl implements SCTP  {
      *
      * @param data payload representation
      */
-    void handleSctpPayload(ReceivedData data) {
+    public void handleSctpPayload(ReceivedData data) {
 
         Objects.requireNonNull(data);
 
@@ -327,6 +333,7 @@ public class SCTPImpl implements SCTP  {
         receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         sendSack(); //Sack all messages immediately
+
         deliverables.forEach(
                 i -> getConnection().presentToUser(i)
         );
@@ -335,7 +342,8 @@ public class SCTPImpl implements SCTP  {
     /**
      * Perform abort of connection
      */
-    void abort() {
+    @Override
+    public void abort() {
         SCTPState next = state.updateAndGet(SCTPState::close);
         logger.info("Moved to {}",next);
         getConnection().closeConnection();
@@ -346,18 +354,19 @@ public class SCTPImpl implements SCTP  {
      */
     private void sendSack() {
         SackData sackData = receiveBuffer.getSackDataToSend();
+
         createSackMessage(sackData).ifPresent(i ->
-                getConnection().putDataOnWire(i.getPayload())
+                getConnection().putDataOnWireAsyncHighPrio(i.getPayload())
         );
     }
 
-    void receiveShutDown() {
+    public void receiveShutDown() {
         SCTPState next = state.updateAndGet(SCTPState::receivedShutdown);
         logger.info("Moved to {}",next);
         shutdownAction.start();
     }
 
-    void finalSctpShutdown() {
+    public void finalSctpShutdown() {
         SCTPState next = state.updateAndGet(SCTPState::close);
         logger.info("Moved to {}",next);
         shutdownAction.stop();

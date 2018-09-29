@@ -31,7 +31,7 @@ import java.util.Optional;
 public class AbortHandler implements MessageHandler {
 
     @Override
-    public Optional<SCTPMessage> handleMessage(SCTPImpl handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
+    public Optional<SCTPMessage> handleMessage(SCTP handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data) {
         if(!data.getFlags().isTagBitSet() && header.getVerificationTag() != ctx.tagAsLong()) {
             return Optional.empty();
         }

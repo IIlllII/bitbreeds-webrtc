@@ -23,6 +23,6 @@ import java.util.Optional;
  */
 public interface MessageHandler {
 
-    Optional<SCTPMessage> handleMessage(SCTPImpl handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data);
+    Optional<SCTPMessage> handleMessage(SCTP handler, SCTPContext ctx, SCTPHeader header, SCTPChunk data);
 
 }

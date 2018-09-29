@@ -63,6 +63,10 @@ public class BufferedReceived implements Comparable<BufferedReceived>{
         return new BufferedReceived(data, ReceiveBufferedState.FINISHED,deliverState);
     }
 
+    /**
+     * Has been delivered to user
+     * @return
+     */
     public BufferedReceived deliver() {
         return new BufferedReceived(data,bufferState,DeliveredState.DELIVERED);
     }
