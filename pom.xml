@@ -49,7 +49,6 @@
         <module>webrtc-peerconnection</module>
         <module>webrtc-signaling</module>
         <module>webrtc-example</module>
-        <module>webrtc-sdp</module>
     </modules>
 
 </project>
