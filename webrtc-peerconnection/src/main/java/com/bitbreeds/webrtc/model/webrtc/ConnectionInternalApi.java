@@ -19,6 +19,7 @@ package com.bitbreeds.webrtc.model.webrtc;
 
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.peerconnection.PeerConnection;
 import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 
 /**
@@ -81,5 +82,11 @@ public interface ConnectionInternalApi {
      * This should only be performed as part of a controlled shutdown or abort.
      */
     void closeConnection();
+
+    /**
+     *
+     * @return user api for this connection
+     */
+    PeerConnection getPeerConnection();
 
 }

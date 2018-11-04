@@ -7,7 +7,7 @@
     <groupId>com.bitbreeds.webrtc</groupId>
     <artifactId>bitbreeds-webrtc</artifactId>
     <packaging>pom</packaging>
-    <version>0.2.4-SNAPSHOT</version>
+    <version>0.2.5-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -49,6 +49,7 @@
         <module>webrtc-peerconnection</module>
         <module>webrtc-signaling</module>
         <module>webrtc-example</module>
+        <module>webrtc-sdp</module>
     </modules>
 
 </project>

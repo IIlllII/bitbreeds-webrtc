@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.model.webrtc;
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
+import com.bitbreeds.webrtc.peerconnection.PeerConnection;
 
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -54,6 +55,10 @@ public class DataChannel {
 
     public void send(byte[] data) {
         connection.send(data, SCTPPayloadProtocolId.WEBRTC_BINARY,streamId,reliabilityParameters.getSctpReliability());
+    }
+
+    public PeerConnection getConnection() {
+        return connection.getPeerConnection();
     }
 
     public int getStreamId() {

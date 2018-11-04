@@ -69,6 +69,19 @@ public class RetransmissionScheduler {
         scheduleRetransmission();
     }
 
+    public void shutdown() {
+        logger.info("Shutting down pool {} ","retransmission");
+        try {
+            scheduler.shutdown();
+            scheduler.awaitTermination(3,TimeUnit.SECONDS);
+            logger.info("Controlled shutdown of pool {} finished","retransmission");
+        }
+        catch (Exception e) {
+            logger.info("Controlled shutdown of pool {} failed, due to: ","retransmission",e);
+            scheduler.shutdownNow();
+        }
+    }
+
     /**
      * Will schedule a retransmission if none is running.
      */

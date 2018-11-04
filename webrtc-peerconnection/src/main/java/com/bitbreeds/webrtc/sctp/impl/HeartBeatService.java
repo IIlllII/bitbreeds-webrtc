@@ -4,12 +4,12 @@ import com.bitbreeds.webrtc.common.ByteRange;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.sctp.impl.util.SCTPUtil;
 import com.bitbreeds.webrtc.sctp.model.*;
-import org.joda.time.DateTime;
 import org.pcollections.HashPMap;
 import org.pcollections.HashTreePMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,7 +50,7 @@ public class HeartBeatService {
      */
     private volatile long rttMillis = -1L;
 
-    private HashPMap<UUID, DateTime> rttMap = HashTreePMap.empty();
+    private HashPMap<UUID, Instant> rttMap = HashTreePMap.empty();
 
     private final Object mutex = new Object();
 
@@ -66,11 +66,11 @@ public class HeartBeatService {
                 bytesToLong(copyRange(heartBeatInfo, new ByteRange(0, 8))),
                 bytesToLong(copyRange(heartBeatInfo, new ByteRange(8, 16))));
 
-        DateTime time = rttMap.get(uuid);
+        Instant time = rttMap.get(uuid);
         if (time == null) {
             throw new IllegalArgumentException("Ack with unkown uuid: " + uuid + " map contains: " + rttMap);
         } else {
-            rttMillis = DateTime.now().getMillis() - time.getMillis();
+            rttMillis = Instant.now().toEpochMilli() - time.toEpochMilli();
             synchronized (mutex) {
                 rttMap = rttMap.minus(uuid);
             }
@@ -114,7 +114,7 @@ public class HeartBeatService {
 
         SCTPMessage out = SCTPUtil.addChecksum(msg);
         synchronized (mutex) {
-            rttMap = rttMap.plus(id, DateTime.now());
+            rttMap = rttMap.plus(id, Instant.now());
         }
         return out;
     }

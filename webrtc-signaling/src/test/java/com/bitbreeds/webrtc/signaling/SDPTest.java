@@ -6,7 +6,7 @@ import org.junit.Test;
 import javax.sdp.SessionDescription;
 import java.math.BigInteger;
 
-/**
+/*
  * Copyright (c) 05/02/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated

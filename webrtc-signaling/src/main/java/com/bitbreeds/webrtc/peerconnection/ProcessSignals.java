@@ -12,7 +12,7 @@ import javax.sdp.SdpFactory;
 import javax.sdp.SessionDescription;
 import java.math.BigInteger;
 
-/**
+/*
  * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -38,7 +38,14 @@ public class ProcessSignals implements Processor {
 
     public void process(Exchange exchange) throws Exception {
         String ex = (String)exchange.getIn().getBody();
-        JsonObject el = gson.fromJson(ex,JsonObject.class);
+
+        /*
+         * NIST SDP implementation can not deal with protocol 'UDP/DTLS/SCTP', mitigating.
+         * See <a href="https://tools.ietf.org/html/draft-ietf-mmusic-sctp-sdp-26"/>
+         */
+        String out = ex.replace("UDP/DTLS/SCTP","DTLS/SCTP");
+
+        JsonObject el = gson.fromJson(out,JsonObject.class);
 
         SdpFactory factory = SdpFactory.getInstance();
 

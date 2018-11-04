@@ -3,7 +3,7 @@ package com.bitbreeds.webrtc.signaling;
 import com.bitbreeds.webrtc.dtls.DTLSUtils;
 import org.junit.Test;
 
-/**
+/*
  * Copyright (c) 16/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated

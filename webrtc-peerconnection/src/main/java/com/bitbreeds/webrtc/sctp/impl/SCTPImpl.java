@@ -344,9 +344,14 @@ public class SCTPImpl implements SCTP  {
      */
     @Override
     public void abort() {
-        SCTPState next = state.updateAndGet(SCTPState::close);
-        logger.info("Moved to {}",next);
-        getConnection().closeConnection();
+        if( !SCTPState.CLOSED.equals(state.get()) ) {
+            SCTPState next = state.updateAndGet(SCTPState::close);
+            logger.info("Moved to {}", next);
+            retransmissionCalculator.shutdown();
+            shutdownAction.shutdown();
+            sackTimer.shutdown();
+            getConnection().closeConnection();
+        }
     }
 
     /**
@@ -367,43 +372,50 @@ public class SCTPImpl implements SCTP  {
     }
 
     public void finalSctpShutdown() {
-        SCTPState next = state.updateAndGet(SCTPState::close);
-        logger.info("Moved to {}",next);
-        shutdownAction.stop();
-        getConnection().closeConnection();
+        if( !SCTPState.CLOSED.equals(state.get()) ) {
+            SCTPState next = state.updateAndGet(SCTPState::close);
+            logger.info("Moved to {}", next);
+            shutdownAction.stop();
+            retransmissionCalculator.shutdown();
+            shutdownAction.shutdown();
+            sackTimer.shutdown();
+            getConnection().closeConnection();
+        }
     }
 
     private void shutDownTask() {
-        SCTPState curr = this.state.get();
-        if(SCTPState.SHUTDOWN_PENDING.equals(curr)) {
-            if(!sendBuffer.hasMessagesBuffered()) {
+        try {
+            SCTPState curr = this.state.get();
+            if (SCTPState.SHUTDOWN_PENDING.equals(curr)) {
+                if (!sendBuffer.hasMessagesBuffered()) {
+                    long received = receiveBuffer.getCumulativeTSN();
+                    SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context), received);
+                    getConnection().putDataOnWire(msg.toBytes());
+                    SCTPState next = state.updateAndGet(SCTPState::sendShutdown);
+                    logger.info("Moved to {}", next);
+                }
+                shutdownAction.restart();
+            } else if (SCTPState.SHUTDOWN_SENT.equals(curr)) {
                 long received = receiveBuffer.getCumulativeTSN();
-                SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context),received);
+                SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context), received);
                 getConnection().putDataOnWire(msg.toBytes());
-                SCTPState next = state.updateAndGet(SCTPState::sendShutdown);
-                logger.info("Moved to {}",next);
-            }
-            shutdownAction.restart();
-        }
-        else if(SCTPState.SHUTDOWN_SENT.equals(curr)) {
-            long received = receiveBuffer.getCumulativeTSN();
-            SCTPMessage msg = ShutDownMessageCreator.createShutDown(SCTPUtil.baseHeader(context),received);
-            getConnection().putDataOnWire(msg.toBytes());
-            shutdownAction.restart();
-        }
-        else if(SCTPState.SHUTDOWN_RECEIVED.equals(curr)) {
-            if(!sendBuffer.hasMessagesBuffered()) {
-                SCTPMessage msg = ShutDownMessageCreator.createShutDownAck(SCTPUtil.baseHeader(context));
+                shutdownAction.restart();
+            } else if (SCTPState.SHUTDOWN_RECEIVED.equals(curr)) {
+                if (!sendBuffer.hasMessagesBuffered()) {
+                    SCTPMessage msg = ShutDownMessageCreator.createShutDownAck(SCTPUtil.baseHeader(context));
+                    getConnection().putDataOnWire(msg.toBytes());
+                    SCTPState next = state.updateAndGet(SCTPState::sendShutdownAck);
+                    logger.info("Moved to {}", next);
+                }
+            } else if (SCTPState.SHUTDOWN_ACK_SENT.equals(curr)) {
+                SCTPMessage msg = ShutDownMessageCreator.createShutDownComp(SCTPUtil.baseHeader(context));
                 getConnection().putDataOnWire(msg.toBytes());
                 SCTPState next = state.updateAndGet(SCTPState::sendShutdownAck);
-                logger.info("Moved to {}",next);
+                logger.info("Moved to {}", next);
             }
-        }
-        else if(SCTPState.SHUTDOWN_ACK_SENT.equals(curr)) {
-            SCTPMessage msg = ShutDownMessageCreator.createShutDownComp(SCTPUtil.baseHeader(context));
-            getConnection().putDataOnWire(msg.toBytes());
-            SCTPState next = state.updateAndGet(SCTPState::sendShutdownAck);
-            logger.info("Moved to {}",next);
+        } catch (RuntimeException e) {
+            logger.error("Shutdown failed");
+            finalSctpShutdown();
         }
     }
 

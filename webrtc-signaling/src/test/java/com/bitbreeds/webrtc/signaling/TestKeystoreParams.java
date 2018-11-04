@@ -2,7 +2,7 @@ package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.peerconnection.ServerProperties;
 
-/**
+/*
  * Copyright (c) 12/04/2018, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated

@@ -37,7 +37,7 @@ public class SingleTimedAction {
         this.millis = millis;
     }
 
-    private void scheduleRetransmission() {
+    private void schedule() {
         current.updateAndGet(i -> createScheduler(i, action));
     }
 
@@ -46,14 +46,14 @@ public class SingleTimedAction {
      */
     public void restart() {
         stop();
-        scheduleRetransmission();
+        schedule();
     }
 
     /**
      * Will schedule a retransmission if none is running.
      */
     public void start() {
-        scheduleRetransmission();
+        schedule();
     }
 
     public void stop() {
@@ -72,6 +72,17 @@ public class SingleTimedAction {
         }
         else {
             return existing;
+        }
+    }
+
+
+    public void shutdown() {
+        try {
+            scheduler.shutdown();
+            scheduler.awaitTermination(3,TimeUnit.SECONDS);
+        }
+        catch (Exception e) {
+            scheduler.shutdownNow();
         }
     }
 

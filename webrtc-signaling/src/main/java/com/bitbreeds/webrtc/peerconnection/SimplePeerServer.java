@@ -87,7 +87,7 @@ public class SimplePeerServer {
         String signature = sdp.getAttribute("fingerprint");
         signature = signature != null ? signature : med.getAttribute("fingerprint");
 
-        PeerDescription remotePeer = new PeerDescription(new UserData(user,pwd),mid,signature,sdp);
+        PeerDescription remotePeer = new PeerDescription(new UserData(user,pwd),mid,signature);
 
         String fingerPrint = CertUtil.getCertFingerPrint(
                 keyStoreInfo.getFilePath(),

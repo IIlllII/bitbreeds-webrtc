@@ -1,6 +1,5 @@
 package com.bitbreeds.webrtc.peerconnection;
 
-import javax.sdp.SessionDescription;
 import java.util.Objects;
 
 /**
@@ -22,14 +21,12 @@ public class PeerDescription {
 
     private final UserData userData;
     private final String mediaStreamId;
-    private final SessionDescription sdp;
     private final String signature;
 
-    public PeerDescription(UserData userData, String mediaStreamId, String signature,SessionDescription sdp) {
+    public PeerDescription(UserData userData, String mediaStreamId, String signature) {
         this.userData = Objects.requireNonNull(userData,"User pass or name needs to be defined");
         this.mediaStreamId = mediaStreamId;
         this.signature = Objects.requireNonNull(signature,"Cert signature must be given");
-        this.sdp = sdp;
     }
 
     public UserData getUserData() {
@@ -40,9 +37,6 @@ public class PeerDescription {
         return mediaStreamId;
     }
 
-    public SessionDescription getSdp() {
-        return sdp;
-    }
 
     public String getSignature() {
         return signature;

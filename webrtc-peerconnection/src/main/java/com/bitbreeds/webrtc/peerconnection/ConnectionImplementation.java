@@ -325,7 +325,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     }
 
     private void shutDownPoolControlled(ExecutorService threadPoolExecutor,String name) {
-        logger.info("Shutting down poll {} ",name);
+        logger.info("Shutting down pool {} ",name);
         try {
             threadPoolExecutor.shutdown();
             threadPoolExecutor.awaitTermination(3,TimeUnit.SECONDS);
@@ -355,14 +355,15 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      */
     @Override
     public void closeConnection() {
-
-        //Give DCs a chance to notify user
-        dataChannels.values().forEach(i->
-                workPool.submit(() -> i.onClose.accept(new CloseEvent()))
-        );
-
-        this.setRunning(false);
-        socket.close();
+        if(this.running) {
+            this.setRunning(false);
+            //Give DCs a chance to notify user
+            dataChannels.values().forEach(i ->
+                    workPool.submit(() -> i.onClose.accept(new CloseEvent()))
+            );
+            sctp.abort();
+            socket.close();
+        }
     }
 
 
@@ -425,6 +426,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             transport.send(out, 0, out.length);
         } catch (IOException e) {
             logger.error("Sending message {} failed", Hex.encodeHex(out), e);
+            throw new RuntimeException("Sending failed",e);
         } finally {
             lock.unlock();
         }

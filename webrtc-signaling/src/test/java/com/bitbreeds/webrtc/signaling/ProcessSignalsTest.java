@@ -11,7 +11,7 @@ import javax.sdp.MediaDescription;
 
 import static org.junit.Assert.assertEquals;
 
-/**
+/*
  * Copyright (c) 26/04/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
