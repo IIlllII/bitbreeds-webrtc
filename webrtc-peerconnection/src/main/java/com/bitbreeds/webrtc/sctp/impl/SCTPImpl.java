@@ -129,14 +129,18 @@ public class SCTPImpl implements SCTP  {
 
 
     private void doRetransmission() {
-        logger.info("Retransmission started {}" );
-        List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
-        retransmissionCalculator.restart();
-        toSend.forEach(i -> {
-                    logger.info("Retransmit {}", i);
-                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
-                }
-        );
+        if(state.get() == SCTPState.ESTABLISHED) {
+            logger.info("Retransmission started {}" );
+            List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
+
+            retransmissionCalculator.restart();
+
+            toSend.forEach(i -> {
+                        logger.info("Retransmit {}", i);
+                        getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
+                    }
+            );
+        }
     }
 
 
@@ -393,6 +397,14 @@ public class SCTPImpl implements SCTP  {
                     getConnection().putDataOnWire(msg.toBytes());
                     SCTPState next = state.updateAndGet(SCTPState::sendShutdown);
                     logger.info("Moved to {}", next);
+                }
+                else {
+                    List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
+                    toSend.forEach(i -> {
+                                logger.info("Retransmit {}", i);
+                                getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
+                            }
+                    );
                 }
                 shutdownAction.restart();
             } else if (SCTPState.SHUTDOWN_SENT.equals(curr)) {
