@@ -127,22 +127,33 @@ public class SCTPImpl implements SCTP  {
         this.context = context;
     }
 
-
     private void doRetransmission() {
         if(state.get() == SCTPState.ESTABLISHED) {
             logger.info("Retransmission started {}" );
-            List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
-
             retransmissionCalculator.restart();
-
-            toSend.forEach(i -> {
-                        logger.info("Retransmit {}", i);
-                        getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
-                    }
-            );
+            RetransmitData toSend = sendBuffer.getDataToRetransmit();
+            performRetransmit(toSend);
         }
     }
 
+    private void performRetransmit(RetransmitData toSend) {
+        if(toSend.getFwdAckPoint().getAckPoint() > toSend.getRemoteCumulativeTSN()) {
+            SCTPChunk chunk = SackCreator.creatForwardTsnChunk(toSend.getFwdAckPoint());
+            SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
+
+            SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
+            getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
+
+            retransmissionCalculator.start();
+            logger.info("Sending advanced ack point {}", toSend.getFwdAckPoint());
+        }
+
+        toSend.getBuffered().forEach(i -> {
+                    logger.info("Retransmit {}", i);
+                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
+                }
+        );
+    }
 
     /**
      *
@@ -399,12 +410,8 @@ public class SCTPImpl implements SCTP  {
                     logger.info("Moved to {}", next);
                 }
                 else {
-                    List<BufferedSent> toSend = sendBuffer.getDataToRetransmit();
-                    toSend.forEach(i -> {
-                                logger.info("Retransmit {}", i);
-                                getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
-                            }
-                    );
+                    RetransmitData toSend = sendBuffer.getDataToRetransmit();
+                    performRetransmit(toSend);
                 }
                 shutdownAction.restart();
             } else if (SCTPState.SHUTDOWN_SENT.equals(curr)) {

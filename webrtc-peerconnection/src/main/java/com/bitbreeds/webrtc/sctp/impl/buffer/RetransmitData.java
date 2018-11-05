@@ -1,0 +1,47 @@
+package com.bitbreeds.webrtc.sctp.impl.buffer;/*
+ *
+ * Copyright (c) 06/11/2018, Jonas Waage
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+ * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+ * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+ * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+ * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ */
+
+import java.util.List;
+
+public class RetransmitData {
+
+    private final List<BufferedSent> buffered;
+    private final FwdAckPoint fwdAckPoint;
+    private long remoteCumulativeTSN;
+
+
+    public RetransmitData(List<BufferedSent> buffered,
+                          FwdAckPoint fwdAckPoint,
+                          long remoteCumulativeTSN) {
+        this.buffered = buffered;
+        this.fwdAckPoint = fwdAckPoint;
+        this.remoteCumulativeTSN = remoteCumulativeTSN;
+    }
+
+    public List<BufferedSent> getBuffered() {
+        return buffered;
+    }
+
+    public FwdAckPoint getFwdAckPoint() {
+        return fwdAckPoint;
+    }
+
+    public long getRemoteCumulativeTSN() {
+        return remoteCumulativeTSN;
+    }
+}

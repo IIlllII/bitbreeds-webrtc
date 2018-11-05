@@ -308,10 +308,10 @@ public class SendBuffer {
      *
      * @return first message based on TSN which is in flight.
      */
-    public List<BufferedSent> getDataToRetransmit() {
+    public RetransmitData getDataToRetransmit() {
         synchronized (lock) {
 
-            abandonExpiredPackets(Collections.emptyList());
+            FwdAckPoint fwdAckPoint = abandonExpiredPackets(Collections.emptyList());
 
             List<BufferedSent> bufferedSents = inFlight.values().stream()
                     .filter(BufferedSent::canResend)
@@ -324,7 +324,7 @@ public class SendBuffer {
                 inFlight.computeIfPresent(i.getTsn(),(key,value) -> value.resend())
             );
 
-            return bufferedSents;
+            return new RetransmitData(bufferedSents,fwdAckPoint,remoteCumulativeTSN);
         }
     }
 
