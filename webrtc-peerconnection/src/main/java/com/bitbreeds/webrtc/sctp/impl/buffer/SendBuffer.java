@@ -251,7 +251,7 @@ public class SendBuffer {
                 .collect(Collectors.toList());
 
         toAbandon.forEach(buff ->
-                inFlight.put(buff.getTsn(),buff.abandon())
+                inFlight.remove(buff.getTsn())
         );
 
         logger.info("Abandoning {} {} {}",toAbandon.stream()
