@@ -66,7 +66,7 @@ public class SCTPImpl implements SCTP  {
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
     private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
-    private final RetransmissionScheduler retransmissionCalculator = new RetransmissionScheduler(this::doRetransmission);
+    private final RetransmissionScheduler retransmissionCalculator = new RetransmissionScheduler();
     private final SingleTimedAction shutdownAction = new SingleTimedAction(this::shutDownTask,200); //Not in use yet
     private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use yet
     private SCTPContext context;
@@ -252,16 +252,23 @@ public class SCTPImpl implements SCTP  {
 
     /**
      *
-     * @return
+     * @return payloads moved to inflight and ready to be sent
      */
     public List<WireRepresentation> getPayloadsToSend() {
-        List<BufferedSent> toSend = sendBuffer.getDataToSend();
-        if(!toSend.isEmpty()) {
-            retransmissionCalculator.start();
+        if(retransmissionCalculator.checkForTimeout()){
+            logger.info("Timeout of t3 timer, running retransmission");
+            doRetransmission(); //Will send, so return empty
+            return Collections.emptyList();
         }
-        return toSend.stream()
-                .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
-                .collect(Collectors.toList());
+        else {
+            List<BufferedSent> toSend = sendBuffer.getDataToSend();
+            if (!toSend.isEmpty()) {
+                retransmissionCalculator.start();
+            }
+            return toSend.stream()
+                    .map(i -> new WireRepresentation(i.getData().getSctpPayload(), SCTPMessageType.DATA))
+                    .collect(Collectors.toList());
+        }
     }
 
     /**
@@ -368,7 +375,6 @@ public class SCTPImpl implements SCTP  {
         if( !SCTPState.CLOSED.equals(state.get()) ) {
             SCTPState next = state.updateAndGet(SCTPState::close);
             logger.info("Moved to {}", next);
-            retransmissionCalculator.shutdown();
             shutdownAction.shutdown();
             sackTimer.shutdown();
             getConnection().closeConnection();
@@ -397,7 +403,6 @@ public class SCTPImpl implements SCTP  {
             SCTPState next = state.updateAndGet(SCTPState::close);
             logger.info("Moved to {}", next);
             shutdownAction.stop();
-            retransmissionCalculator.shutdown();
             shutdownAction.shutdown();
             sackTimer.shutdown();
             getConnection().closeConnection();

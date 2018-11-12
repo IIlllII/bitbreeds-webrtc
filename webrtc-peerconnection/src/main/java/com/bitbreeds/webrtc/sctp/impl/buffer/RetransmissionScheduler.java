@@ -3,10 +3,8 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /*
@@ -25,27 +23,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-//TODO rewrite to check for resend, only stop.
+/**
+ * TODO make immutable version, updated in AtomicRef in SCTPImpl (way easier to test)
+ */
 public class RetransmissionScheduler {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    private final AtomicReference<RetransmissionTimeout> timeout =
-            new AtomicReference<>(RetransmissionTimeout.initial());
+    private final AtomicReference<RetransmissionTimeout> timeout;
 
-    private final ScheduledExecutorService scheduler;
-    private final AtomicReference<ScheduledFuture<?>> current = new AtomicReference<>();
+    private final AtomicReference<Instant> lastInteraction =
+            new AtomicReference<>(Instant.now());
 
-    private final Runnable retransmit;
+    private final AtomicBoolean hasInflight = new AtomicBoolean(false);
 
-    public RetransmissionScheduler(Runnable retransmit) {
-        this.scheduler = Executors.newScheduledThreadPool(1,r -> {
-            Thread t = Executors.defaultThreadFactory().newThread(r);
-            t.setDaemon(true);
-            return t;
-        });
-        this.retransmit = retransmit;
+    public RetransmissionScheduler() {
+        timeout = new AtomicReference<>(RetransmissionTimeout.initial());
     }
 
     /**
@@ -59,8 +52,17 @@ public class RetransmissionScheduler {
         return tim;
     }
 
-    private void scheduleRetransmission() {
-        current.set(createScheduler(retransmit));
+    /**
+     *
+     * @return true if a timeout occurred
+     */
+    public boolean checkForTimeout() {
+        if(hasInflight.get()) {
+            Instant ins = lastInteraction.get();
+            long millis = timeout.get().getRetransmissionTimeoutMillis();
+            return ins.plusMillis(millis).isBefore(Instant.now());
+        }
+        return false;
     }
 
     /**
@@ -71,43 +73,18 @@ public class RetransmissionScheduler {
         start();
     }
 
-    public void shutdown() {
-        logger.info("Shutting down pool {} ","retransmission");
-        try {
-            scheduler.shutdown();
-            scheduler.awaitTermination(3,TimeUnit.SECONDS);
-            logger.info("Controlled shutdown of pool {} finished","retransmission");
-        }
-        catch (Exception e) {
-            logger.info("Controlled shutdown of pool {} failed, due to: ","retransmission",e);
-            scheduler.shutdownNow();
-        }
-    }
-
     /**
      * Will schedule a retransmission if none is running.
      */
     public void start() {
-        if(current.get() == null) {
-            scheduleRetransmission();
+        if(hasInflight.compareAndSet(false,true)) {
+            lastInteraction.set(Instant.now());
         }
     }
 
     public void stop() {
-        ScheduledFuture<?> toCancel = current.getAndSet(null);
-        logger.debug("Attempting stop of {}",toCancel);
-        if(toCancel != null) {
-            toCancel.cancel(false);
-            logger.debug("Performed stop of {}",toCancel);
-        }
+        hasInflight.compareAndSet(true,false);
     }
 
-    private ScheduledFuture<?> createScheduler(Runnable action) {
-            logger.debug("Scheduling retransmission timer with time {}",timeout.get().getRetransmissionTimeoutMillis());
-            return scheduler.schedule(
-                    action,
-                    timeout.get().getRetransmissionTimeoutMillis(),
-                    TimeUnit.MILLISECONDS);
-    }
 
 }
