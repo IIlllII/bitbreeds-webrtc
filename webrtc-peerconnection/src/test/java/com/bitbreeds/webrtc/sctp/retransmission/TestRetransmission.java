@@ -20,9 +20,7 @@ import com.bitbreeds.webrtc.sctp.impl.buffer.RetransmissionScheduler;
 import org.junit.Test;
 
 
-import java.util.concurrent.TimeUnit;
-
-import static org.awaitility.Awaitility.await;
+import java.time.Instant;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -30,42 +28,52 @@ public class TestRetransmission {
 
     @Test
     public void testStartStoRetrans() {
-        RetransmissionScheduler scheduler = new RetransmissionScheduler();
-        scheduler.start();
+        Instant time = Instant.now();
+        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        scheduler = scheduler.start(Instant.now());
 
-        await().atMost(5000, TimeUnit.MILLISECONDS)
-                .until(scheduler::checkForTimeout);
+        assertTrue(scheduler.checkForTimeout(time.plusMillis(4000)));
     }
 
     @Test
     public void testNotStarted() {
-        RetransmissionScheduler scheduler = new RetransmissionScheduler();
-        assertFalse(scheduler.checkForTimeout());
+        Instant time = Instant.now();
+        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        assertFalse(scheduler.checkForTimeout(time.plusMillis(4000)));
     }
-
 
     @Test
     public void testSquence() {
-        RetransmissionScheduler scheduler = new RetransmissionScheduler();
-        scheduler.start();
-        await().atMost(5,TimeUnit.SECONDS).until(scheduler::checkForTimeout);
+        Instant time = Instant.now();
+        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        scheduler = scheduler.start(time);
 
-        scheduler.stop();
+        time = time.plusMillis(4000);
+        assertTrue(scheduler.checkForTimeout(time));
 
-        assertFalse(scheduler.checkForTimeout());
-        scheduler.restart();
+        scheduler = scheduler.stop();
 
-        await().atMost(5,TimeUnit.SECONDS).until(scheduler::checkForTimeout);
+        time = time.plusMillis(4000);
+        assertFalse(scheduler.checkForTimeout(time));
 
-        scheduler.restart();
-        assertFalse(scheduler.checkForTimeout());
+        time = time.plusMillis(2000);
 
-        await().atMost(5,TimeUnit.SECONDS).until(scheduler::checkForTimeout);
+        scheduler = scheduler.restart(time);
 
-        scheduler.start();
-        scheduler.start();
+        time = time.plusMillis(2000);
 
-        assertTrue(scheduler.checkForTimeout());
+        scheduler = scheduler.restart(time);
+
+        time = time.plusMillis(1000);
+        assertFalse(scheduler.checkForTimeout(time));
+
+        time = time.plusMillis(4000);
+
+        scheduler = scheduler.start(time);
+        time = time.plusMillis(1000);
+        scheduler = scheduler.start(time);
+
+        assertTrue(scheduler.checkForTimeout(time));
     }
 
 }

@@ -66,7 +66,7 @@ public class SCTPImpl implements SCTP  {
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
     private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
-    private final RetransmissionScheduler retransmissionCalculator = new RetransmissionScheduler();
+    private final AtomicReference<RetransmissionScheduler> retransmissionCalculator = new AtomicReference<>(RetransmissionScheduler.initial(Instant.now()));
     private final SingleTimedAction shutdownAction = new SingleTimedAction(this::shutDownTask,200); //Not in use yet
     private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use yet
     private SCTPContext context;
@@ -116,7 +116,7 @@ public class SCTPImpl implements SCTP  {
      */
     public void receiveHeartBeatAck(byte[] heartBeatAck) {
         long rttMillis = heartBeatService.receiveHeartBeatAck(heartBeatAck);
-        retransmissionCalculator.addMeasure(rttMillis/1000.0);
+        retransmissionCalculator.updateAndGet((i)->i.addMeasure(rttMillis/1000.0));
     }
 
     public void establish() {
@@ -131,7 +131,7 @@ public class SCTPImpl implements SCTP  {
     private void doRetransmission() {
         if(state.get() == SCTPState.ESTABLISHED) {
             logger.info("Retransmission started {}", Instant.now());
-            retransmissionCalculator.restart();
+            retransmissionCalculator.updateAndGet((i)->i.restart(Instant.now()));
             RetransmitData toSend = sendBuffer.getDataToRetransmit();
             performRetransmit(toSend);
         }
@@ -145,7 +145,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
             getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
 
-            retransmissionCalculator.start();
+            retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", toSend.getFwdAckPoint());
         }
 
@@ -180,10 +180,10 @@ public class SCTPImpl implements SCTP  {
 
         SackResult result = sendBuffer.receiveSack(sackData);
         if(sendBuffer.getInflightSize() == 0) {
-            retransmissionCalculator.stop();
+            retransmissionCalculator.updateAndGet(RetransmissionScheduler::stop);
         }
         else if (result.isUpdatedCumulative()){
-            retransmissionCalculator.restart();
+            retransmissionCalculator.updateAndGet((i)->i.restart(Instant.now()));
         }
 
         if(result.getAdvancedAckPoint().getAckPoint() > result.getRemoteCumulativeTSN()) {
@@ -193,7 +193,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
             getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
 
-            retransmissionCalculator.start();
+            retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
         }
 
@@ -255,7 +255,7 @@ public class SCTPImpl implements SCTP  {
      * @return payloads moved to inflight and ready to be sent
      */
     public List<WireRepresentation> getPayloadsToSend() {
-        if(retransmissionCalculator.checkForTimeout()){
+        if(retransmissionCalculator.get().checkForTimeout(Instant.now())){
             logger.info("Timeout of t3 timer, running retransmission");
             doRetransmission(); //Will send, so return empty
             return Collections.emptyList();
@@ -263,7 +263,7 @@ public class SCTPImpl implements SCTP  {
         else {
             List<BufferedSent> toSend = sendBuffer.getDataToSend();
             if (!toSend.isEmpty()) {
-                retransmissionCalculator.start();
+                retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             }
             return toSend.stream()
                     .map(i -> new WireRepresentation(i.getData().getSctpPayload(), SCTPMessageType.DATA))
@@ -476,6 +476,7 @@ public class SCTPImpl implements SCTP  {
         logger.info("Local send buffer: " + sendBuffer.getCapacity());
         logger.info("Local buffer: " + receiveBuffer.getCapacity());
         logger.info("State: " + state.get());
+        logger.info("Current t3 timeout: " + retransmissionCalculator.get().getCurrentTimeoutMillis());
     }
 
     @Override
