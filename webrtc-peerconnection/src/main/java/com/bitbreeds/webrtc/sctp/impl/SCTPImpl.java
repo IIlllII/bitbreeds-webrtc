@@ -10,6 +10,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -129,7 +130,7 @@ public class SCTPImpl implements SCTP  {
 
     private void doRetransmission() {
         if(state.get() == SCTPState.ESTABLISHED) {
-            logger.info("Retransmission started {}" );
+            logger.info("Retransmission started {}", Instant.now());
             retransmissionCalculator.restart();
             RetransmitData toSend = sendBuffer.getDataToRetransmit();
             performRetransmit(toSend);
@@ -230,7 +231,7 @@ public class SCTPImpl implements SCTP  {
      * @param data payload to send
      * @return messages to send now
      */
-    public List<WireRepresentation> bufferForSending(
+    public void bufferForSending(
             byte[] data,
             SCTPPayloadProtocolId ppid,
             Integer stream,
@@ -247,12 +248,17 @@ public class SCTPImpl implements SCTP  {
                 reliability);
 
         sendBuffer.buffer(messages);
+    }
 
+    /**
+     *
+     * @return
+     */
+    public List<WireRepresentation> getPayloadsToSend() {
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
         if(!toSend.isEmpty()) {
             retransmissionCalculator.start();
         }
-
         return toSend.stream()
                 .map(i-> new WireRepresentation(i.getData().getSctpPayload(),SCTPMessageType.DATA))
                 .collect(Collectors.toList());
@@ -293,7 +299,7 @@ public class SCTPImpl implements SCTP  {
         logger.debug(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.info("Input Parsed: " + inFullMessage);
+        logger.debug("Input Parsed: " + inFullMessage);
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
@@ -453,6 +459,7 @@ public class SCTPImpl implements SCTP  {
      */
     public void runMonitoring() {
         logger.info("---------------------------------------------");
+        logger.info("Connection: "+this.getConnection().getPeerConnection().getId());
         logger.info("Inflight: " + sendBuffer.getInflightSize());
         logger.info("CumulativeReceivedTSN: " + receiveBuffer.getCumulativeTSN());
         logger.info("MyTsn: " + payloadCreator.currentTSN());

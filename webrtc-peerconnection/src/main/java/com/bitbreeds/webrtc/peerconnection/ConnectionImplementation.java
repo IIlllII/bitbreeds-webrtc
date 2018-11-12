@@ -63,7 +63,6 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * A goal is to hide that behind the SCTP interface so that I can switch to any userland sctp
  * relatively easily.
  *
- *
  * This peerconnection supports creation ordered/unordered webrtc datachannels.
  *
  */
@@ -122,8 +121,16 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     /**
      * Pool for processing messages sendt by used
      */
-    private final ExecutorService sendPool = Executors.newFixedThreadPool(5);
+    private final ExecutorService sendPool = Executors.newFixedThreadPool(1);
 
+    /**
+     * Pool for recurring attempts to send
+     */
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1,r -> {
+        Thread t = Executors.defaultThreadFactory().newThread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     /**
      * Pool for running work of received messaged for user
@@ -194,6 +201,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                     }
                 }
             };
+
 
             /*
              * Create heartbeat message
@@ -290,6 +298,13 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         hb.setDaemon(true);
                         mn.start();
                         hb.start();
+
+                        scheduler.scheduleAtFixedRate(
+                                this::getPayloadsAndSend,
+                                1000,
+                                10,
+                                TimeUnit.MILLISECONDS);
+
                     }
                     else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");
@@ -301,7 +316,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         byte[] buf = new byte[transport.getReceiveLimit()];
                         int length = transport.receive(buf, 0, buf.length, DEFAULT_WAIT_MILLIS);
                         if (length >= 0) {
-                            logger.info("Received on conn: {} at port: {} with length {}",peerConnection.getId(),port,length);
+                            logger.debug("Received on conn: {} at port: {} with length {}",peerConnection.getId(),port,length);
                             byte[] handled = Arrays.copyOf(buf, length);
                             processReceivedMessage(handled);
                         }
@@ -317,11 +332,22 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         /*
          * Shut down thread pools in a controlled manner
          */
+        shutDownPoolControlled(scheduler,"scheduler");
         shutDownPoolControlled(processPool,"processpool");
         shutDownPoolControlled(workPool,"workpool");
         shutDownPoolControlled(sendPool,"sendpool");
         shutDownPoolControlled(normPrioPool,"normPrioPool");
         shutDownPoolControlled(highPrioPool,"highPrioPool");
+    }
+
+    private void getPayloadsAndSend() {
+        try {
+            List<WireRepresentation> toSend = sctp.getPayloadsToSend();
+            toSend.forEach(i -> putDataOnWire(i.getPayload()));
+        } catch (Exception e) {
+            logger.error("Shutting down due to sending failing due to",e);
+            sctp.shutdown();
+        }
     }
 
     private void shutDownPoolControlled(ExecutorService threadPoolExecutor,String name) {
@@ -383,19 +409,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     @Override
     public void send(byte[] data, SCTPPayloadProtocolId ppid, int streamId, SCTPReliability partialReliability) {
         if (mode == ConnectionMode.SCTP && running) {
-            /*
-             * Payload must be fragmented if more then 1024 bytes
-             */
-            sendPool.submit(() -> {
-                        try {
-                            List<WireRepresentation> out = sctp.bufferForSending(data, ppid, streamId, partialReliability);
-                            out.forEach(i -> putDataOnWireAsyncNormPrio(i.getPayload()));
-                        } catch (Exception ex) {
-                            logger.error("Sending failed for " + String.valueOf(Hex.encodeHex(data)), ex);
-                        }
-                    }
-            );
-
+             sctp.bufferForSending(data, ppid, streamId, partialReliability); //Buffer messages
+             sendPool.submit(this::getPayloadsAndSend); //There must be data to send now, so run immediately
         } else {
             logger.error("Data {} not sent, socket not open", String.valueOf(Hex.encodeHex(data)));
         }
@@ -422,7 +437,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     public void putDataOnWire(byte[] out) {
         lock.lock();
         try {
-            logger.info("Sending on conn: {} data: {}",peerConnection.getId(),  Hex.encodeHexString(out));
+            logger.debug("Sending on conn: {} data: {}",peerConnection.getId(),  Hex.encodeHexString(out));
             transport.send(out, 0, out.length);
         } catch (IOException e) {
             logger.error("Sending message {} failed", Hex.encodeHex(out), e);

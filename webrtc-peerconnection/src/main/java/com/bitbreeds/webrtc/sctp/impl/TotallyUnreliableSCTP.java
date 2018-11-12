@@ -21,6 +21,7 @@ import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.impl.buffer.FwdAckPoint;
+import com.bitbreeds.webrtc.sctp.impl.buffer.OutOfBufferSpaceError;
 import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
@@ -31,6 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -55,6 +58,8 @@ import static com.bitbreeds.webrtc.sctp.model.SCTPFixedAttributeType.PROTOCOL_ID
 public class TotallyUnreliableSCTP implements SCTP {
 
     private long INITIAL_BUFFER_SIZE = 200000;
+    private int MESSAGES_TO_SEND_PR_CALL = 2;
+    private int BUFFER_COUNT = 100;
 
     private AtomicLong receivedBytes = new AtomicLong(0);
     private AtomicLong sentBytest = new AtomicLong(0);
@@ -82,6 +87,8 @@ public class TotallyUnreliableSCTP implements SCTP {
     private final Map<SCTPMessageType,MessageHandler> handlerMap = createHandlerMap();
     private SCTPContext context;
     private final HeartBeatService heartBeatService = new HeartBeatService();
+
+    private final BlockingQueue<WireRepresentation> queue = new ArrayBlockingQueue<>(BUFFER_COUNT);
 
     /**
      *
@@ -166,7 +173,7 @@ public class TotallyUnreliableSCTP implements SCTP {
 
 
     @Override
-    public List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream, SCTPReliability partialReliability) {
+    public void bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream, SCTPReliability partialReliability) {
 
         int streamId = stream == null ? 0 : stream; //Use zero if not set
         int streamSequenceNumber = 0; //Only for ordered
@@ -204,7 +211,9 @@ public class TotallyUnreliableSCTP implements SCTP {
 
         byte[] finalOut = SCTPUtil.addChecksum(msg).toBytes();
 
-        return Collections.singletonList(new WireRepresentation(finalOut, SCTPMessageType.DATA));
+        if(!queue.offer(new WireRepresentation(finalOut, SCTPMessageType.DATA))) {
+            throw new OutOfBufferSpaceError("Buffering failed due to no buffer space");
+        }
     }
 
     /**
@@ -317,5 +326,12 @@ public class TotallyUnreliableSCTP implements SCTP {
     @Override
     public void abort() {
         connection.closeConnection();
+    }
+
+    @Override
+    public List<WireRepresentation> getPayloadsToSend() {
+        ArrayList<WireRepresentation> toSend = new ArrayList<>(MESSAGES_TO_SEND_PR_CALL);
+        queue.drainTo(toSend,MESSAGES_TO_SEND_PR_CALL);
+        return toSend;
     }
 }

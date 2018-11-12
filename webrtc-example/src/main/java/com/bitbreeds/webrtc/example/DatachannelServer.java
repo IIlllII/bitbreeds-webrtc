@@ -104,11 +104,12 @@ public class DatachannelServer {
     }
 
     private static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
-        HashSet<String> messages = new HashSet<>();
 
         peerConnectionServer.onConnection = (connection) -> {
 
             connection.onDataChannel = (dataChannel) -> {
+
+                HashSet<String> messages = new HashSet<>();
 
                 dataChannel.onOpen = (ev) -> {
                     logger.info("Running onOpen");
@@ -121,7 +122,7 @@ public class DatachannelServer {
                     dataChannel.send("echo-" + in);
 
                     if(messages.contains(in)) {
-                        throw new IllegalStateException("Duplicate" + in);
+                        throw new IllegalStateException("Duplicate: " + in);
                     }
                     messages.add(in);
                 };

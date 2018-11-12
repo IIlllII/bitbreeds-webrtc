@@ -49,6 +49,10 @@ public class SendBuffer {
     private final static int DEFAULT_MAX_INFLIGHT = Integer.valueOf(System.getProperty("com.bitbreeds.maxinflight","5"));
     private final int maxInflight;
 
+    /**
+     * How many bytes can be buffered for sending on this connection.
+     * Does not count inflight packets.
+     */
     private int capacity;
 
     private long remoteBufferSize;
@@ -155,7 +159,7 @@ public class SendBuffer {
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
 
-                logger.info("Sack received {} gaps {}",sack.getCumulativeTSN(),sack.getTsns());
+                logger.debug("Sack received {} gaps {}",sack.getCumulativeTSN(),sack.getTsns());
 
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
@@ -174,8 +178,6 @@ public class SendBuffer {
                 List<Long> tsns = acked.stream()
                         .map(BufferedSent::getTsn)
                         .collect(Collectors.toList());
-
-                capacity += size;
 
                 inFlight.keySet().removeAll(tsns);
 
@@ -250,8 +252,9 @@ public class SendBuffer {
                 .map(i->i.getData().getStreamId())
                 .collect(Collectors.toList());
 
-        toAbandon.forEach(buff ->
-                inFlight.remove(buff.getTsn())
+        toAbandon.forEach(buff -> {
+                    inFlight.remove(buff.getTsn());
+                }
         );
 
         logger.info("Abandoning {} {} {}",toAbandon.stream()
@@ -288,6 +291,7 @@ public class SendBuffer {
             while (!queue.isEmpty() && canFly(queue.element())) {
                 BufferedSent buff = queue.remove();
                 BufferedSent sent = buff.send();
+                capacity += buff.getData().getSctpPayload().length;
                 inFlight.put(buff.getTsn(), sent);
                 toSend.add(sent);
             }

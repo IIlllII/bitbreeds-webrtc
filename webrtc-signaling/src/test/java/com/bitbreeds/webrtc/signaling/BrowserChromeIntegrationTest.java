@@ -49,7 +49,7 @@ public class BrowserChromeIntegrationTest {
     @Test
     public void testOpen() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext();
+        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/index.html");
@@ -71,7 +71,7 @@ public class BrowserChromeIntegrationTest {
     @Test
     public void testAllMessages() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext();
+        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

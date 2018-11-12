@@ -48,9 +48,9 @@ public interface SCTP {
      * @param data the rawdata to create a message
      * @param id protocol
      * @param stream if set, this message is sent ordered on this stream
-     * @return messages that SCTP means should be sent now
+     *
      */
-    List<WireRepresentation> bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream,SCTPReliability partialReliability);
+     void bufferForSending(byte[] data, SCTPPayloadProtocolId id, Integer stream,SCTPReliability partialReliability);
 
     /**
      * Log useful monitoring values.
@@ -134,5 +134,11 @@ public interface SCTP {
     void receiveShutDown();
 
     void abort();
+
+    /**
+     *
+     * @return payloads to put on the wire
+     */
+    List<WireRepresentation> getPayloadsToSend();
 
 }

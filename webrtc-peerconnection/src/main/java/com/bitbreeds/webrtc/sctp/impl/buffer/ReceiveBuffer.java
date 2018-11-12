@@ -121,7 +121,7 @@ public class ReceiveBuffer {
 
         int position = posFromTSN(data.getTSN());
         synchronized (lock) {
-            logger.info("Storing {} with {} in {}",data,data.getTSN(),position);
+            logger.debug("Storing {} with {} in {}",data,data.getTSN(),position);
             if(!initialReceived) {
                 throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
             }

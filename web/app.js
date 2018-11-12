@@ -104,7 +104,7 @@ var logger = window.setInterval(function(){
 },3000);
 
 var transmit = true;
-var out = "0123456789ABCDEF".repeat(20);
+var out = "0123456789ABCDEF".repeat(60);
 
 
 dataChannel.onopen = function (e) {
@@ -138,7 +138,7 @@ dataChannel.onopen = function (e) {
             catch (err) {
                 console.log("Error" + err.message);
             }
-        }, 25);
+        }, 10);
 
     }, 1000);
 

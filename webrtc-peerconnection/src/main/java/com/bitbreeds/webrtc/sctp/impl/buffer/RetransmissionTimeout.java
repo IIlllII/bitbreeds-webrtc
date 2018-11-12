@@ -61,4 +61,12 @@ public class RetransmissionTimeout {
         }
     }
 
+    @Override
+    public String toString() {
+        return "RetransmissionTimeout{" +
+                "srtt=" + srtt +
+                ", rttvar=" + rttvar +
+                ", rto=" + rto +
+                '}';
+    }
 }

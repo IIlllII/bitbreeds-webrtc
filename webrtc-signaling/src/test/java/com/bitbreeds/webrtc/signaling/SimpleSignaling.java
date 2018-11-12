@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.HashSet;
+import java.util.function.Consumer;
 
 /*
  * Copyright (c) 16/04/16, Jonas Waage
@@ -81,7 +82,7 @@ public class SimpleSignaling {
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
-        setupPeerConnection(peerConnectionServer);
+        setupPeerConnectionDuplicateCheck(peerConnectionServer);
 
         CamelContext ctx = new DefaultCamelContext(reg);
         WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
@@ -109,7 +110,7 @@ public class SimpleSignaling {
                 (i) -> new LossyConnection(keyStoreInfo,i,lossIn,lossOut)
         );
 
-        setupPeerConnection(peerConnectionServer);
+        setupPeerConnectionDuplicateCheck(peerConnectionServer);
 
 
         CamelContext ctx = new DefaultCamelContext(reg);
@@ -125,13 +126,13 @@ public class SimpleSignaling {
     }
 
 
-    public static CamelContext initContext() throws Exception {
+    public static CamelContext initContext(Consumer<SimplePeerServer> consumer) throws Exception {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
         reg.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
-        setupPeerConnection(peerConnectionServer);
+        consumer.accept(peerConnectionServer);
 
         CamelContext ctx = new DefaultCamelContext(reg);
         WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
@@ -146,13 +147,13 @@ public class SimpleSignaling {
         return ctx;
     }
 
-    public static void setupPeerConnection(SimplePeerServer peerConnectionServer) {
-
-        HashSet<String> messages = new HashSet<>();
+    public static void setupPeerConnectionDuplicateCheck(SimplePeerServer peerConnectionServer) {
 
         peerConnectionServer.onConnection = (connection) -> {
 
             connection.onDataChannel = (dataChannel) -> {
+                //Detect duplicate messages
+                HashSet<String> messages = new HashSet<>();
 
                 dataChannel.onOpen = (ev) -> {
                     logger.info("Running onOpen");
@@ -165,7 +166,7 @@ public class SimpleSignaling {
                     dataChannel.send("echo-" + in);
 
                     if(messages.contains(in)) {
-                        throw new IllegalStateException("Duplicate" + in);
+                        throw new IllegalStateException("Duplicate: " + in);
                     }
                     messages.add(in);
                 };
@@ -176,6 +177,38 @@ public class SimpleSignaling {
 
                 dataChannel.onError = (ev) -> {
                     logger.info("Received error: {}", ev.getError());
+                };
+
+            };
+
+        };
+    }
+
+
+
+    public static void echoConnection(SimplePeerServer peerConnectionServer) {
+
+        peerConnectionServer.onConnection = (connection) -> {
+
+            connection.onDataChannel = (dataChannel) -> {
+
+                dataChannel.onOpen = (ev) -> {
+                    logger.debug("Running onOpen");
+                    dataChannel.send("OPEN!");
+                };
+
+                dataChannel.onMessage = (ev) -> {
+                    String in = new String(ev.getData());
+                    logger.debug("Running onMessage: " + in);
+                    dataChannel.send("echo-" + in);
+                };
+
+                dataChannel.onClose = (ev) -> {
+                    logger.debug("Received close: {}", ev);
+                };
+
+                dataChannel.onError = (ev) -> {
+                    logger.debug("Received error: {}", ev.getError());
                 };
 
             };

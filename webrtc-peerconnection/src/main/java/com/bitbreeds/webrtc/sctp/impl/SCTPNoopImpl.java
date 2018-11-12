@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-/**
+/*
  * Copyright (c) 29/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -43,12 +43,11 @@ public class SCTPNoopImpl implements SCTP {
     }
 
     @Override
-    public List<WireRepresentation> bufferForSending(
+    public void bufferForSending(
             byte[] data,
             SCTPPayloadProtocolId id,
             Integer stream,
             SCTPReliability partialReliability) {
-        return Collections.emptyList();
     }
 
     @Override
@@ -125,5 +124,10 @@ public class SCTPNoopImpl implements SCTP {
     @Override
     public void abort() {
 
+    }
+
+    @Override
+    public List<WireRepresentation> getPayloadsToSend() {
+        return Collections.emptyList();
     }
 }
