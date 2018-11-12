@@ -66,7 +66,7 @@ public class SCTPImpl implements SCTP  {
     private final SendBuffer sendBuffer = new SendBuffer(DEFAULT_SEND_BUFFER_SIZE);
     private final PayloadCreator payloadCreator = new PayloadCreator();
     private final HeartBeatService heartBeatService = new HeartBeatService();
-    private final AtomicReference<RetransmissionScheduler> retransmissionCalculator = new AtomicReference<>(RetransmissionScheduler.initial(Instant.now()));
+    private final AtomicReference<RetransmissionTimer> retransmissionCalculator = new AtomicReference<>(RetransmissionTimer.initial(Instant.now()));
     private final SingleTimedAction shutdownAction = new SingleTimedAction(this::shutDownTask,200); //Not in use yet
     private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use yet
     private SCTPContext context;
@@ -180,7 +180,7 @@ public class SCTPImpl implements SCTP  {
 
         SackResult result = sendBuffer.receiveSack(sackData);
         if(sendBuffer.getInflightSize() == 0) {
-            retransmissionCalculator.updateAndGet(RetransmissionScheduler::stop);
+            retransmissionCalculator.updateAndGet(RetransmissionTimer::stop);
         }
         else if (result.isUpdatedCumulative()){
             retransmissionCalculator.updateAndGet((i)->i.restart(Instant.now()));

@@ -21,8 +21,14 @@ import java.time.Instant;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-public class RetransmissionScheduler {
+/**
+ * A single immutable timer for the connection.
+ *
+ * This is meant to be used in an AtomicRef for thread safety.
+ *
+ *
+ */
+public class RetransmissionTimer {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -32,11 +38,11 @@ public class RetransmissionScheduler {
 
     private final boolean hasInflight;
 
-    public static RetransmissionScheduler initial(Instant time) {
-        return new RetransmissionScheduler(RetransmissionTimeout.initial(),time,false);
+    public static RetransmissionTimer initial(Instant time) {
+        return new RetransmissionTimer(RetransmissionTimeout.initial(),time,false);
     }
 
-    private RetransmissionScheduler(RetransmissionTimeout timeout, Instant lastInteraction, boolean hasInflight) {
+    private RetransmissionTimer(RetransmissionTimeout timeout, Instant lastInteraction, boolean hasInflight) {
         this.timeout = timeout;
         this.lastInteraction = lastInteraction;
         this.hasInflight = hasInflight;
@@ -47,10 +53,10 @@ public class RetransmissionScheduler {
      * @param rtt of connection
      * @return new timeout calculation
      */
-    public RetransmissionScheduler addMeasure(double rtt) {
+    public RetransmissionTimer addMeasure(double rtt) {
         RetransmissionTimeout tim = timeout.addMeasurement(rtt);
         logger.debug("Update retransmission timeout to {}",tim);
-        return new RetransmissionScheduler(tim,lastInteraction,hasInflight);
+        return new RetransmissionTimer(tim,lastInteraction,hasInflight);
     }
 
     /**
@@ -60,7 +66,12 @@ public class RetransmissionScheduler {
     public boolean checkForTimeout(Instant time) {
         if(hasInflight) {
             long millis = timeout.getRetransmissionTimeoutMillis();
-            return lastInteraction.plusMillis(millis).isBefore(time);
+
+            boolean timedOut = lastInteraction.plusMillis(millis).isBefore(time);
+            if(timedOut) {
+                logger.debug("T3 retransmission timeout due to: {}", timeout);
+            }
+            return timedOut;
         }
         return false;
     }
@@ -68,25 +79,25 @@ public class RetransmissionScheduler {
     /**
      * Stop current timeout and reschedule
      */
-    public RetransmissionScheduler restart(Instant time) {
+    public RetransmissionTimer restart(Instant time) {
         return stop().start(time);
     }
 
     /**
      * Will schedule a retransmission if none is running.
      */
-    public RetransmissionScheduler start(Instant time) {
+    public RetransmissionTimer start(Instant time) {
         if(!hasInflight) {
-            return new RetransmissionScheduler(timeout,time,true);
+            return new RetransmissionTimer(timeout,time,true);
         }
         else {
             return this;
         }
     }
 
-    public RetransmissionScheduler stop() {
+    public RetransmissionTimer stop() {
         if(hasInflight) {
-            return new RetransmissionScheduler(timeout,lastInteraction,false);
+            return new RetransmissionTimer(timeout,lastInteraction,false);
         }
         else {
             return this;
@@ -97,4 +108,12 @@ public class RetransmissionScheduler {
         return timeout.getRetransmissionTimeoutMillis();
     }
 
+    @Override
+    public String toString() {
+        return "RetransmissionTimer{" +
+                "timeout=" + timeout +
+                ", lastInteraction=" + lastInteraction +
+                ", hasInflight=" + hasInflight +
+                '}';
+    }
 }

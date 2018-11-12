@@ -16,7 +16,7 @@ package com.bitbreeds.webrtc.sctp.retransmission;/*
  *
  */
 
-import com.bitbreeds.webrtc.sctp.impl.buffer.RetransmissionScheduler;
+import com.bitbreeds.webrtc.sctp.impl.buffer.RetransmissionTimer;
 import org.junit.Test;
 
 
@@ -29,7 +29,7 @@ public class TestRetransmission {
     @Test
     public void testStartStoRetrans() {
         Instant time = Instant.now();
-        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        RetransmissionTimer scheduler = RetransmissionTimer.initial(time);
         scheduler = scheduler.start(Instant.now());
 
         assertTrue(scheduler.checkForTimeout(time.plusMillis(4000)));
@@ -38,14 +38,14 @@ public class TestRetransmission {
     @Test
     public void testNotStarted() {
         Instant time = Instant.now();
-        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        RetransmissionTimer scheduler = RetransmissionTimer.initial(time);
         assertFalse(scheduler.checkForTimeout(time.plusMillis(4000)));
     }
 
     @Test
     public void testSquence() {
         Instant time = Instant.now();
-        RetransmissionScheduler scheduler = RetransmissionScheduler.initial(time);
+        RetransmissionTimer scheduler = RetransmissionTimer.initial(time);
         scheduler = scheduler.start(time);
 
         time = time.plusMillis(4000);
