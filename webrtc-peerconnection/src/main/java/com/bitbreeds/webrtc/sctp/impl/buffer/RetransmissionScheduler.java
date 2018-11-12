@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
+//TODO rewrite to check for resend, only stop.
 public class RetransmissionScheduler {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -58,7 +60,7 @@ public class RetransmissionScheduler {
     }
 
     private void scheduleRetransmission() {
-        current.updateAndGet(i -> createScheduler(i,retransmit));
+        current.set(createScheduler(retransmit));
     }
 
     /**
@@ -66,7 +68,7 @@ public class RetransmissionScheduler {
      */
     public void restart() {
         stop();
-        scheduleRetransmission();
+        start();
     }
 
     public void shutdown() {
@@ -86,7 +88,9 @@ public class RetransmissionScheduler {
      * Will schedule a retransmission if none is running.
      */
     public void start() {
-        scheduleRetransmission();
+        if(current.get() == null) {
+            scheduleRetransmission();
+        }
     }
 
     public void stop() {
@@ -98,17 +102,12 @@ public class RetransmissionScheduler {
         }
     }
 
-    private ScheduledFuture<?> createScheduler(ScheduledFuture<?> existing,Runnable action) {
-        if(existing == null) {
-            logger.debug("Scheduling timer with time {}",timeout.get().getRetransmissionTimeoutMillis());
+    private ScheduledFuture<?> createScheduler(Runnable action) {
+            logger.debug("Scheduling retransmission timer with time {}",timeout.get().getRetransmissionTimeoutMillis());
             return scheduler.schedule(
                     action,
                     timeout.get().getRetransmissionTimeoutMillis(),
                     TimeUnit.MILLISECONDS);
-        }
-        else {
-            return existing;
-        }
     }
 
 }
