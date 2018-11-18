@@ -126,19 +126,13 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     /**
      * Pool for recurring attempts to send
      */
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1,r -> {
-        Thread t = Executors.defaultThreadFactory().newThread(r);
-        t.setDaemon(true);
-        return t;
-    });
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     /**
      * Pool for running work of received messaged for user
      */
     private final ExecutorService workPool = Executors.newFixedThreadPool(5);
 
-    private final Runnable heartBeat;
-    private final Runnable monitor;
     private final IceCandidate iceCandidate;
 
     private final UserData localUser = createLocalUser();
@@ -187,41 +181,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             Random random = new Random();
             int number = random.nextInt(1000000);
             this.iceCandidate = new IceCandidate(BigInteger.valueOf(number), this.port, address, 2122252543L);
-
-            /*
-             * Print monitoring information from connection
-             */
-            this.monitor = () -> {
-                while (running && socket.isBound()) {
-                    try {
-                        Thread.sleep(1000);
-                        sctp.runMonitoring();
-                    } catch (Exception e) {
-                        logger.error("Logging error", e);
-                    }
-                }
-            };
-
-
-            /*
-             * Create heartbeat message
-             * TODO move to SCTP implementation so it can be shut down properly
-             */
-            this.heartBeat = () -> {
-                while (running && socket.isBound()) {
-                    try {
-                        Thread.sleep(5000);
-                        sctp.createHeartBeat().ifPresent(beat -> {
-                            logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
-                            highPrioPool.submit(() ->
-                                    putDataOnWire(beat.getPayload())
-                            );
-                        });
-                    } catch (Exception e) {
-                        logger.error("HeartBeat error: ", e);
-                    }
-                }
-            };
 
         } catch (IOException e) {
             throw new IllegalStateException("Failed to start connection:", e);
@@ -292,19 +251,37 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         sctp = useSpecialUdpImpl ? new TotallyUnreliableSCTP(this) : new SCTPImpl(this);
                         mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");
-                        Thread mn = new Thread(monitor);
-                        mn.setDaemon(true);
-                        Thread hb = new Thread(heartBeat);
-                        hb.setDaemon(true);
-                        mn.start();
-                        hb.start();
 
+                        logger.debug("Schedule send polling");
                         scheduler.scheduleAtFixedRate(
                                 this::getPayloadsAndSend,
                                 1000,
                                 10,
                                 TimeUnit.MILLISECONDS);
 
+                        logger.debug("Schedule heartbeat");
+                        scheduler.scheduleAtFixedRate(()->{
+                            try {
+                                sctp.createHeartBeat().ifPresent(beat -> {
+                                    logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
+                                    highPrioPool.submit(() ->
+                                            putDataOnWire(beat.getPayload())
+                                    );
+                                });
+                            } catch (RuntimeException e) {
+                                logger.error("Heartheat failed due to:",e);
+                            }
+                        },5000,5000,TimeUnit.MILLISECONDS);
+
+                        logger.debug("Schedule monitoring sample");
+                        scheduler.scheduleAtFixedRate(() -> {
+                                    try {
+                                        sctp.runMonitoring();
+                                    } catch (RuntimeException e) {
+                                        logger.error("Error monitoring logging", e);
+                                    }
+                                },
+                                1000, 1000, TimeUnit.MILLISECONDS);
                     }
                     else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");
@@ -345,7 +322,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             List<WireRepresentation> toSend = sctp.getPayloadsToSend();
             toSend.forEach(i -> putDataOnWire(i.getPayload()));
         } catch (Exception e) {
-            logger.error("Shutting down due to sending failing due to",e);
+            logger.error("Shut down cause by sending failure due to",e);
             sctp.shutdown();
         }
     }

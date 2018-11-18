@@ -161,6 +161,7 @@ public class SCTPImpl implements SCTP  {
      * @param pt ack pt
      */
     public void updateAckPoint(long pt) {
+        logger.debug("Update ack point to " + pt);
         ForwardAccResult result = receiveBuffer.receiveForwardAckPoint(pt);
         createSackMessage(result.getSackData()).ifPresent(i -> {
                     logger.info("Send sack due updated ack pt {}", i);
@@ -229,7 +230,6 @@ public class SCTPImpl implements SCTP  {
     /**
      *
      * @param data payload to send
-     * @return messages to send now
      */
     public void bufferForSending(
             byte[] data,
