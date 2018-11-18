@@ -48,14 +48,14 @@ public class LoggingConnection extends ConnectionImplementation {
 
     public void putDataOnWire(byte[] out) {
         SCTPMessage msg = SCTPMessage.fromBytes(out);
-        msg.getChunks().forEach(i -> logSCTPChunk(i,"Outgoing "));
+        msg.getChunks().forEach(i -> logSCTPChunk(i,"Outgoing id:"+this.getPeerConnection().getId()));
         super.putDataOnWire(out);
     }
 
     @Override
     public void processReceivedMessage(byte[] buf) {
         SCTPMessage msg = SCTPMessage.fromBytes(buf);
-        msg.getChunks().forEach(i -> logSCTPChunk(i,"Incoming "));
+        msg.getChunks().forEach(i -> logSCTPChunk(i,"Incoming id:"+this.getPeerConnection().getId()));
         super.processReceivedMessage(buf);
     }
 
