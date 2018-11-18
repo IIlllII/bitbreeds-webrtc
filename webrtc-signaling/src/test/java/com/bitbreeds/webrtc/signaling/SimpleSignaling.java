@@ -130,7 +130,8 @@ public class SimpleSignaling {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
         reg.bind("sslContextParameters",sslParameters());
 
-        SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
+        SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo,
+                (i) -> new LoggingConnection(keyStoreInfo,i));
 
         consumer.accept(peerConnectionServer);
 
