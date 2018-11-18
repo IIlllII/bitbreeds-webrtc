@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /*
@@ -46,9 +47,6 @@ public class SendBuffer {
     private final Queue<BufferedSent> queue = new ArrayDeque<>();
     private Map<Long,BufferedSent> inFlight = new HashMap<>();
 
-    private final static int DEFAULT_MAX_INFLIGHT = Integer.valueOf(System.getProperty("com.bitbreeds.maxinflight","5"));
-    private final int maxInflight;
-
     /**
      * How many bytes can be buffered for sending on this connection.
      * Does not count inflight packets.
@@ -58,6 +56,12 @@ public class SendBuffer {
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
 
+    private final int CONGESTION_MTU = 1500;
+
+    private AtomicReference<Congestion> congestionWindow = new AtomicReference<>(
+            Congestion.initial(CONGESTION_MTU)
+    );
+
     /**
      * <a href="https://tools.ietf.org/html/rfc3758#section-3.5">Partial reliability</a>
      */
@@ -66,18 +70,11 @@ public class SendBuffer {
 
     private long bytesSent = 0;
 
-    public SendBuffer(int capacity) {
-        this(capacity,DEFAULT_MAX_INFLIGHT);
-    }
-
     public SendBuffer(
-            int capacity,
-            int maxInflight
-    ) {
+            int capacity) {
         if(capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be above 0, is " + capacity);
         }
-        this.maxInflight = maxInflight;
         this.capacity = capacity;
     }
 
@@ -144,6 +141,9 @@ public class SendBuffer {
         }
     }
 
+    public int getCwnd() {
+        return this.congestionWindow.get().getCwnd();
+    }
 
     /**
      * Remove packets acknowledged in sack from inflight.
@@ -167,11 +167,16 @@ public class SendBuffer {
                         sack.getCumulativeTSN() :
                         advancedAckPoint;
 
+                int belowCumTsnSize = inFlight.values().stream()
+                        .filter(i -> i.getTsn() <= sack.getCumulativeTSN())
+                        .map(i->i.getData().getSctpPayload().length)
+                        .reduce(0, Integer::sum);
+
                 List<BufferedSent> acked = inFlight.values().stream()
                         .filter(i -> acknowledged(sack, i))
                         .collect(Collectors.toList());
 
-                long size = acked.stream()
+                int size = acked.stream()
                         .map(i -> i.getData().getSctpPayload().length)
                         .reduce(0, Integer::sum);
 
@@ -183,6 +188,7 @@ public class SendBuffer {
 
                 List<GapAck> gapAcks = sack.getTsns();
                 if(!gapAcks.isEmpty()) {
+                    congestionWindow.updateAndGet(Congestion::packetLoss);
 
                     FwdAckPoint fwdAckPoint = abandonExpiredPackets(gapAcks);
 
@@ -215,6 +221,13 @@ public class SendBuffer {
                             i->inFlight.put(i.getTsn(),i)
                     );
                     return new SackResult(resendList,updatedCumTSN,remoteCumulativeTSN,fwdAckPoint);
+                }
+
+                if(inFlight.values().isEmpty()) {
+                    congestionWindow.updateAndGet(Congestion::reset);
+                }
+                else {
+                    congestionWindow.updateAndGet(i -> i.increase(belowCumTsnSize, size));
                 }
 
                 logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
@@ -252,10 +265,11 @@ public class SendBuffer {
                 .map(i->i.getData().getStreamId())
                 .collect(Collectors.toList());
 
+        /*
         toAbandon.forEach(buff -> {
                     inFlight.remove(buff.getTsn());
                 }
-        );
+        );*/
 
         logger.info("Abandoning {} {} {}",toAbandon.stream()
                 .map(BufferedSent::getTsn)
@@ -288,9 +302,19 @@ public class SendBuffer {
     public List<BufferedSent> getDataToSend() {
         ArrayList<BufferedSent> toSend = new ArrayList<>();
         synchronized (lock) {
-            while (!queue.isEmpty() && canFly(queue.element())) {
+            //Make more efficient later
+            int data = inFlight.values().stream()
+                    .map(i->i.getData().getSctpPayload().length)
+                    .reduce(0,Integer::sum);
+
+            int cwndDiff = congestionWindow.get().getCwnd() - data;
+
+            while (!queue.isEmpty() &&
+                    cwndDiff > queue.element().getData().getSctpPayload().length &&
+                    remoteBufferSize > queue.element().getData().getSctpPayload().length) {
                 BufferedSent buff = queue.remove();
                 BufferedSent sent = buff.send();
+                cwndDiff -= buff.getData().getSctpPayload().length;
                 capacity += buff.getData().getSctpPayload().length;
                 inFlight.put(buff.getTsn(), sent);
                 toSend.add(sent);
@@ -314,6 +338,7 @@ public class SendBuffer {
      */
     public RetransmitData getDataToRetransmit() {
         synchronized (lock) {
+            congestionWindow.updateAndGet(Congestion::retransmissionTimeout);
 
             FwdAckPoint fwdAckPoint = abandonExpiredPackets(Collections.emptyList());
 
@@ -331,15 +356,6 @@ public class SendBuffer {
             return new RetransmitData(bufferedSents,fwdAckPoint,remoteCumulativeTSN);
         }
     }
-
-    /**
-     * @return whether max inflight and remote buffer allows sending or not
-     */
-    private boolean canFly(BufferedSent data) {
-        return maxInflight - inFlight.size() > 0
-                && remoteBufferSize > data.getData().getSctpPayload().length;
-    }
-
 
 
 

@@ -1,4 +1,6 @@
-package com.bitbreeds.webrtc.sctp.impl.buffer;/*
+package com.bitbreeds.webrtc.sctp.impl.buffer;
+
+/*
  *
  * Copyright (c) 10/11/2018, Jonas Waage
  *
@@ -16,6 +18,20 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;/*
  *
  */
 
+/**
+ *
+ * SCTP congestion control
+ *
+ * Replaces hardcoded max inflight count
+ *
+ * This class is meant to serve as the basis for a pluggable congestion control mechanism
+ * to be queried for whether messages can be sent.
+ *
+ * First priority is to implement the below which is loss based,
+ * but possibly other methods can work nicely as well.
+ *
+ * TODO implement https://tools.ietf.org/html/rfc4960#section-7
+ */
 public class Congestion {
 
     private final int cwnd;
@@ -23,7 +39,7 @@ public class Congestion {
     private final int MTU;
     private final int partialBytesAcked;
 
-    static Congestion initial(int MTU) {
+    public static Congestion initial(int MTU) {
         return new Congestion(Math.min(MTU*4,Math.max(2*MTU,4380)),12*MTU,MTU,0);
     }
 
@@ -34,19 +50,39 @@ public class Congestion {
         this.partialBytesAcked = partialBytesAcked;
     }
 
-    public Congestion timeout() {
+    public int getCwnd() {
+        return cwnd;
+    }
+    /*---- Congestion rules */
+
+    public Congestion retransmissionTimeout() {
         return new Congestion(MTU,Math.max(cwnd/2, 4*MTU),MTU,partialBytesAcked);
     }
 
-    public Congestion increase() {
-        return new Congestion(cwnd+MTU,ssThresh,MTU,partialBytesAcked);
+    public Congestion increase(int ackedBytesInSack, int totalAcked) {
+        if (cwnd <= ssThresh) {
+            int increase = Math.min(MTU, ackedBytesInSack);
+            return new Congestion(cwnd + increase, ssThresh, MTU, partialBytesAcked);
+        } else {
+            int nuPartial = partialBytesAcked + totalAcked;
+            int nuCwnd = cwnd + MTU;
+            if (partialBytesAcked > cwnd) {
+                return new Congestion(nuCwnd, ssThresh, MTU, nuPartial - nuCwnd);
+            } else {
+                return new Congestion(cwnd, ssThresh, MTU, nuPartial);
+            }
+        }
     }
 
-    public Congestion loss() {
-        return new Congestion(Math.max(cwnd/2,MTU*4),ssThresh,MTU,partialBytesAcked);
+
+    public Congestion packetLoss() {
+        int nussTresh = Math.max(cwnd/2,MTU*4);
+        return new Congestion(cwnd ,nussTresh,MTU,0);
     }
 
     public Congestion reset() {
         return new Congestion(Math.max(cwnd/2,MTU*4),ssThresh,MTU,0);
     }
+
+
 }
