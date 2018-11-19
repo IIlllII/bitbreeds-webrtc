@@ -254,14 +254,11 @@ public class TotallyUnreliableSCTP implements SCTP {
     public void handleSctpPayload(ReceivedData storage) {
         long updated = remoteTsnReceived.updateAndGet((l) -> Math.max(storage.getTSN(),l));
 
-        //Maybe send sack?
-        Optional<SCTPMessage> msg = SackCreator.createSack(
+        SCTPMessage msg = SackCreator.createSack(
                 SCTPUtil.baseHeader(context),
                 new SackData(remoteTsnReceived.get(),Collections.emptyList(),Collections.emptyList(),(int)INITIAL_BUFFER_SIZE));
 
-        msg.ifPresent((i)-> {
-                    connection.putDataOnWireAsyncHighPrio(i.toBytes());
-                });
+        connection.putDataOnWireAsyncHighPrio(msg.toBytes());
 
         Deliverable deliverable = new Deliverable(
                 storage.getPayload(),
@@ -329,7 +326,7 @@ public class TotallyUnreliableSCTP implements SCTP {
     }
 
     @Override
-    public List<WireRepresentation> getPayloadsToSend() {
+    public List<WireRepresentation> runPeriodicSCTPTasks() {
         ArrayList<WireRepresentation> toSend = new ArrayList<>(MESSAGES_TO_SEND_PR_CALL);
         queue.drainTo(toSend,MESSAGES_TO_SEND_PR_CALL);
         return toSend;

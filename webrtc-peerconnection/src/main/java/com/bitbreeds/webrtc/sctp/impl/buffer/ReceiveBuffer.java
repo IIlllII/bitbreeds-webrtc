@@ -57,6 +57,8 @@ public class ReceiveBuffer {
     private long deliveredBytes = 0;
     private boolean initialReceived = false;
 
+    private boolean inititialDataReceived = false;
+
     private Map<Integer,Integer> orderedStreams = new HashMap<>();
 
     public ReceiveBuffer(int bufferSize,int capacity) {
@@ -114,7 +116,9 @@ public class ReceiveBuffer {
      *
      * @param data data to store
      */
-    public void store(ReceivedData data) {
+    public StoreResult store(ReceivedData data) {
+        boolean mustSack = false;
+
         if(Math.abs(data.getTSN() - cumulativeTSN) > buffer.length*2) {
             throw new IllegalArgumentException("TSN " + data.getTSN() + " is not in the expected range");
         }
@@ -126,9 +130,14 @@ public class ReceiveBuffer {
                 throw new InitialMessageNotReceived("Initial SCTP message not received yet, no initial TSN");
             }
 
+            if(!inititialDataReceived) {
+                initialReceived = true;
+                mustSack = true;
+            }
 
             BufferedReceived old = buffer[position];
             if(data.getTSN() <= cumulativeTSN) {
+                mustSack = true;
                 duplicates.add(data.getTSN());
                 logger.info("{} was a duplicate, ignore",data.getTSN());
             }
@@ -139,13 +148,11 @@ public class ReceiveBuffer {
                 this.receivedBytes += data.getPayload().length;
             }
             else if(data.getTSN() == old.getData().getTSN()){
+                mustSack = true;
                 duplicates.add(data.getTSN());
                 logger.info("{} was a duplicate, ignore",data.getTSN());
             }
             else {
-                /*
-                 * Only malicious implementations should hit this unless a very small buffer is used
-                 */
                 List<BufferedReceived> bad = Arrays.stream(buffer)
                         .filter(i -> i != null && !i.canBeOverwritten())
                         .collect(Collectors.toList());
@@ -155,7 +162,28 @@ public class ReceiveBuffer {
                 + " Capacity: " + this.capacity
                 + " TSN: " + this.cumulativeTSN + " Position" + position + " TSN IN " + data.getTSN());
             }
+
+            if(hasGap()) {
+                mustSack = true;
+            }
         }
+
+        return new StoreResult(mustSack);
+    }
+
+    /**
+     * Must be used in sync block
+     * @return  boolean if gap
+     */
+    private boolean hasGap() {
+        long diff = this.maxReceivedTSN - cumulativeTSN;
+        for (int i = 1; i <= diff; i++) {
+            BufferedReceived bf = getBuffered(this.cumulativeTSN + i);
+            if (bf == null || !bf.canBeOverwritten()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -105,13 +105,13 @@ public class SackCreator {
     /**
      * @return attempt to create a SCTP SACK message.
      */
-    public static Optional<SCTPMessage> createSack(SCTPHeader header,SackData sackData) {
+    public static SCTPMessage createSack(SCTPHeader header,SackData sackData) {
         SCTPChunk sack = createSackChunk(sackData);
 
         SCTPMessage msg = new SCTPMessage(header, Collections.singletonList(sack));
 
         logger.debug("Sending sack data: " + msg);
-        return Optional.of(SCTPUtil.addChecksum(msg));
+        return SCTPUtil.addChecksum(msg);
     }
 
 

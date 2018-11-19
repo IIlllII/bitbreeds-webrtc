@@ -319,7 +319,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private void getPayloadsAndSend() {
         try {
-            List<WireRepresentation> toSend = sctp.getPayloadsToSend();
+            List<WireRepresentation> toSend = sctp.runPeriodicSCTPTasks();
             toSend.forEach(i -> putDataOnWire(i.getPayload()));
         } catch (Exception e) {
             logger.error("Shut down cause by sending failure due to",e);

@@ -139,6 +139,6 @@ public interface SCTP {
      *
      * @return payloads to put on the wire
      */
-    List<WireRepresentation> getPayloadsToSend();
+    List<WireRepresentation> runPeriodicSCTPTasks();
 
 }

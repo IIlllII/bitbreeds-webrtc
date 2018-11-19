@@ -127,7 +127,7 @@ public class SCTPNoopImpl implements SCTP {
     }
 
     @Override
-    public List<WireRepresentation> getPayloadsToSend() {
+    public List<WireRepresentation> runPeriodicSCTPTasks() {
         return Collections.emptyList();
     }
 }

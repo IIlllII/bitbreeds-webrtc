@@ -57,6 +57,10 @@ public class SCTPImpl implements SCTP  {
 
     private final AtomicReference<SCTPState> state = new AtomicReference<>(SCTPState.CLOSED);
 
+    private final Object sackLock = new Object();
+    private int packetCountSinceSack = 0;
+    private boolean hasNonAcknowledgedData = false;
+
     /**
      * The impl access to write data to the socket
      */
@@ -68,7 +72,6 @@ public class SCTPImpl implements SCTP  {
     private final HeartBeatService heartBeatService = new HeartBeatService();
     private final AtomicReference<RetransmissionTimer> retransmissionCalculator = new AtomicReference<>(RetransmissionTimer.initial(Instant.now()));
     private final SingleTimedAction shutdownAction = new SingleTimedAction(this::shutDownTask,200); //Not in use yet
-    private final SingleTimedAction sackTimer = new SingleTimedAction(this::sendSack,200); //Not in use yet
     private SCTPContext context;
 
     /**
@@ -163,11 +166,8 @@ public class SCTPImpl implements SCTP  {
     public void updateAckPoint(long pt) {
         logger.debug("Update ack point to " + pt);
         ForwardAccResult result = receiveBuffer.receiveForwardAckPoint(pt);
-        createSackMessage(result.getSackData()).ifPresent(i -> {
-                    logger.info("Send sack due updated ack pt {}", i);
-                    getConnection().putDataOnWireAsyncHighPrio(i.getPayload());
-                }
-        );
+        getConnection().putDataOnWireAsyncHighPrio(createSackMessage(result.getSackData()).getPayload());
+
         result.getToDeliver().forEach(i->
             getConnection().presentToUser(i)
         );
@@ -254,7 +254,18 @@ public class SCTPImpl implements SCTP  {
      *
      * @return payloads moved to inflight and ready to be sent
      */
-    public List<WireRepresentation> getPayloadsToSend() {
+    public List<WireRepresentation> runPeriodicSCTPTasks() {
+        boolean doSack = false;
+        synchronized (sackLock) {
+            if(hasNonAcknowledgedData) {
+                hasNonAcknowledgedData = false;
+                doSack = true;
+            }
+        }
+        if(doSack) {
+            sendSelectiveAcknowledgement();
+        }
+
         if(retransmissionCalculator.get().checkForTimeout(Instant.now())){
             logger.info("Timeout of t3 timer, running retransmission");
             doRetransmission(); //Will send, so return empty
@@ -274,15 +285,10 @@ public class SCTPImpl implements SCTP  {
     /**
      * @return message with acks
      */
-    private Optional<WireRepresentation> createSackMessage(SackData sackData) {
-        if(context == null) {
-            return Optional.empty();
-        }
-        Optional<SCTPMessage> message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
-        message.ifPresent(
-                i-> logger.debug("Created sack {} to send",i)
-        );
-        return message.map(i->new WireRepresentation(i.toBytes(),SCTPMessageType.SELECTIVE_ACK));
+    private WireRepresentation createSackMessage(SackData sackData) {
+        SCTPMessage message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
+        logger.debug("Created sack {} to send",message);
+        return new WireRepresentation(message.toBytes(),SCTPMessageType.SELECTIVE_ACK);
     }
 
 
@@ -311,13 +317,28 @@ public class SCTPImpl implements SCTP  {
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
 
-        //TODO https://tools.ietf.org/html/rfc4960#section-8.5.1, rules for INIT chunk
-
-        return inChunks.stream()
+        List<WireRepresentation> result = inChunks.stream()
                 .map(i->handleChunk(i,inHdr))
                 .flatMap(i->i)
                 .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes(),i.getChunks().get(0).getType()))
                 .collect(Collectors.toList());
+
+        /*
+         * https://tools.ietf.org/html/rfc4960#section-6.2
+         * Send sack if packet count with no sack is 2 or more
+         */
+        boolean sendSack = false;
+        synchronized (sackLock) {
+            packetCountSinceSack++;
+            if(packetCountSinceSack >= 2) {
+                packetCountSinceSack = 0;
+                sendSack = true;
+            }
+        }
+        if(sendSack) {
+            sendSelectiveAcknowledgement();
+        }
+        return result;
     }
 
     /**
@@ -358,10 +379,16 @@ public class SCTPImpl implements SCTP  {
         logger.trace("Data as hex: " + Hex.encodeHexString(data.getPayload()));
         logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
-        receiveBuffer.store(data);
+        StoreResult result = receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
-        sendSack(); //Sack all messages immediately
-
+        if(result.isMustSackImmediately()) {
+            sendSelectiveAcknowledgement();
+        }
+        else {
+            synchronized (sackLock) {
+                hasNonAcknowledgedData = true;
+            }
+        }
         deliverables.forEach(
                 i -> getConnection().presentToUser(i)
         );
@@ -376,7 +403,6 @@ public class SCTPImpl implements SCTP  {
             SCTPState next = state.updateAndGet(SCTPState::close);
             logger.info("Moved to {}", next);
             shutdownAction.shutdown();
-            sackTimer.shutdown();
             getConnection().closeConnection();
         }
     }
@@ -384,12 +410,12 @@ public class SCTPImpl implements SCTP  {
     /**
      *
      */
-    private void sendSack() {
+    private void sendSelectiveAcknowledgement() {
+        synchronized (sackLock) {
+            hasNonAcknowledgedData = false;
+        }
         SackData sackData = receiveBuffer.getSackDataToSend();
-
-        createSackMessage(sackData).ifPresent(i ->
-                getConnection().putDataOnWireAsyncHighPrio(i.getPayload())
-        );
+        getConnection().putDataOnWireAsyncHighPrio(createSackMessage(sackData).getPayload());
     }
 
     public void receiveShutDown() {
@@ -404,7 +430,6 @@ public class SCTPImpl implements SCTP  {
             logger.info("Moved to {}", next);
             shutdownAction.stop();
             shutdownAction.shutdown();
-            sackTimer.shutdown();
             getConnection().closeConnection();
         }
     }
