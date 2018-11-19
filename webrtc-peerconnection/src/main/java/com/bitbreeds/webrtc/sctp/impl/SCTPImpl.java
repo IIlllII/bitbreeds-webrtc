@@ -60,6 +60,7 @@ public class SCTPImpl implements SCTP  {
     private final Object sackLock = new Object();
     private int packetCountSinceSack = 0;
     private boolean hasNonAcknowledgedData = false;
+    private boolean sackImmediately = false;
 
     /**
      * The impl access to write data to the socket
@@ -250,20 +251,19 @@ public class SCTPImpl implements SCTP  {
         sendBuffer.buffer(messages);
     }
 
+
     /**
      *
      * @return payloads moved to inflight and ready to be sent
      */
     public List<WireRepresentation> runPeriodicSCTPTasks() {
-        boolean doSack = false;
         synchronized (sackLock) {
-            if(hasNonAcknowledgedData) {
+            if(hasNonAcknowledgedData || sackImmediately) {
                 hasNonAcknowledgedData = false;
-                doSack = true;
+                sackImmediately = false;
+                packetCountSinceSack = 0;
+                sendSelectiveAcknowledgement();
             }
-        }
-        if(doSack) {
-            sendSelectiveAcknowledgement();
         }
 
         if(retransmissionCalculator.get().checkForTimeout(Instant.now())){
@@ -327,17 +327,16 @@ public class SCTPImpl implements SCTP  {
          * https://tools.ietf.org/html/rfc4960#section-6.2
          * Send sack if packet count with no sack is 2 or more
          */
-        boolean sendSack = false;
         synchronized (sackLock) {
             packetCountSinceSack++;
-            if(packetCountSinceSack >= 2) {
+            if(packetCountSinceSack >= 2 || sackImmediately) {
                 packetCountSinceSack = 0;
-                sendSack = true;
+                sackImmediately = false;
+                hasNonAcknowledgedData = false;
+                sendSelectiveAcknowledgement();
             }
         }
-        if(sendSack) {
-            sendSelectiveAcknowledgement();
-        }
+
         return result;
     }
 
@@ -382,7 +381,7 @@ public class SCTPImpl implements SCTP  {
         StoreResult result = receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         if(result.isMustSackImmediately()) {
-            sendSelectiveAcknowledgement();
+            sackImmediately = true;
         }
         else {
             synchronized (sackLock) {
@@ -411,9 +410,6 @@ public class SCTPImpl implements SCTP  {
      *
      */
     private void sendSelectiveAcknowledgement() {
-        synchronized (sackLock) {
-            hasNonAcknowledgedData = false;
-        }
         SackData sackData = receiveBuffer.getSackDataToSend();
         getConnection().putDataOnWireAsyncHighPrio(createSackMessage(sackData).getPayload());
     }

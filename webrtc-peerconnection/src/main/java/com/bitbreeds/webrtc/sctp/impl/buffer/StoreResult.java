@@ -21,7 +21,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;/*
  */
 public class StoreResult {
 
-    final boolean mustSackImmediately;
+    private final boolean mustSackImmediately;
 
     public StoreResult(boolean mustSackImmediately) {
         this.mustSackImmediately = mustSackImmediately;

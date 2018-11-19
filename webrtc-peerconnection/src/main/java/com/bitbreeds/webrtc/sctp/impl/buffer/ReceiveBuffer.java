@@ -131,7 +131,7 @@ public class ReceiveBuffer {
             }
 
             if(!inititialDataReceived) {
-                initialReceived = true;
+                inititialDataReceived = true;
                 mustSack = true;
             }
 
@@ -163,7 +163,7 @@ public class ReceiveBuffer {
                 + " TSN: " + this.cumulativeTSN + " Position" + position + " TSN IN " + data.getTSN());
             }
 
-            if(hasGap()) {
+            if(!mustSack && hasGap()) {
                 mustSack = true;
             }
         }
@@ -179,7 +179,7 @@ public class ReceiveBuffer {
         long diff = this.maxReceivedTSN - cumulativeTSN;
         for (int i = 1; i <= diff; i++) {
             BufferedReceived bf = getBuffered(this.cumulativeTSN + i);
-            if (bf == null || !bf.canBeOverwritten()) {
+            if (bf == null || bf.canBeOverwritten()) {
                 return true;
             }
         }

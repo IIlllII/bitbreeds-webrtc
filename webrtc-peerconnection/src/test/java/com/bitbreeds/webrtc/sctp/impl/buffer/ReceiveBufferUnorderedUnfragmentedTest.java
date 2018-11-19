@@ -13,8 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 /**
  * Copyright (c) 20/02/2018, Jonas Waage
@@ -48,7 +47,8 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
         buffer.setInitialTSN(1);
 
         ReceivedData ds = makeDs(1,new byte[]{0,1,2});
-        buffer.store(ds);
+        StoreResult res = buffer.store(ds);
+        assertTrue(res.isMustSackImmediately());
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(Collections.singletonList(new Deliverable(ds.getPayload(),0,ds.getStreamId(),ds.getProtocolId())),del);
@@ -67,10 +67,14 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
-        buffer.store(makeDs(1,new byte[]{0,1,2}));
-        buffer.store(makeDs(2,new byte[]{0,1,2}));
-        buffer.store(makeDs(3,new byte[]{0,1,2}));
-        buffer.store(makeDs(4,new byte[]{0,1,2}));
+        StoreResult res = buffer.store(makeDs(1,new byte[]{0,1,2}));
+        assertTrue(res.isMustSackImmediately());
+        res = buffer.store(makeDs(2,new byte[]{0,1,2}));
+        assertFalse(res.isMustSackImmediately());
+        res = buffer.store(makeDs(3,new byte[]{0,1,2}));
+        assertFalse(res.isMustSackImmediately());
+        res = buffer.store(makeDs(4,new byte[]{0,1,2}));
+        assertFalse(res.isMustSackImmediately());
 
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
@@ -89,10 +93,13 @@ public class ReceiveBufferUnorderedUnfragmentedTest {
 
         buffer.setInitialTSN(1);
 
-        buffer.store(makeDs(1,new byte[]{0,1,2}));
-        buffer.store(makeDs(2,new byte[]{0,1,2}));
+        StoreResult res = buffer.store(makeDs(1,new byte[]{0,1,2}));
+        assertTrue(res.isMustSackImmediately());
+        res = buffer.store(makeDs(2,new byte[]{0,1,2}));
+        assertFalse(res.isMustSackImmediately());
 
-        buffer.store(makeDs(4,new byte[]{0,1,2}));
+        res = buffer.store(makeDs(4,new byte[]{0,1,2}));
+        assertTrue(res.isMustSackImmediately());
 
         List<Deliverable> del = buffer.getMessagesForDelivery();
         assertEquals(3,del.size());
