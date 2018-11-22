@@ -107,10 +107,7 @@ public class SackCreator {
      */
     public static SCTPMessage createSack(SCTPHeader header,SackData sackData) {
         SCTPChunk sack = createSackChunk(sackData);
-
         SCTPMessage msg = new SCTPMessage(header, Collections.singletonList(sack));
-
-        logger.debug("Sending sack data: " + msg);
         return SCTPUtil.addChecksum(msg);
     }
 

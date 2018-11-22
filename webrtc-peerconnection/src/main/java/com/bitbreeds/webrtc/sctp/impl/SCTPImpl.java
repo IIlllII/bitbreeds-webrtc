@@ -49,6 +49,8 @@ public class SCTPImpl implements SCTP  {
 
     private static final Logger logger = LoggerFactory.getLogger(SCTPImpl.class);
 
+    private static final Logger monitoring = LoggerFactory.getLogger("com.bitbreeds.monitorlog");
+
     private static int DEFAULT_BUFFER_SIZE = 160000;
 
     private final int localBufferSize = DEFAULT_BUFFER_SIZE;
@@ -266,6 +268,10 @@ public class SCTPImpl implements SCTP  {
             }
         }
 
+        if(sendBuffer.getCapacity() > DEFAULT_SEND_BUFFER_SIZE/2) {
+            this.getConnection().notifyDatachannelsBufferedAmountLow(new BufferState(DEFAULT_SEND_BUFFER_SIZE,sendBuffer.getCapacity()));
+        }
+
         if(retransmissionCalculator.get().checkForTimeout(Instant.now())){
             logger.info("Timeout of t3 timer, running retransmission");
             doRetransmission(); //Will send, so return empty
@@ -280,6 +286,12 @@ public class SCTPImpl implements SCTP  {
                     .map(i -> new WireRepresentation(i.getData().getSctpPayload(), SCTPMessageType.DATA))
                     .collect(Collectors.toList());
         }
+
+    }
+
+    @Override
+    public int sendBufferCapacity() {
+        return sendBuffer.getCapacity();
     }
 
     /**
@@ -484,20 +496,21 @@ public class SCTPImpl implements SCTP  {
      * Print relevant monitoring and debugging data
      */
     public void runMonitoring() {
-        logger.info("---------------------------------------------");
-        logger.info("Connection: "+this.getConnection().getPeerConnection().getId());
-        logger.info("Inflight: " + sendBuffer.getInflightSize());
-        logger.info("CumulativeReceivedTSN: " + receiveBuffer.getCumulativeTSN());
-        logger.info("MyTsn: " + payloadCreator.currentTSN());
-        logger.info("Total received bytes: " + receiveBuffer.getReceivedBytes());
-        logger.info("Total delivered bytes to user: " + receiveBuffer.getDeliveredBytes());
-        logger.info("Total sent bytes: " + sendBuffer.getBytesSent());
-        logger.info("RTT: " + heartBeatService.getRttMillis());
-        logger.info("Remote buffer: " + sendBuffer.getRemoteBufferSize());
-        logger.info("Local send buffer: " + sendBuffer.getCapacity());
-        logger.info("Local buffer: " + receiveBuffer.getCapacity());
-        logger.info("State: " + state.get());
-        logger.info("Current t3 timeout: " + retransmissionCalculator.get().getCurrentTimeoutMillis());
+        monitoring.info("---------------------------------------------");
+        monitoring.info("Connection: "+this.getConnection().getPeerConnection().getId());
+        monitoring.info("Inflight: " + sendBuffer.getInflightSize());
+        monitoring.info("CumulativeReceivedTSN: " + receiveBuffer.getCumulativeTSN());
+        monitoring.info("MyTsn: " + payloadCreator.currentTSN());
+        monitoring.info("Total received bytes: " + receiveBuffer.getReceivedBytes());
+        monitoring.info("Total delivered bytes to user: " + receiveBuffer.getDeliveredBytes());
+        monitoring.info("Total sent bytes: " + sendBuffer.getBytesSent());
+        monitoring.info("RTT: " + heartBeatService.getRttMillis());
+        monitoring.info("Remote buffer: " + sendBuffer.getRemoteBufferSize());
+        monitoring.info("Local send buffer: " + sendBuffer.getCapacity());
+        monitoring.info("Local buffer: " + receiveBuffer.getCapacity());
+        monitoring.info("Cwnd: " + sendBuffer.getCwnd());
+        monitoring.info("State: " + state.get());
+        monitoring.info("Current t3 timeout: " + retransmissionCalculator.get().getCurrentTimeoutMillis());
     }
 
     @Override

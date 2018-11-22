@@ -25,7 +25,7 @@ public class TestLongNoCongestion {
 
     public static void main(String[] args) throws Exception {
         System.setProperty("com.bitbreeds.experiment.nocongestion","true");
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::echoConnection);
+        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::throughputConnection);
         ctx.start();
     }
 

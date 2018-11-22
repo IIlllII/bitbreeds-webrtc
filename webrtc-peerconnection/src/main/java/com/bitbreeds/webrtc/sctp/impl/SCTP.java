@@ -141,4 +141,10 @@ public interface SCTP {
      */
     List<WireRepresentation> runPeriodicSCTPTasks();
 
+    /**
+     *
+     * @return capacity of send buffer
+     */
+    int sendBufferCapacity();
+
 }

@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.HashSet;
+import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 /*
@@ -187,11 +188,19 @@ public class SimpleSignaling {
 
 
 
-    public static void echoConnection(SimplePeerServer peerConnectionServer) {
+    public static void throughputConnection(SimplePeerServer peerConnectionServer) {
 
         peerConnectionServer.onConnection = (connection) -> {
 
             connection.onDataChannel = (dataChannel) -> {
+
+                BlockingQueue<String> toEcho = new LinkedBlockingQueue<>(100000);
+
+                StringBuilder br = new StringBuilder();
+                for(int i = 0; i < 90;i++) {
+                    br.append("0123456789");
+                }
+                String strToSend = br.toString();
 
                 dataChannel.onOpen = (ev) -> {
                     logger.debug("Running onOpen");
@@ -201,7 +210,6 @@ public class SimpleSignaling {
                 dataChannel.onMessage = (ev) -> {
                     String in = new String(ev.getData());
                     logger.debug("Running onMessage: " + in);
-                    dataChannel.send("echo-" + in);
                 };
 
                 dataChannel.onClose = (ev) -> {
@@ -210,6 +218,16 @@ public class SimpleSignaling {
 
                 dataChannel.onError = (ev) -> {
                     logger.debug("Received error: {}", ev.getError());
+                };
+
+                dataChannel.onBufferedAmountLow = (state) -> {
+                    int spaceLeft = state.getSpaceLeftInBytes();
+                    int toSend = spaceLeft / 10;
+                    int sent = 0;
+                    while (sent < toSend) {
+                        sent += strToSend.length();
+                        dataChannel.send(strToSend);
+                    }
                 };
 
             };

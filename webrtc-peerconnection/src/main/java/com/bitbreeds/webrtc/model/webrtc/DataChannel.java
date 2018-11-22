@@ -49,6 +49,12 @@ public class DataChannel {
 
     public Consumer<OpenEvent> onOpen = (i)->{};
 
+    public Consumer<BufferState> onBufferedAmountLow = (i)->{};
+
+    public int getBufferCapacity() {
+        return connection.getBufferCapacity();
+    };
+
     public void send(String data) {
         connection.send(data.getBytes(), SCTPPayloadProtocolId.WEBRTC_STRING,streamId,reliabilityParameters.getSctpReliability());
     }

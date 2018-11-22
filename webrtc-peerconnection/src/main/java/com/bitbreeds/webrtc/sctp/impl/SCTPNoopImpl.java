@@ -130,4 +130,9 @@ public class SCTPNoopImpl implements SCTP {
     public List<WireRepresentation> runPeriodicSCTPTasks() {
         return Collections.emptyList();
     }
+
+    @Override
+    public int sendBufferCapacity() {
+        return 0;
+    }
 }

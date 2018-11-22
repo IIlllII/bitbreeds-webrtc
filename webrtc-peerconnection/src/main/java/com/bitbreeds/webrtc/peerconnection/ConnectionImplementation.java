@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
@@ -70,6 +71,11 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     public PeerConnection getPeerConnection() {
         return peerConnection;
+    }
+
+    @Override
+    public int getBufferCapacity() {
+        return sctp.sendBufferCapacity();
     }
 
     enum ConnectionMode {STUN_BINDING, DTLS_HANDSHAKE, SCTP};
@@ -117,19 +123,21 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
      */
     private final ExecutorService normPrioPool = Executors.newFixedThreadPool(1);
 
-
     /**
      * Pool for processing messages sendt by used
      */
     private final ExecutorService sendPool = Executors.newFixedThreadPool(1);
 
+
+    private final AtomicBoolean isRunningOnBufferedAmount = new AtomicBoolean(false);
+
     /**
-     * Pool for recurring attempts to send
+     * Pool for recurring tasks
      */
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     /**
-     * Pool for running work of received messaged for user
+     * Pool for running user actions
      */
     private final ExecutorService workPool = Executors.newFixedThreadPool(5);
 
@@ -256,7 +264,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         scheduler.scheduleAtFixedRate(
                                 this::getPayloadsAndSend,
                                 1000,
-                                10,
+                                5,
                                 TimeUnit.MILLISECONDS);
 
                         logger.debug("Schedule heartbeat");
@@ -298,6 +306,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                             processReceivedMessage(handled);
                         }
                     }
+
+
                 }
                 catch (Exception e) {
                     logger.error("Com error:",e);
@@ -500,7 +510,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         }
     }
 
-
     public void setRunning(boolean running) {
         this.running = running;
     }
@@ -509,6 +518,24 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         return port;
     }
 
+    @Override
+    public void notifyDatachannelsBufferedAmountLow(BufferState state) {
+        workPool.submit(() -> {
+            if (isRunningOnBufferedAmount.compareAndSet(false,true)) {
+
+                dataChannels.values().forEach(
+                        i -> {
+                            try {
+                                i.onBufferedAmountLow.accept(state);
+                            } catch (RuntimeException e) {
+                                logger.error("Error in onBufferedAmountLow", e);
+                            }
+                        });
+
+                isRunningOnBufferedAmount.set(false);
+            }
+        });
+    }
 
     /**
      * @return A local user with randomly generated username and password.

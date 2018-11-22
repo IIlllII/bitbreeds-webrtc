@@ -1,6 +1,6 @@
-package com.bitbreeds.webrtc.signaling;/*
+package com.bitbreeds.webrtc.model.webrtc;/*
  *
- * Copyright (c) 22/09/2018, Jonas Waage
+ * Copyright (c) 21/11/2018, Jonas Waage
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -16,16 +16,25 @@ package com.bitbreeds.webrtc.signaling;/*
  *
  */
 
-import org.apache.camel.CamelContext;
+public class BufferState {
 
-/*
- * Main method for testing long running connection
- */
-public class TestLong {
+    private int totalCapacity;
+    private int spaceLeftInBytes;
 
-    public static void main(String[] args) throws Exception {
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::throughputConnection);
-        ctx.start();
+    public BufferState(int totalCapacity, int spaceLeftInBytes) {
+        this.totalCapacity = totalCapacity;
+        this.spaceLeftInBytes = spaceLeftInBytes;
     }
 
+    public double ratio() {
+        return (double) spaceLeftInBytes /(double) totalCapacity;
+    }
+
+    public int getTotalCapacity() {
+        return totalCapacity;
+    }
+
+    public int getSpaceLeftInBytes() {
+        return spaceLeftInBytes;
+    }
 }

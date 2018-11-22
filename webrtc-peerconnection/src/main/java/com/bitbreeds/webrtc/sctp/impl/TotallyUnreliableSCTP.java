@@ -331,4 +331,9 @@ public class TotallyUnreliableSCTP implements SCTP {
         queue.drainTo(toSend,MESSAGES_TO_SEND_PR_CALL);
         return toSend;
     }
+
+    @Override
+    public int sendBufferCapacity() {
+        return 0;
+    }
 }

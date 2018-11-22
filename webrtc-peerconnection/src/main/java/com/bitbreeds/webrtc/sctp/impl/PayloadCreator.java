@@ -187,8 +187,6 @@ public class PayloadCreator {
 
         int streamId = stream == null ? 0 : stream;
 
-        logger.debug("Creating payload");
-
         Map<SCTPFixedAttributeType, SCTPFixedAttribute> attr = new HashMap<>();
         attr.put(TSN, new SCTPFixedAttribute(TSN, SignalUtil.longToFourBytes(myTSN)));
         attr.put(STREAM_IDENTIFIER_S, new SCTPFixedAttribute(STREAM_IDENTIFIER_S, SignalUtil.twoBytesFromInt(streamId)));
@@ -214,8 +212,6 @@ public class PayloadCreator {
         SCTPMessage msg = new SCTPMessage(header, Collections.singletonList(chunk));
 
         byte[] finalOut = SCTPUtil.addChecksum(msg).toBytes();
-
-        logger.debug("Sending payload with TSN: " + myTSN + " and data: " + Hex.encodeHexString(finalOut));
 
         return new SendData(myTSN, streamId, ssn, flag, ppid, partialReliability ,finalOut);
     }

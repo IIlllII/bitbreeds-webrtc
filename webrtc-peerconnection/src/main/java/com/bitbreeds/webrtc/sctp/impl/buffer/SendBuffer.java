@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -51,7 +52,7 @@ public class SendBuffer {
      * How many bytes can be buffered for sending on this connection.
      * Does not count inflight packets.
      */
-    private int capacity;
+    private AtomicInteger capacity;
 
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
@@ -75,7 +76,7 @@ public class SendBuffer {
         if(capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be above 0, is " + capacity);
         }
-        this.capacity = capacity;
+        this.capacity = new AtomicInteger(capacity);
     }
 
 
@@ -90,8 +91,8 @@ public class SendBuffer {
     }
 
 
-    public long getCapacity() {
-        return capacity;
+    public int getCapacity() {
+        return capacity.get();
     }
 
     public long getRemoteBufferSize() {
@@ -115,11 +116,11 @@ public class SendBuffer {
         }
         synchronized (lock) {
             messages.forEach( data -> {
-                if (capacity - data.getSctpPayload().length < 0) {
+                if (capacity.get() - data.getSctpPayload().length < 0) {
                     throw new OutOfBufferSpaceError("Send buffer has capacity " + capacity +
                             " message with size "+ data.getSctpPayload().length +" was dropped");
                 }
-                capacity -= data.getSctpPayload().length;
+                capacity.accumulateAndGet(data.getSctpPayload().length,(a,b)->a-b);
                 queue.add(BufferedSent.buffer(data, data.getTsn()));
             });
             logger.debug("After buffering inflight:" + inFlight + " queue: " + queue.size());
@@ -315,14 +316,15 @@ public class SendBuffer {
                 BufferedSent buff = queue.remove();
                 BufferedSent sent = buff.send();
                 cwndDiff -= buff.getData().getSctpPayload().length;
-                capacity += buff.getData().getSctpPayload().length;
+                capacity.accumulateAndGet(buff.getData().getSctpPayload().length,(a,b)->a+b);
                 inFlight.put(buff.getTsn(), sent);
                 toSend.add(sent);
             }
             bytesSent += toSend.stream()
                     .map(i->i.getData().getSctpPayload().length)
                     .reduce(0,Integer::sum);
-            logger.debug("After getting messages to send inflight:" + inFlight + " queue: " + queue.size());
+
+            //logger.info("After getting messages to send inflight:" + inFlight + " queue: " + queue.size());
         }
 
         return toSend;

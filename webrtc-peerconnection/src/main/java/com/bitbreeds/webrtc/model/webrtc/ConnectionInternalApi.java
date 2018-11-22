@@ -89,4 +89,15 @@ public interface ConnectionInternalApi {
      */
     PeerConnection getPeerConnection();
 
+    /**
+     *
+     */
+    int getBufferCapacity();
+
+    /**
+     *
+     * @param state of buffer
+     */
+    void notifyDatachannelsBufferedAmountLow(BufferState state);
+
 }

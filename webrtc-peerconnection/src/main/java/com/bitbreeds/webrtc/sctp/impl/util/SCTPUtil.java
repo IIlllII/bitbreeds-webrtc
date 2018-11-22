@@ -45,7 +45,6 @@ public class SCTPUtil {
                 SignalUtil.computeCRC32c(bt));
 
         SCTPMessage csumMsg = new SCTPMessage(csumHdr, message.getChunks());
-        logger.debug("Output before encode: " + csumMsg );
         return csumMsg;
     }
 

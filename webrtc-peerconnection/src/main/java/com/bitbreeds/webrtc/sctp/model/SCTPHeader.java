@@ -5,7 +5,7 @@ import org.apache.commons.codec.binary.Hex;
 
 import java.util.Arrays;
 
-/**
+/*
  * Copyright (c) 17/05/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
