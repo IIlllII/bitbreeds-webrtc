@@ -44,7 +44,7 @@ public class Congestion {
     }
 
     public Congestion(int cwnd, int ssThresh, int MTU, int partialBytesAcked) {
-        this.cwnd = cwnd;
+        this.cwnd = Math.min(cwnd,64*MTU);
         this.ssThresh = ssThresh;
         this.MTU = MTU;
         this.partialBytesAcked = partialBytesAcked;
