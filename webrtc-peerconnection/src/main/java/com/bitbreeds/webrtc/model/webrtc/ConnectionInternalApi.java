@@ -46,13 +46,7 @@ public interface ConnectionInternalApi {
      *
      * @param data send data over UDP in another thread
      */
-    public void putDataOnWireAsyncNormPrio(byte[] data);
-
-    /**
-     *
-     * @param data send data over UDP in another thread
-     */
-    void putDataOnWireAsyncHighPrio(byte[] data);
+    void putDataOnWireAsync(byte[] data);
 
     /**
      *

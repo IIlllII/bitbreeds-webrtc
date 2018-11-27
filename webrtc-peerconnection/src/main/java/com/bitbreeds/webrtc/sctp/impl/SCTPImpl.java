@@ -149,7 +149,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
+            getConnection().putDataOnWireAsync(withChecksum.toBytes());
 
             retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", toSend.getFwdAckPoint());
@@ -157,7 +157,7 @@ public class SCTPImpl implements SCTP  {
 
         toSend.getBuffered().forEach(i -> {
                     logger.info("Retransmit {}", i);
-                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
+                    getConnection().putDataOnWireAsync(i.getData().getSctpPayload());
                 }
         );
     }
@@ -169,7 +169,7 @@ public class SCTPImpl implements SCTP  {
     public void updateAckPoint(long pt) {
         logger.debug("Update ack point to " + pt);
         ForwardAccResult result = receiveBuffer.receiveForwardAckPoint(pt);
-        getConnection().putDataOnWireAsyncHighPrio(createSackMessage(result.getSackData()).getPayload());
+        getConnection().putDataOnWire(createSackMessage(result.getSackData()).getPayload());
 
         result.getToDeliver().forEach(i->
             getConnection().presentToUser(i)
@@ -195,7 +195,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWireAsyncHighPrio(withChecksum.toBytes());
+            getConnection().putDataOnWireAsync(withChecksum.toBytes());
 
             retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
@@ -203,14 +203,14 @@ public class SCTPImpl implements SCTP  {
 
         result.getFastRetransmits().forEach(i -> {
                     logger.info("Fast retransmit {}",i);
-                    getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload());
+                    getConnection().putDataOnWireAsync(i.getData().getSctpPayload());
                 }
         );
 
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
 
         toSend.forEach(i ->
-                getConnection().putDataOnWireAsyncNormPrio(i.getData().getSctpPayload())
+                getConnection().putDataOnWireAsync(i.getData().getSctpPayload())
         );
     }
 
@@ -264,12 +264,15 @@ public class SCTPImpl implements SCTP  {
                 hasNonAcknowledgedData = false;
                 sackImmediately = false;
                 packetCountSinceSack = 0;
-                sendSelectiveAcknowledgement();
+                SackData sackData = receiveBuffer.getSackDataToSend();
+                getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
             }
         }
 
-        if(sendBuffer.getCapacity() > DEFAULT_SEND_BUFFER_SIZE/2) {
-            this.getConnection().notifyDatachannelsBufferedAmountLow(new BufferState(DEFAULT_SEND_BUFFER_SIZE,sendBuffer.getCapacity()));
+        if(sendBuffer.getCapacity() > sendBuffer.getInitialBufferCapacity()/2) {
+            this.getConnection().notifyDatachannelsBufferedAmountLow(
+                    new BufferState(sendBuffer.getInitialBufferCapacity(),sendBuffer.getCapacity())
+            );
         }
 
         if(retransmissionCalculator.get().checkForTimeout(Instant.now())){
@@ -345,7 +348,8 @@ public class SCTPImpl implements SCTP  {
                 packetCountSinceSack = 0;
                 sackImmediately = false;
                 hasNonAcknowledgedData = false;
-                sendSelectiveAcknowledgement();
+                SackData sackData = receiveBuffer.getSackDataToSend();
+                getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
             }
         }
 
@@ -418,13 +422,6 @@ public class SCTPImpl implements SCTP  {
         }
     }
 
-    /**
-     *
-     */
-    private void sendSelectiveAcknowledgement() {
-        SackData sackData = receiveBuffer.getSackDataToSend();
-        getConnection().putDataOnWireAsyncHighPrio(createSackMessage(sackData).getPayload());
-    }
 
     public void receiveShutDown() {
         SCTPState next = state.updateAndGet(SCTPState::receivedShutdown);

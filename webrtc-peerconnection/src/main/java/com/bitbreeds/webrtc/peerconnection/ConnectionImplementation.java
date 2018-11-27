@@ -73,11 +73,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         return peerConnection;
     }
 
-    @Override
-    public int getBufferCapacity() {
-        return sctp.sendBufferCapacity();
-    }
-
     enum ConnectionMode {STUN_BINDING, DTLS_HANDSHAKE, SCTP};
 
     private final ReentrantLock lock = new ReentrantLock(true);
@@ -108,15 +103,9 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     private final ConcurrentHashMap<Integer,DataChannel> dataChannels = new ConcurrentHashMap<>();
 
     /**
-     * Pool for messages that should be sendt immediately (SACK,FWD_ACK_PT)
-     */
-    private final ExecutorService highPrioPool = Executors.newFixedThreadPool(1);
-
-    /**
      * Pool for doing SCTP processing of received messages
      */
     private final ExecutorService processPool = Executors.newFixedThreadPool(1);
-
 
     /**
      * Pool sending messages over socket
@@ -139,7 +128,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     /**
      * Pool for running user actions
      */
-    private final ExecutorService workPool = Executors.newFixedThreadPool(5);
+    private final ExecutorService workPool = Executors.newFixedThreadPool(1);
 
     private final IceCandidate iceCandidate;
 
@@ -264,7 +253,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         scheduler.scheduleAtFixedRate(
                                 this::getPayloadsAndSend,
                                 1000,
-                                5,
+                                100,
                                 TimeUnit.MILLISECONDS);
 
                         logger.debug("Schedule heartbeat");
@@ -272,7 +261,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                             try {
                                 sctp.createHeartBeat().ifPresent(beat -> {
                                     logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
-                                    highPrioPool.submit(() ->
+                                    normPrioPool.submit(() ->
                                             putDataOnWire(beat.getPayload())
                                     );
                                 });
@@ -324,7 +313,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         shutDownPoolControlled(workPool,"workpool");
         shutDownPoolControlled(sendPool,"sendpool");
         shutDownPoolControlled(normPrioPool,"normPrioPool");
-        shutDownPoolControlled(highPrioPool,"highPrioPool");
     }
 
     private void getPayloadsAndSend() {
@@ -404,13 +392,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     }
 
     @Override
-    public void putDataOnWireAsyncNormPrio(byte[] out) {
+    public void putDataOnWireAsync(byte[] out) {
         normPrioPool.submit(() -> putDataOnWire(out));
-    }
-
-    @Override
-    public void putDataOnWireAsyncHighPrio(byte[] out) {
-        highPrioPool.submit(() -> putDataOnWire(out));
     }
 
 
@@ -536,6 +519,12 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             }
         });
     }
+
+    @Override
+    public int getBufferCapacity() {
+        return sctp.sendBufferCapacity();
+    }
+
 
     /**
      * @return A local user with randomly generated username and password.

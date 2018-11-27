@@ -56,6 +56,7 @@ public class SendBuffer {
 
     private long remoteBufferSize;
     private long remoteCumulativeTSN;
+    private final int initialBufferCapacity;
 
     private final int CONGESTION_MTU = 1500;
 
@@ -77,6 +78,7 @@ public class SendBuffer {
             throw new IllegalArgumentException("Capacity must be above 0, is " + capacity);
         }
         this.capacity = new AtomicInteger(capacity);
+        this.initialBufferCapacity = capacity;
     }
 
 
@@ -90,6 +92,9 @@ public class SendBuffer {
         }
     }
 
+    public int getInitialBufferCapacity() {
+        return initialBufferCapacity;
+    }
 
     public int getCapacity() {
         return capacity.get();

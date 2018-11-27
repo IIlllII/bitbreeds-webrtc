@@ -258,7 +258,7 @@ public class TotallyUnreliableSCTP implements SCTP {
                 SCTPUtil.baseHeader(context),
                 new SackData(remoteTsnReceived.get(),Collections.emptyList(),Collections.emptyList(),(int)INITIAL_BUFFER_SIZE));
 
-        connection.putDataOnWireAsyncHighPrio(msg.toBytes());
+        connection.putDataOnWireAsync(msg.toBytes());
 
         Deliverable deliverable = new Deliverable(
                 storage.getPayload(),
