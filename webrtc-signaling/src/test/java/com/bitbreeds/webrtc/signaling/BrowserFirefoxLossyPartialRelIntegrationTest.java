@@ -32,7 +32,7 @@ import java.io.File;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-@Ignore //extension not supported yet in firefox
+@Ignore //extension not supported yet in firefox and https://bugzilla.mozilla.org/show_bug.cgi?id=1510487
 public class BrowserFirefoxLossyPartialRelIntegrationTest {
 
     private WebDriver driver;

@@ -30,12 +30,13 @@ import java.io.File;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+@Ignore //https://bugzilla.mozilla.org/show_bug.cgi?id=1510487
 public class BrowserFirefoxIntegrationTest {
 
     private WebDriver driver;
 
     @Before
-    public void setup() {
+    public void setup() throws IllegalAccessException, InstantiationException {
         TestKeystoreParams.initialize();
         WebDriverManager.firefoxdriver().setup();
         driver = new FirefoxDriver();
