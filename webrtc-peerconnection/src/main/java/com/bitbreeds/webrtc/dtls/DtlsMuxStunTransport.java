@@ -40,6 +40,19 @@ import java.util.Arrays;
  * Handles DTLS over UDP.
  *
  * If we receive a STUN message, we reply and do not pass the message to the layer below
+ *
+ *                     +----------------+
+ *                     |        [0..3] -+--> forward to STUN
+ *                     |                |
+ *                     |      [16..19] -+--> forward to ZRTP
+ *                     |                |
+ *         packet -->  |      [20..63] -+--> forward to DTLS
+ *                     |                |
+ *                     |      [64..79] -+--> forward to TURN Channel
+ *                     |                |
+ *                     |    [128..191] -+--> forward to RTP/RTCP
+ *                     +----------------+
+ *
  */
 public class DtlsMuxStunTransport implements DatagramTransport {
 
@@ -90,11 +103,15 @@ public class DtlsMuxStunTransport implements DatagramTransport {
             logger.debug("Stun packet received, responding with {}",Hex.encodeHexString(out));
             this.send(out,0,out.length);
             return 0; //We do not want DTLS to process (not that it will anyway), so we return 0 here.
-        } else {
-            logger.debug("Non stun packet received, returning length");
         }
-
-        return packet.getLength();
+        else if(buf.length >= 1 && SignalUtil.unsign(buf[0]) >= 19 && SignalUtil.unsign(buf[0]) <= 63) {
+            logger.debug("DTLS " + SignalUtil.unsign(buf[0]) + " returning length");
+            return packet.getLength();
+        }
+        else {
+            logger.debug("Non stun/dtls packet received, returning 0 length");
+            return 0;
+        }
     }
 
     public void send(byte[] buf, int off, int len)
@@ -107,6 +124,7 @@ public class DtlsMuxStunTransport implements DatagramTransport {
     }
 
     public void close() throws IOException {
+        logger.info("Socket closed by internal code");
         socket.close();
     }
 

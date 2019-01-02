@@ -43,7 +43,6 @@ import java.util.stream.Stream;
  *
  * @see <a href="https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09#section-8.2.1">peerconnection spec</a>
  *
- * TODO implement resend backoff
  */
 public class SCTPImpl implements SCTP  {
 
@@ -421,7 +420,6 @@ public class SCTPImpl implements SCTP  {
             getConnection().closeConnection();
         }
     }
-
 
     public void receiveShutDown() {
         SCTPState next = state.updateAndGet(SCTPState::receivedShutdown);

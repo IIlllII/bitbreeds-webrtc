@@ -23,6 +23,7 @@ import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.tls.*;
+import org.bouncycastle.tls.ProtocolName;
 import org.bouncycastle.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateCrtKey;
+import java.util.Hashtable;
 import java.util.Vector;
 
 import static com.bitbreeds.webrtc.dtls.CertUtil.createFingerprintString;
@@ -51,7 +53,7 @@ public class WebrtcDtlsServer
     private final PeerDescription remote;
     private final ConnectionInternalApi peerConnection;
 
-    public WebrtcDtlsServer(ConnectionInternalApi peerConnection, KeyStoreInfo keyStoreInfo, PeerDescription remote) {
+    public WebrtcDtlsServer(ConnectionInternalApi peerConnection, KeyStoreInfo keyStoreInfo, PeerDescription remote) throws IOException {
         super();
 
         this.peerConnection = peerConnection;
@@ -66,6 +68,14 @@ public class WebrtcDtlsServer
                 keyStoreInfo.getPassword());
 
 
+    }
+
+    @Override
+    public Hashtable getServerExtensions() throws IOException {
+        Hashtable ext = super.getServerExtensions();
+        //Only supported by firefox
+        //org.bouncycastle.tls.TlsExtensionsUtils.addALPNExtensionServer(ext, ProtocolName.WEBRTC_CONFIDENTIAL);
+        return ext;
     }
 
     @Override
@@ -99,7 +109,9 @@ public class WebrtcDtlsServer
         return Arrays.concatenate(super.getCipherSuites(),
                 new int[]
                         {
-                                CipherSuite.DRAFT_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
                         });
     }
 
@@ -159,6 +171,7 @@ public class WebrtcDtlsServer
     protected ProtocolVersion getMinimumVersion() {
         return ProtocolVersion.DTLSv10;
     }
+
 
     protected TlsEncryptionCredentials getRSAEncryptionCredentials() {
 

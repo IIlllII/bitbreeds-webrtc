@@ -41,24 +41,32 @@ public class SDPUtil {
             OriginField originField = new OriginField();
             originField.setAddress(ice.getIp());
             originField.setAddressType("IP4");
-            originField.setUsername("-");
+            originField.setUsername("pyrrhic_victory");
             originField.setSessionId(1234567); //Hmm random?
-            originField.setSessionVersion(2);
+            originField.setSessionVersion(0);
             originField.setNetworkType("IN");
             sdp.setOrigin(originField);
 
             sdp.setAttribute("s","-");
             sdp.setAttribute("t","0 0");
 
-            AttributeField fa = createAttribute("group","BUNDLE "+mid);
-            AttributeField fb = createAttribute("msid-semantic"," WMS *");
+            AttributeField sendrecv = createAttribute("sendrecv","");
+            AttributeField print = createAttribute("fingerprint",fingerprint);
+            AttributeField bundle = createAttribute("group","BUNDLE "+mid);
+            AttributeField msid = createAttribute("msid-semantic","WMS *");
+            AttributeField iceoptions = createAttribute("ice-options","trickle");
+
             Vector<SDPField> vec = new Vector<>();
-            vec.add(fa);
-            vec.add(fb);
+            vec.add(sendrecv);
+            vec.add(print);
+            vec.add(bundle);
+            vec.add(msid);
+            vec.add(iceoptions);
             if(isIceLite) {
                 vec.add(createAttribute("ice-lite",""));
             }
             sdp.setAttributes(vec);
+
 
             Vector<MediaDescription> vec2 = new Vector<>();
             vec2.add(creatMedia(user,pwd,ice.getIp(),fingerprint,ice.getPort(),mid));
@@ -93,10 +101,10 @@ public class SDPUtil {
         try {
             MediaDescriptionImpl media = new MediaDescriptionImpl();
             MediaField mediaField = new MediaField();
-            mediaField.setProtocol("DTLS/SCTP");
+            mediaField.setProtocol("UDP/DTLS/SCTP");
 
             Vector<String> formats = new Vector<>();
-            formats.add("5000");
+            formats.add("webrtc-datachannel");
 
             mediaField.setMediaFormats(formats);
             mediaField.setMediaType("application");
@@ -110,19 +118,16 @@ public class SDPUtil {
             media.setConnection(connectionField);
 
             Vector<AttributeField> cands = new Vector<>();
-            cands.add(createAttribute("candidate","1 1 udp 2113937151 "+address+" "+port+" typ host"));
+            cands.add(createAttribute("candidate","0 1 UDP 2113937151 "+address+" "+port+" typ host"));
 
             media.setAttributes(cands);
-
-            media.setAttribute("ice-ufrag",user);
+            media.setAttribute("sendrecv","");
+            media.setAttribute("end-of-candidates","");
             media.setAttribute("ice-pwd",pass);
-            media.setAttribute("ice-options","trickle");
-            media.setAttribute("fingerprint",fingerprint);
+            media.setAttribute("ice-ufrag",user);
             media.setAttribute("setup","passive");
-            media.setAttribute("sendrecv ","");
             media.setAttribute("mid",mid);
-            //Type of channel and amount of streams
-            media.setAttribute("sctpmap","5000 webrtc-datachannel 256");
+            media.setAttribute("sctp-port","5000");
             media.setAttribute("max-message-size","1073741823");
             return media;
         }
