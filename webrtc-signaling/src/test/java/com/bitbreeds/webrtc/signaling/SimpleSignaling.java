@@ -194,8 +194,6 @@ public class SimpleSignaling {
 
             connection.onDataChannel = (dataChannel) -> {
 
-                BlockingQueue<String> toEcho = new LinkedBlockingQueue<>(100000);
-
                 StringBuilder br = new StringBuilder();
                 for(int i = 0; i < 90;i++) {
                     br.append("0123456789");

@@ -252,8 +252,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         logger.debug("Schedule send polling");
                         scheduler.scheduleAtFixedRate(
                                 this::getPayloadsAndSend,
-                                1000,
-                                100,
+                                250,
+                                25,
                                 TimeUnit.MILLISECONDS);
 
                         logger.debug("Schedule heartbeat");
@@ -503,21 +503,19 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     @Override
     public void notifyDatachannelsBufferedAmountLow(BufferState state) {
-        workPool.submit(() -> {
-            if (isRunningOnBufferedAmount.compareAndSet(false,true)) {
+        if (isRunningOnBufferedAmount.compareAndSet(false, true)) {
 
-                dataChannels.values().forEach(
-                        i -> {
-                            try {
-                                i.onBufferedAmountLow.accept(state);
-                            } catch (RuntimeException e) {
-                                logger.error("Error in onBufferedAmountLow", e);
-                            }
-                        });
+            dataChannels.values().forEach(
+                    i -> {
+                        try {
+                            i.onBufferedAmountLow.accept(state);
+                        } catch (RuntimeException e) {
+                            logger.error("Error in onBufferedAmountLow", e);
+                        }
+                    });
 
-                isRunningOnBufferedAmount.set(false);
-            }
-        });
+            isRunningOnBufferedAmount.set(false);
+        }
     }
 
     @Override
