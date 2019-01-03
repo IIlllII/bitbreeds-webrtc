@@ -54,7 +54,7 @@ public class BrowserChromeLossyPartialRelIntegrationTest {
     @Test
     public void testMessagesDroppedDueToPartialReliability() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer-loss-partial-reliability.html");

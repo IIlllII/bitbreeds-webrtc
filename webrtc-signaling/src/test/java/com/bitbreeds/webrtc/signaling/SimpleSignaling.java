@@ -102,7 +102,7 @@ public class SimpleSignaling {
      * @return context with a route containing a server which can create lossy connections
      * @throws Exception
      */
-    public static CamelContext camelContextLossy(int lossIn, int lossOut) throws Exception {
+    public static CamelContext camelContextLossy(int lossIn, int lossOut, Consumer<SimplePeerServer> consumer) throws Exception {
         JndiRegistry reg = new JndiRegistry(new JndiContext());
         reg.bind("sslContextParameters",sslParameters());
 
@@ -111,8 +111,7 @@ public class SimpleSignaling {
                 (i) -> new LossyConnection(keyStoreInfo,i,lossIn,lossOut)
         );
 
-        setupPeerConnectionDuplicateCheck(peerConnectionServer);
-
+        consumer.accept(peerConnectionServer);
 
         CamelContext ctx = new DefaultCamelContext(reg);
         WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");

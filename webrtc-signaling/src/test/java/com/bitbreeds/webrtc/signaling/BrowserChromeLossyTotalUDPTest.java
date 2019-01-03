@@ -56,7 +56,7 @@ public class BrowserChromeLossyTotalUDPTest {
 
         System.setProperty("com.bitbreeds.experiment.nocongestion","true");
         try {
-            CamelContext ctx = SimpleSignaling.camelContextLossy(5, 5);
+            CamelContext ctx = SimpleSignaling.camelContextLossy(5, 5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
             ctx.start();
 
             File fl = new File(".././web/transfer-loss-partial-reliability.html");

@@ -52,7 +52,7 @@ public class BrowserChromeLossyIntegrationTest {
     @Test
     public void testAllMessagesFinished() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

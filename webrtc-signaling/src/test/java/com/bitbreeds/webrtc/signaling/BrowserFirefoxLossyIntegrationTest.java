@@ -58,7 +58,7 @@ public class BrowserFirefoxLossyIntegrationTest {
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

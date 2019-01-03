@@ -28,7 +28,7 @@ public class LossyMain {
 
     public static void main(String[] args) throws Exception {
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5);
+        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
     }
 

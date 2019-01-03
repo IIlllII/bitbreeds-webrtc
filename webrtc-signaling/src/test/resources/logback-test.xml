@@ -9,7 +9,7 @@
 
     <logger name="com.bitbreeds.monitorlog" level="INFO"/>
 
-    <logger name="com.bitbreeds.webrtc" level="WARN"/>
+    <logger name="com.bitbreeds.webrtc" level="INFO"/>
 
     <logger name="com.bitbreeds.webrtc.peerconnection.LoggingConnection" level="WARN"/>
 
