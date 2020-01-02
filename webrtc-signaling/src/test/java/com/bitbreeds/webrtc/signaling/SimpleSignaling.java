@@ -224,7 +224,7 @@ public class SimpleSignaling {
                 };
 
                 dataChannel.onError = (ev) -> {
-                    logger.debug("Received error: {}", ev.getError());
+                    logger.debug("Received error: ", ev.getError());
                 };
 
                 dataChannel.onBufferedAmountLow = (state) -> {
