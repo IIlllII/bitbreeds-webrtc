@@ -4,7 +4,6 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.camel.CamelContext;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -30,7 +29,6 @@ import java.io.File;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-@Ignore //https://bugzilla.mozilla.org/show_bug.cgi?id=1510487
 public class BrowserFirefoxIntegrationTest {
 
     private WebDriver driver;
@@ -50,7 +48,7 @@ public class BrowserFirefoxIntegrationTest {
     @Test
     public void testOpen() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
+        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheckNoThrow);
         ctx.start();
 
         File fl = new File(".././web/index.html");

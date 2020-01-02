@@ -21,18 +21,12 @@ import com.bitbreeds.webrtc.sctp.model.SCTPMessageType;
 public class WireRepresentation {
 
     private final byte[] payload;
-    private final SCTPMessageType messageType;
 
-    public WireRepresentation(byte[] payload, SCTPMessageType messageType) {
+    public WireRepresentation(byte[] payload) {
         this.payload = payload;
-        this.messageType = messageType;
     }
 
     public byte[] getPayload() {
         return payload;
-    }
-
-    public SCTPMessageType getMessageType() {
-        return messageType;
     }
 }

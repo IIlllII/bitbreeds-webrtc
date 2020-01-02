@@ -28,6 +28,7 @@ import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
@@ -64,7 +65,7 @@ import static com.bitbreeds.webrtc.common.SignalUtil.*;
  * A goal is to hide that behind the SCTP interface so that I can switch to any userland sctp
  * relatively easily.
  *
- * This peerconnection supports creation ordered/unordered webrtc datachannels.
+ * This peerconnection supports creation of ordered/unordered webrtc datachannels.
  *
  */
 public class ConnectionImplementation implements Runnable,ConnectionInternalApi {
@@ -146,9 +147,14 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private PeerConnection peerConnection;
 
+    public ConnectionImplementation(KeyStoreInfo keyStoreInfo,
+                                    PeerDescription remoteDescription) {
+        this(keyStoreInfo,remoteDescription,null);
+    }
+
     public ConnectionImplementation(
             KeyStoreInfo keyStoreInfo,
-            PeerDescription remoteDescription) {
+            PeerDescription remoteDescription,String address) {
         logger.info("Initializing {}",this.getClass().getName());
         this.remoteDescription = remoteDescription;
         try {
@@ -165,25 +171,30 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
              * Get address which external system can reach
              * TODO ensure this works
              */
-            String localAddress = InetAddress.getLocalHost().getHostAddress();
-            String address = System.getProperty("com.bitbreeds.ip", localAddress);
-            logger.info("Adr: {}", address);
+            String localAddress = address != null ? address : findLocalAddress().getHostAddress() ;
+            logger.info("Adr: {}", localAddress);
 
             /*
              * Create candidate from connections, since we only give one priority makes little sense so just adding a
              * number
-             *
-             * Todo random is weird
              */
-            Random random = new Random();
-            int number = random.nextInt(1000000);
-            this.iceCandidate = new IceCandidate(BigInteger.valueOf(number), this.port, address, 2122252543L);
+            this.iceCandidate = new IceCandidate(BigInteger.valueOf(0),BigInteger.valueOf(1), this.port, localAddress, 2122252543L,"host","UDP");
 
         } catch (IOException e) {
             throw new IllegalStateException("Failed to start connection:", e);
         }
     }
 
+    InetAddress findLocalAddress() throws UnknownHostException {
+        String name = InetAddress.getLocalHost().getHostName();
+        List<InetAddress> address = Arrays.asList(InetAddress.getAllByName(name));
+        List<InetAddress> nonLoopback = address.stream()
+                .filter(i-> !i.isLoopbackAddress())
+                .filter(i -> i instanceof Inet4Address)
+                .collect(Collectors.toList());
+
+        return nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException(""));
+    }
 
 
     @Override
@@ -191,7 +202,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
         logger.info("Started listening to port: " + port);
         while(running && socket.isBound()) {
-
             byte[] bt = new byte[DEFAULT_BUFFER_SIZE];
 
                 try {
@@ -252,8 +262,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                         logger.debug("Schedule send polling");
                         scheduler.scheduleAtFixedRate(
                                 this::getPayloadsAndSend,
-                                250,
-                                25,
+                                50,
+                                100,
                                 TimeUnit.MILLISECONDS);
 
                         logger.debug("Schedule heartbeat");

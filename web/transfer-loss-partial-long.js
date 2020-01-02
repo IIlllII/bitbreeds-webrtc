@@ -109,7 +109,6 @@ dataChannel.onopen = function (e) {
     console.log("Open data channel: " + JSON.stringify(e));
     var sts = document.getElementById("status");
     sts.innerHTML = "OPEN";
-    dataChannel.send("Hello World!");
 
     window.setTimeout(function () {
         var transfer = window.setInterval(function () {

@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -93,14 +92,16 @@ public class ChromePartialReliabilityLongTest {
                                     logger.info("Received: "+new String(messageEvent.getData()));
                                     if(first.get()) {
                                         first.set(false);
-                                        time.set(System.currentTimeMillis());
+                                        long current = System.currentTimeMillis();
+                                        time.set(current);
+                                        logger.warn("First message, time "+current);
                                     }
                                     else {
                                         long newTime = System.currentTimeMillis();
                                         long diff = newTime - time.get();
                                         time.set(newTime);
                                         max.set(Math.max(max.get(),diff));
-                                        logger.warn("Max is: "+ max.get());
+                                        logger.warn("Diff is " + diff + " Max is: "+ max.get());
                                     }
                                 };
 
@@ -121,7 +122,7 @@ public class ChromePartialReliabilityLongTest {
             (new WebDriverWait(driver, 60)).until(
                     (ExpectedCondition<Boolean>) d -> {
                         assert d != null;
-                        return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("SUCCESS");
+                        return d.findElement(By.id("all-received")).getText().contains("SUCCESS");
                     }
             );
 

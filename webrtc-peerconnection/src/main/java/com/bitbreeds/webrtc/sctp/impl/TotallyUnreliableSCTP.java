@@ -106,8 +106,7 @@ public class TotallyUnreliableSCTP implements SCTP {
     @Override
     public Optional<WireRepresentation> createHeartBeat() {
         return Optional.of(new WireRepresentation(
-                heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes(),
-                SCTPMessageType.HEARTBEAT));
+                heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes()));
     }
 
     private Map<SCTPMessageType,MessageHandler> createHandlerMap() {
@@ -149,7 +148,7 @@ public class TotallyUnreliableSCTP implements SCTP {
         return inChunks.stream()
                 .map(i->handleChunk(i,inHdr))
                 .flatMap(i->i)
-                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes(),i.getChunks().get(0).getType()))
+                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes()))
                 .collect(Collectors.toList());
     }
 
@@ -211,7 +210,7 @@ public class TotallyUnreliableSCTP implements SCTP {
 
         byte[] finalOut = SCTPUtil.addChecksum(msg).toBytes();
 
-        if(!queue.offer(new WireRepresentation(finalOut, SCTPMessageType.DATA))) {
+        if(!queue.offer(new WireRepresentation(finalOut))) {
             throw new OutOfBufferSpaceError("Buffering failed due to no buffer space");
         }
     }

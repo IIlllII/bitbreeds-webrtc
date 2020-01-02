@@ -52,25 +52,29 @@ public class ProcessSignals implements Processor {
         if(el.get("type") != null) {
             if("offer".equalsIgnoreCase(el.get("type").getAsString())) {
                 SessionDescription sdp = factory.createSessionDescription(el.get("sdp").getAsString());
-                logger.info("SDP" + sdp);
+                logger.info("SDP: " + sdp);
                 exchange.getIn().setBody(new Offer(sdp));
             }
             else if("answer".equalsIgnoreCase(el.get("type").getAsString())) {
                 SessionDescription sdp = factory.createSessionDescription(el.get("sdp").getAsString());
-                logger.info("SDP" + sdp);
+                logger.info("SDP: " + sdp);
                 exchange.getIn().setBody(new Answer(sdp));
             }
         }
         else if(el.get("candidate") != null) {
 
             String iceCandidate = el.get("candidate").getAsString();
-            String[] ice = iceCandidate.split(" ");
+            String candidate = iceCandidate.split(":")[1];
+            String[] ice = candidate.split(" ");
 
             IceCandidate can = new IceCandidate(
-                    BigInteger.valueOf(Long.valueOf(ice[0].split(":")[1])),
-                    Integer.valueOf(ice[5]),
+                    BigInteger.valueOf(Long.parseLong(ice[0])),
+                    BigInteger.ONE,
+                    Integer.parseInt(ice[5]),
                     ice[4],
-                    Long.valueOf(ice[3]));
+                    Long.parseLong(ice[3]),
+                    ice[7],
+                    ice[2]);
             exchange.getIn().setBody(can);
         }
         else {

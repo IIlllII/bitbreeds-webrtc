@@ -5,7 +5,9 @@ import gov.nist.javax.sdp.MediaDescriptionImpl;
 import gov.nist.javax.sdp.fields.*;
 
 import javax.sdp.*;
-import java.util.Vector;
+import java.math.BigInteger;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Copyright (c) 05/02/2018, Jonas Waage
@@ -25,6 +27,7 @@ import java.util.Vector;
 public class SDPUtil {
 
     public static SessionDescription createSDP(
+            List<IceCandidate> remoteCandidates,
             IceCandidate ice,
             String user,
             String pwd,
@@ -42,7 +45,9 @@ public class SDPUtil {
             originField.setAddress(ice.getIp());
             originField.setAddressType("IP4");
             originField.setUsername("pyrrhic_victory");
-            originField.setSessionId(1234567); //Hmm random?
+
+            Random rd = new Random();
+            originField.setSessionId(12345678+rd.nextInt(12345678)); //Hmm random?
             originField.setSessionVersion(0);
             originField.setNetworkType("IN");
             sdp.setOrigin(originField);
@@ -61,7 +66,7 @@ public class SDPUtil {
             vec.add(print);
             vec.add(bundle);
             vec.add(msid);
-            vec.add(iceoptions);
+            //vec.add(iceoptions);
             if(isIceLite) {
                 vec.add(createAttribute("ice-lite",""));
             }
@@ -69,7 +74,7 @@ public class SDPUtil {
 
 
             Vector<MediaDescription> vec2 = new Vector<>();
-            vec2.add(creatMedia(user,pwd,ice.getIp(),fingerprint,ice.getPort(),mid));
+            vec2.add(creatMedia(remoteCandidates,user,pwd,ice.getIp(),fingerprint,ice.getPort(),mid));
             sdp.setMediaDescriptions(vec2);
 
             return sdp;
@@ -92,6 +97,7 @@ public class SDPUtil {
 
 
     private static MediaDescriptionImpl creatMedia(
+            List<IceCandidate> remoteCandidates,
             String user,
             String pass,
             String address,
@@ -112,13 +118,34 @@ public class SDPUtil {
             media.setMedia(mediaField);
 
             ConnectionField connectionField = new ConnectionField();
-            connectionField.setAddress(address);
+            connectionField.setAddress("0.0.0.0");
             connectionField.setNettype("IN");
             connectionField.setAddressType("IP4");
             media.setConnection(connectionField);
 
+            //FIXME (do we need to look at remotes here or not)
+            /*Optional<IceCandidate> cand = remoteCandidates.stream()
+                    .filter(i ->
+                        "udp".equalsIgnoreCase(i.getProtocol()) &&
+                                "host".equalsIgnoreCase(i.getType()) &&
+                                address.equalsIgnoreCase(i.getIp()) &&
+                                BigInteger.ONE.equals(i.getComponent())
+                    )
+                    .findFirst();
+
+            Optional<Integer> max = remoteCandidates.stream()
+                    .map(i->i.getFoundation().intValue())
+                    .max(Integer::compare);
+
+            int foundationIfNoHit = max.map(i->i+1).orElse(0);
+
+            int foundation = cand
+                    .map(i->i.getFoundation().intValue())
+                    .orElse(foundationIfNoHit);*/
+
             Vector<AttributeField> cands = new Vector<>();
-            cands.add(createAttribute("candidate","0 1 UDP 2113937151 "+address+" "+port+" typ host"));
+            int component = 1;
+            cands.add(createAttribute("candidate",0+" "+component+" udp "+findPriority(component)+" "+address+" "+port+" typ host"));
 
             media.setAttributes(cands);
             media.setAttribute("sendrecv","");
@@ -137,4 +164,22 @@ public class SDPUtil {
     }
 
 
+    static int findPriority(int componentId) {
+        return 2113929216 + 16776960 + (256 - componentId);
+    }
+
+    public static ArrayList<String> getCandidates(Vector vec) throws SdpParseException {
+        Object[] arr = vec.toArray();
+        ArrayList<String> out = new ArrayList<>();
+        for(int i = 0; i<arr.length; i++) {
+            Object r = arr[i];
+            if(r instanceof AttributeField) {
+                AttributeField data = (AttributeField) r;
+                if("candidate".equalsIgnoreCase(data.getAttribute().getKey())) {
+                    out.add(data.getAttribute().getValue());
+                }
+            }
+        }
+        return out;
+    }
 }

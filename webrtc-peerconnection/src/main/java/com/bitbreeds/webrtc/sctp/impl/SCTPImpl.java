@@ -60,7 +60,6 @@ public class SCTPImpl implements SCTP  {
 
     private final Object sackLock = new Object();
     private int packetCountSinceSack = 0;
-    private boolean hasNonAcknowledgedData = false;
     private boolean sackImmediately = false;
 
     /**
@@ -179,7 +178,7 @@ public class SCTPImpl implements SCTP  {
      * @param sackData acknowledgement
      */
     public void updateAcknowledgedTSNS(SackData sackData) {
-        logger.debug("Got sack {}",sackData );
+        logger.warn("Got sack {}",sackData );
 
         SackResult result = sendBuffer.receiveSack(sackData);
         if(sendBuffer.getInflightSize() == 0) {
@@ -256,17 +255,13 @@ public class SCTPImpl implements SCTP  {
     /**
      *
      * @return payloads moved to inflight and ready to be sent
+     *
+     * FIXME Should bundle SACK if data we have unacknowledged data packets
+     * FIXME This means checking if inflight size is above 0
+     * This packet should BE BUNDLED in front if there is room.
+     * So we need to have MTU available
      */
     public List<WireRepresentation> runPeriodicSCTPTasks() {
-        synchronized (sackLock) {
-            if(hasNonAcknowledgedData || sackImmediately) {
-                hasNonAcknowledgedData = false;
-                sackImmediately = false;
-                packetCountSinceSack = 0;
-                SackData sackData = receiveBuffer.getSackDataToSend();
-                getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
-            }
-        }
 
         if(sendBuffer.getCapacity() > sendBuffer.getInitialBufferCapacity()/2) {
             this.getConnection().notifyDatachannelsBufferedAmountLow(
@@ -280,15 +275,104 @@ public class SCTPImpl implements SCTP  {
             return Collections.emptyList();
         }
         else {
+
+            boolean hasUnacknowledged = sendBuffer.getInflightSize() > 0;
+            Optional<SackData> sackData = hasUnacknowledged ?
+                    Optional.of(receiveBuffer.getSackDataToSend()) : Optional.empty();
+
             List<BufferedSent> toSend = sendBuffer.getDataToSend();
-            if (!toSend.isEmpty()) {
+
+            List<SCTPMessage> messages = sackData
+                    .map(i -> mapwithSack(SackCreator.createSackChunk(i),toSend))
+                    .orElseGet(() -> mapwithNoSack(toSend));
+
+            if (!messages.isEmpty()) {
                 retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             }
-            return toSend.stream()
-                    .map(i -> new WireRepresentation(i.getData().getSctpPayload(), SCTPMessageType.DATA))
+
+            return messages.stream()
+                    .map(SCTPUtil::addChecksum)
+                    .map(i -> new WireRepresentation(i.toBytes()))
                     .collect(Collectors.toList());
         }
 
+    }
+
+
+    /**
+     *
+     * @param sack
+     * @param toSend
+     * @return bundle messages with sack
+     */
+    List<SCTPMessage> mapwithSack(SCTPChunk sack, List<BufferedSent> toSend) {
+        logger.info("Bundling sack" + sack + " with " + toSend.size() + "messages");
+
+        List<SCTPChunk> chunks = toSend.stream()
+                .sorted()
+                .flatMap(i->SCTPMessage.fromBytes(i.getData().getSctpPayload()).getChunks().stream())
+                .collect(Collectors.toList());
+
+        ArrayList<SCTPMessage> messages = new ArrayList<>();
+        ArrayList<SCTPChunk> chunksInMessage = new ArrayList<>();
+
+        int limit = 1024 + sack.getLength();
+        int lgt = sack.getLength();
+        chunksInMessage.add(sack);
+
+        for(SCTPChunk chunk : chunks) {
+            if(lgt + chunk.getLength() < limit) {
+                chunksInMessage.add(chunk);
+                lgt += chunk.getLength();
+            }
+            else {
+                messages.add(new SCTPMessage(SCTPUtil.baseHeader(context),chunksInMessage));
+                chunksInMessage = new ArrayList<>();
+                chunksInMessage.add(sack);
+                chunksInMessage.add(chunk);
+                lgt = sack.getLength()+chunk.getLength();
+            }
+        }
+        messages.add(new SCTPMessage(SCTPUtil.baseHeader(context),chunksInMessage));
+        return messages;
+    }
+
+    /**
+     *
+     * @param toSend
+     * @return bundle messages with sack
+     */
+    List<SCTPMessage> mapwithNoSack(List<BufferedSent> toSend) {
+
+        if(toSend.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<SCTPChunk> chunks = toSend.stream()
+                .sorted()
+                .flatMap(i->SCTPMessage.fromBytes(i.getData().getSctpPayload()).getChunks().stream())
+                .collect(Collectors.toList());
+
+        ArrayList<SCTPMessage> messages = new ArrayList<>();
+        ArrayList<SCTPChunk> chunksInMessage = new ArrayList<>();
+        int limit = 1024;
+        int lgt = 0;
+
+        for(SCTPChunk chunk : chunks) {
+            if(lgt + chunk.getLength() < limit) {
+                chunksInMessage.add(chunk);
+                lgt += chunk.getLength();
+            }
+            else {
+                messages.add(new SCTPMessage(SCTPUtil.baseHeader(context),chunksInMessage));
+                chunksInMessage = new ArrayList<>();
+                chunksInMessage.add(chunk);
+                lgt = chunk.getLength();
+            }
+        }
+        messages.add(new SCTPMessage(SCTPUtil.baseHeader(context),chunksInMessage));
+
+        return messages;
     }
 
     @Override
@@ -302,7 +386,7 @@ public class SCTPImpl implements SCTP  {
     private WireRepresentation createSackMessage(SackData sackData) {
         SCTPMessage message = SackCreator.createSack(SCTPUtil.baseHeader(context),sackData);
         logger.debug("Created sack {} to send",message);
-        return new WireRepresentation(message.toBytes(),SCTPMessageType.SELECTIVE_ACK);
+        return new WireRepresentation(message.toBytes());
     }
 
 
@@ -312,8 +396,7 @@ public class SCTPImpl implements SCTP  {
     @Override
     public Optional<WireRepresentation> createHeartBeat() {
         return Optional.of(new WireRepresentation(
-                heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes(),
-                SCTPMessageType.HEARTBEAT));
+                heartBeatService.createHeartBeat(SCTPUtil.baseHeader(context)).toBytes()));
     }
 
 
@@ -323,10 +406,10 @@ public class SCTPImpl implements SCTP  {
      * @return responses
      */
     public List<WireRepresentation> handleRequest(byte[] input) {
-        logger.debug(Hex.encodeHexString(input));
+        logger.warn(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.debug("Input Parsed: " + inFullMessage);
+        logger.warn("Input Parsed: " + inFullMessage);
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
@@ -334,7 +417,7 @@ public class SCTPImpl implements SCTP  {
         List<WireRepresentation> result = inChunks.stream()
                 .map(i->handleChunk(i,inHdr))
                 .flatMap(i->i)
-                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes(),i.getChunks().get(0).getType()))
+                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes()))
                 .collect(Collectors.toList());
 
         /*
@@ -346,7 +429,6 @@ public class SCTPImpl implements SCTP  {
             if(packetCountSinceSack >= 2 || sackImmediately) {
                 packetCountSinceSack = 0;
                 sackImmediately = false;
-                hasNonAcknowledgedData = false;
                 SackData sackData = receiveBuffer.getSackDataToSend();
                 getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
             }
@@ -396,11 +478,8 @@ public class SCTPImpl implements SCTP  {
         StoreResult result = receiveBuffer.store(data);
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         if(result.isMustSackImmediately()) {
-            sackImmediately = true;
-        }
-        else {
             synchronized (sackLock) {
-                hasNonAcknowledgedData = true;
+                sackImmediately = true;
             }
         }
         deliverables.forEach(

@@ -149,6 +149,14 @@ public class SimpleSignaling {
     }
 
     public static void setupPeerConnectionDuplicateCheck(SimplePeerServer peerConnectionServer) {
+        setupPeerConnectionDuplicateCheck(peerConnectionServer,true);
+    }
+
+    public static void setupPeerConnectionDuplicateCheckNoThrow(SimplePeerServer peerConnectionServer) {
+        setupPeerConnectionDuplicateCheck(peerConnectionServer,false);
+    }
+
+    public static void setupPeerConnectionDuplicateCheck(SimplePeerServer peerConnectionServer,boolean throwOnDupl) {
 
         peerConnectionServer.onConnection = (connection) -> {
 
@@ -167,7 +175,9 @@ public class SimpleSignaling {
                     dataChannel.send("echo-" + in);
 
                     if(messages.contains(in)) {
-                        throw new IllegalStateException("Duplicate: " + in);
+                        if (throwOnDupl) {
+                            throw new IllegalStateException("Duplicate: " + in);
+                        }
                     }
                     messages.add(in);
                 };

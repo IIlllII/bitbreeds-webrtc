@@ -3,15 +3,18 @@ package com.bitbreeds.webrtc.peerconnection;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.signaling.*;
+import gov.nist.javax.sdp.fields.MediaField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sdp.Media;
 import javax.sdp.MediaDescription;
 import javax.sdp.SessionDescription;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /*
  * Copyright (c) 26/04/16, Jonas Waage
@@ -37,6 +40,8 @@ import java.util.function.Function;
 public class SimplePeerServer {
 
     private final static Logger logger = LoggerFactory.getLogger(SimplePeerServer.class);
+
+    String addressOverride = System.getProperty("com.bitbreeds.ip");
 
     /**
      * Function that allows interception of connection methods
@@ -83,6 +88,15 @@ public class SimplePeerServer {
         String user = med.getAttribute("ice-ufrag");
         String mid = med.getAttribute("mid");
 
+        ArrayList<String> rawCandidates = SDPUtil.getCandidates(med.getAttributes(true));
+
+        List<IceCandidate> offerCandidates = rawCandidates
+                .stream()
+                .map(IceCandidate::fromString)
+                .collect(Collectors.toList());
+
+        logger.info("ICE candidates: {}",offerCandidates);
+
         //Chrome and firefox puts this in different SDP parts.
         String signature = sdp.getAttribute("fingerprint");
         signature = signature != null ? signature : med.getAttribute("fingerprint");
@@ -96,13 +110,14 @@ public class SimplePeerServer {
 
         ConnectionImplementation ds = connectionWrapper != null ?
                 connectionWrapper.apply(remotePeer) :
-                new ConnectionImplementation(keyStoreInfo,remotePeer);
+                new ConnectionImplementation(keyStoreInfo,remotePeer,addressOverride);
 
         onConnection.accept(ds.getPeerConnection());
         connections.put(ds.getPort(),ds);
         new Thread(ds).start();
 
         SessionDescription answerSdp = SDPUtil.createSDP(
+                offerCandidates,
                 ds.getIceCandidate(),
                 ds.getLocal().getUserName(),
                 ds.getLocal().getPassword(),
