@@ -3,11 +3,9 @@ package com.bitbreeds.webrtc.peerconnection;
 import com.bitbreeds.webrtc.dtls.CertUtil;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.signaling.*;
-import gov.nist.javax.sdp.fields.MediaField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sdp.Media;
 import javax.sdp.MediaDescription;
 import javax.sdp.SessionDescription;
 import java.util.*;
