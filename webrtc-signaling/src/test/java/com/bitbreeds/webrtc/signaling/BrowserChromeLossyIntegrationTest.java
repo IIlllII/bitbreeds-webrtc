@@ -38,9 +38,7 @@ public class BrowserChromeLossyIntegrationTest {
 
     @Before
     public void setup() {
-        TestKeystoreParams.initialize();
-        WebDriverManager.chromedriver().setup();
-        driver = new ChromeDriver();
+        driver = CommonTestMethods.chromeDriver();
     }
 
     @After

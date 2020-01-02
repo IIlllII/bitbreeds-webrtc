@@ -47,9 +47,7 @@ public class BrowserChromeShutDownIntegrationTest {
 
     @Before
     public void setupDriver() {
-        TestKeystoreParams.initialize();
-        WebDriverManager.chromedriver().setup();
-        driver = new ChromeDriver();
+        driver = CommonTestMethods.chromeDriver();
     }
 
     @After

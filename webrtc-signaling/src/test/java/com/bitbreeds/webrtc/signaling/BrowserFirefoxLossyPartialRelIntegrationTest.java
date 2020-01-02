@@ -40,9 +40,7 @@ public class BrowserFirefoxLossyPartialRelIntegrationTest {
 
     @Before
     public void setup() {
-        TestKeystoreParams.initialize();
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
+        driver = CommonTestMethods.firefoxDriver();
     }
 
     @After

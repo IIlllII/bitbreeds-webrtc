@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -34,10 +35,8 @@ public class BrowserFirefoxIntegrationTest {
     private WebDriver driver;
 
     @Before
-    public void setup() throws IllegalAccessException, InstantiationException {
-        TestKeystoreParams.initialize();
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
+    public void setup() {
+        driver = CommonTestMethods.firefoxDriver();
     }
 
     @After
