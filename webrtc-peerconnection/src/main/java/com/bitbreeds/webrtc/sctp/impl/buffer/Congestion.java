@@ -39,12 +39,14 @@ public class Congestion {
     private final int MTU;
     private final int partialBytesAcked;
 
+    private static final int MAX_MTU_OUTSTANDING = 512;
+
     public static Congestion initial(int MTU) {
         return new Congestion(Math.min(MTU*4,Math.max(2*MTU,4380)),12*MTU,MTU,0);
     }
 
     public Congestion(int cwnd, int ssThresh, int MTU, int partialBytesAcked) {
-        this.cwnd = Math.min(cwnd,64*MTU);
+        this.cwnd = Math.min(cwnd,MAX_MTU_OUTSTANDING*MTU);
         this.ssThresh = ssThresh;
         this.MTU = MTU;
         this.partialBytesAcked = partialBytesAcked;
