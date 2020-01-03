@@ -10,11 +10,12 @@ import org.apache.camel.component.websocket.WebsocketComponent;
 import org.apache.camel.component.websocket.WebsocketConstants;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.util.jndi.JndiContext;
-import org.apache.camel.util.jsse.KeyManagersParameters;
-import org.apache.camel.util.jsse.KeyStoreParameters;
-import org.apache.camel.util.jsse.SSLContextParameters;
-import org.apache.camel.util.jsse.TrustManagersParameters;
+import org.apache.camel.support.jndi.JndiBeanRepository;
+import org.apache.camel.support.jndi.JndiContext;
+import org.apache.camel.support.jsse.KeyManagersParameters;
+import org.apache.camel.support.jsse.KeyStoreParameters;
+import org.apache.camel.support.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.TrustManagersParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -77,9 +78,9 @@ public class SimpleSignaling {
      * @throws Exception
      */
     public static void main(String... args) throws Exception {
-        JndiRegistry reg = new JndiRegistry(new JndiContext());
-
-        reg.bind("sslContextParameters",sslParameters());
+        JndiContext jndiCtx = new JndiContext();
+        JndiBeanRepository reg = new JndiBeanRepository(jndiCtx);
+        jndiCtx.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
@@ -103,8 +104,9 @@ public class SimpleSignaling {
      * @throws Exception
      */
     public static CamelContext camelContextLossy(int lossIn, int lossOut, Consumer<SimplePeerServer> consumer) throws Exception {
-        JndiRegistry reg = new JndiRegistry(new JndiContext());
-        reg.bind("sslContextParameters",sslParameters());
+        JndiContext jndiCtx = new JndiContext();
+        JndiBeanRepository reg = new JndiBeanRepository(jndiCtx);
+        jndiCtx.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(
                 keyStoreInfo,
@@ -127,8 +129,9 @@ public class SimpleSignaling {
 
 
     public static CamelContext initContext(Consumer<SimplePeerServer> consumer) throws Exception {
-        JndiRegistry reg = new JndiRegistry(new JndiContext());
-        reg.bind("sslContextParameters",sslParameters());
+        JndiContext jndiCtx = new JndiContext();
+        JndiBeanRepository reg = new JndiBeanRepository(jndiCtx);
+        jndiCtx.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo,
                 (i) -> new LoggingConnection(keyStoreInfo,i));

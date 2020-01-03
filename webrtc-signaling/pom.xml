@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <properties>
-        <camel.version>2.24.0</camel.version>
+        <camel.version>3.0.0</camel.version>
     </properties>
 
     <dependencies>
