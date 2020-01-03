@@ -393,6 +393,8 @@ public class SCTPImpl implements SCTP  {
         logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
         StoreResult result = receiveBuffer.store(data);
+
+        //TODO, this later part should run in own thread, but be kicked of by this event
         List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         if(result.isMustSackImmediately()) {
             sackImmediately = true;

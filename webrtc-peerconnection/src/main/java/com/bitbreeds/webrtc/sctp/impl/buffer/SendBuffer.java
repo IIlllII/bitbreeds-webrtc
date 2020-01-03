@@ -169,9 +169,7 @@ public class SendBuffer {
 
                 remoteBufferSize = sack.getBufferLeft();
                 remoteCumulativeTSN = sack.getCumulativeTSN();
-                advancedAckPoint = advancedAckPoint < sack.getCumulativeTSN() ?
-                        sack.getCumulativeTSN() :
-                        advancedAckPoint;
+                advancedAckPoint = Math.max(advancedAckPoint, sack.getCumulativeTSN());
 
                 int belowCumTsnSize = inFlight.values().stream()
                         .filter(i -> i.getTsn() <= sack.getCumulativeTSN())

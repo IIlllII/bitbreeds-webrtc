@@ -193,7 +193,10 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 .filter(i -> i instanceof Inet4Address)
                 .collect(Collectors.toList());
 
-        return nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException(""));
+        InetAddress selected = nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException(""));
+
+        logger.info("Picking {} from {}",selected,nonLoopback);
+        return selected;
     }
 
 
@@ -489,6 +492,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             }
         } else {
             if(definition != null) {
+                //FIXME this should ideally not buffer a lot of work, maybe use some kind of poll instead
+                //can cause massive backpressure problems
                 workPool.submit(() -> {
                     try {
                         definition.onMessage.accept(new MessageEvent(deliverable.getData(),sender));

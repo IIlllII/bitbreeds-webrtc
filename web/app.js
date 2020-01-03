@@ -148,6 +148,7 @@ dataChannel.onopen = function (e) {
 dataChannel.onbufferedamountlow = function(e) {
     if(transmit) {
         dataChannel.send(out);
+        sent = sent + out.length;
         console.log("low: " + JSON.stringify(e));
     }
 };
