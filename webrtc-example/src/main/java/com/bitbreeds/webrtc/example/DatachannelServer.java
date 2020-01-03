@@ -7,19 +7,20 @@ import org.apache.camel.CamelContext;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.websocket.WebsocketComponent;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.JndiRegistry;
-import org.apache.camel.util.jndi.JndiContext;
-import org.apache.camel.util.jsse.KeyManagersParameters;
-import org.apache.camel.util.jsse.KeyStoreParameters;
-import org.apache.camel.util.jsse.SSLContextParameters;
-import org.apache.camel.util.jsse.TrustManagersParameters;
+import org.apache.camel.support.jndi.JndiBeanRepository;
+import org.apache.camel.support.jndi.JndiContext;
+import org.apache.camel.support.jsse.KeyManagersParameters;
+import org.apache.camel.support.jsse.KeyStoreParameters;
+import org.apache.camel.support.jsse.SSLContextParameters;
+import org.apache.camel.support.jsse.TrustManagersParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.InputStream;
 import java.net.URL;
-import java.util.HashSet;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /*
  * Copyright (c) 16/04/16, Jonas Waage
@@ -83,9 +84,10 @@ public class DatachannelServer {
      * @throws Exception failure to create routes
      */
     public static void main(String... args) throws Exception {
-        JndiRegistry reg = new JndiRegistry(new JndiContext());
+        JndiContext context = new JndiContext();
+        JndiBeanRepository reg = new JndiBeanRepository(context);
 
-        reg.bind("sslContextParameters",sslParameters());
+        context.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo);
 
@@ -109,7 +111,13 @@ public class DatachannelServer {
 
             connection.onDataChannel = (dataChannel) -> {
 
-                HashSet<String> messages = new HashSet<>();
+                /*
+                 * Lets not pollute the log with all messages
+                 */
+                AtomicReference<Long> receiveLogTime = new AtomicReference<>(System.currentTimeMillis());
+                AtomicReference<Long> sendLogTime = new AtomicReference<>(System.currentTimeMillis());
+
+                LinkedBlockingDeque<String> toEcho = new LinkedBlockingDeque<>(10000);
 
                 dataChannel.onOpen = (ev) -> {
                     logger.info("Running onOpen");
@@ -118,13 +126,21 @@ public class DatachannelServer {
 
                 dataChannel.onMessage = (ev) -> {
                     String in = new String(ev.getData());
-                    logger.info("Running onMessage: " + in);
-                    dataChannel.send("echo-" + in);
 
-                    if(messages.contains(in)) {
-                        throw new IllegalStateException("Duplicate: " + in);
+                    receiveLogTime.getAndUpdate((i)-> {
+                        long diff = System.currentTimeMillis()-i;
+                        if(diff > 3000) {
+                            logger.info("Got message {} with queue space {}",in,toEcho.size());
+                            return System.currentTimeMillis();
+                        }
+                        return i;
+                    });
+
+                    try {
+                        toEcho.offer("echo-"+in,30, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        logger.error("Interrupted while offering",e);
                     }
-                    messages.add(in);
                 };
 
                 dataChannel.onClose = (ev) -> {
@@ -132,7 +148,31 @@ public class DatachannelServer {
                 };
 
                 dataChannel.onError = (ev) -> {
-                    logger.info("Received error: {}", ev.getError());
+                    logger.info("Received error: ", ev.getError());
+                };
+
+                dataChannel.onBufferedAmountLow = (state) -> {
+                    int spaceLeft = state.getSpaceLeftInBytes();
+                    int toSend = spaceLeft / 10;
+                    int sent = 0;
+                    while (sent < toSend) {
+                        String strToSend = toEcho.poll();
+                        if(strToSend != null) {
+                            sent += strToSend.length();
+                            dataChannel.send(strToSend);
+                        }
+                    }
+
+                    final int lol = sent;
+
+                    sendLogTime.getAndUpdate((i)-> {
+                        long diff = System.currentTimeMillis()-i;
+                        if(diff > 3000) {
+                            logger.info("Send messages of size {} in queue {}",lol,toEcho.size());
+                            return System.currentTimeMillis();
+                        }
+                        return i;
+                    });
                 };
 
             };
