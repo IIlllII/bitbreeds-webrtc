@@ -13,10 +13,6 @@
     <artifactId>webrtc-signaling</artifactId>
     <packaging>jar</packaging>
 
-    <properties>
-        <camel.version>3.0.0</camel.version>
-    </properties>
-
     <dependencies>
 
         <dependency>
@@ -40,7 +36,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bctls-jdk15on</artifactId>
-            <version>1.60</version>
+            <version>${bouncycastle.version}</version>
         </dependency>
 
         <dependency>
