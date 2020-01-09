@@ -42,8 +42,8 @@ public class LoggingConnection extends ConnectionImplementation {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    public LoggingConnection(KeyStoreInfo keyStoreInfo, PeerDescription remoteDescription) {
-        super(keyStoreInfo, remoteDescription);
+    public LoggingConnection(KeyStoreInfo keyStoreInfo, PeerDescription remoteDescription, String address) {
+        super(keyStoreInfo, remoteDescription, address);
     }
 
     public void putDataOnWire(byte[] out) {

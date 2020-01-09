@@ -110,7 +110,7 @@ public class SimpleSignaling {
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(
                 keyStoreInfo,
-                (i) -> new LossyConnection(keyStoreInfo,i,lossIn,lossOut)
+                (i) -> new LossyConnection(keyStoreInfo,i,lossIn,lossOut,AddressUtils.findAddress())
         );
 
         consumer.accept(peerConnectionServer);
@@ -134,7 +134,7 @@ public class SimpleSignaling {
         jndiCtx.bind("sslContextParameters",sslParameters());
 
         SimplePeerServer peerConnectionServer = new SimplePeerServer(keyStoreInfo,
-                (i) -> new LoggingConnection(keyStoreInfo,i));
+                (i) -> new LoggingConnection(keyStoreInfo,i,AddressUtils.findAddress()));
 
         consumer.accept(peerConnectionServer);
 

@@ -21,14 +21,12 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.*;
 
@@ -147,15 +145,12 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private PeerConnection peerConnection;
 
-    public ConnectionImplementation(KeyStoreInfo keyStoreInfo,
-                                    PeerDescription remoteDescription) {
-        this(keyStoreInfo,remoteDescription,null);
-    }
-
     public ConnectionImplementation(
             KeyStoreInfo keyStoreInfo,
-            PeerDescription remoteDescription,String address) {
+            PeerDescription remoteDescription,
+            String address) {
         logger.info("Initializing {}",this.getClass().getName());
+        Objects.requireNonNull(address);
         this.remoteDescription = remoteDescription;
         try {
             this.socket = new DatagramSocket();
@@ -167,37 +162,13 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             this.peerConnection = new PeerConnection(this);
             this.dtlsServer = new WebrtcDtlsServer(this,keyStoreInfo,remoteDescription);
 
-            /*
-             * Get address which external system can reach
-             * TODO ensure this works
-             */
-            String localAddress = address != null ? address : findLocalAddress().getHostAddress() ;
-            logger.info("Adr: {}", localAddress);
-
-            /*
-             * Create candidate from connections, since we only give one priority makes little sense so just adding a
-             * number
-             */
-            this.iceCandidate = new IceCandidate(BigInteger.valueOf(0),BigInteger.valueOf(1), this.port, localAddress, 2122252543L,"host","UDP");
+            this.iceCandidate = new IceCandidate(BigInteger.valueOf(0),BigInteger.valueOf(1), this.port, address, 2122252543L,"host","UDP");
 
         } catch (IOException e) {
             throw new IllegalStateException("Failed to start connection:", e);
         }
     }
 
-    InetAddress findLocalAddress() throws UnknownHostException {
-        String name = InetAddress.getLocalHost().getHostName();
-        List<InetAddress> address = Arrays.asList(InetAddress.getAllByName(name));
-        List<InetAddress> nonLoopback = address.stream()
-                .filter(i-> !i.isLoopbackAddress())
-                .filter(i -> i instanceof Inet4Address)
-                .collect(Collectors.toList());
-
-        InetAddress selected = nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException(""));
-
-        logger.info("Picking {} from {}",selected,nonLoopback);
-        return selected;
-    }
 
 
     @Override
@@ -257,7 +228,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
-                        boolean useSpecialUdpImpl = Boolean.valueOf(System.getProperty("com.bitbreeds.experiment.nocongestion","false"));
+                        boolean useSpecialUdpImpl = Boolean.parseBoolean(System.getProperty("com.bitbreeds.experiment.nocongestion","false"));
                         sctp = useSpecialUdpImpl ? new TotallyUnreliableSCTP(this) : new SCTPImpl(this);
                         mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");

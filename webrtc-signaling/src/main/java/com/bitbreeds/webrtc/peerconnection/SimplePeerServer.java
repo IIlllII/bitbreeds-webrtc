@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.sdp.MediaDescription;
 import javax.sdp.SessionDescription;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -39,7 +42,7 @@ public class SimplePeerServer {
 
     private final static Logger logger = LoggerFactory.getLogger(SimplePeerServer.class);
 
-    String addressOverride = System.getProperty("com.bitbreeds.ip");
+    private final String address;
 
     /**
      * Function that allows interception of connection methods
@@ -51,11 +54,13 @@ public class SimplePeerServer {
             Function<PeerDescription,ConnectionImplementation> connectionWrapper) {
         this.connectionWrapper = connectionWrapper;
         this.keyStoreInfo = keyStoreInfo;
+        address = AddressUtils.findAddress();
     }
 
     public SimplePeerServer(KeyStoreInfo keyStoreInfo) {
         this.keyStoreInfo = keyStoreInfo;
         this.connectionWrapper = null;
+        address = AddressUtils.findAddress();
     }
 
 
@@ -108,7 +113,7 @@ public class SimplePeerServer {
 
         ConnectionImplementation ds = connectionWrapper != null ?
                 connectionWrapper.apply(remotePeer) :
-                new ConnectionImplementation(keyStoreInfo,remotePeer,addressOverride);
+                new ConnectionImplementation(keyStoreInfo,remotePeer,address);
 
         onConnection.accept(ds.getPeerConnection());
         connections.put(ds.getPort(),ds);
@@ -128,7 +133,6 @@ public class SimplePeerServer {
 
         return Collections.singletonList(new Answer(answerSdp));
     }
-
 
 
 

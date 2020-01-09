@@ -1,5 +1,6 @@
 package com.bitbreeds.webrtc.signaling;
 
+import com.bitbreeds.webrtc.peerconnection.AddressUtils;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.peerconnection.PeerDescription;
@@ -49,8 +50,9 @@ public class LossyConnection extends ConnectionImplementation {
     public LossyConnection(KeyStoreInfo keyStoreInfo,
                            PeerDescription remoteDescription,
                            Integer packetlossPercentageIn,
-                           Integer packetlossPercentageOut) {
-        super(keyStoreInfo,remoteDescription);
+                           Integer packetlossPercentageOut,
+                           String address) {
+        super(keyStoreInfo,remoteDescription, AddressUtils.findAddress());
         if(packetlossPercentageIn < 0 || packetlossPercentageIn > 100) {
             throw new IllegalArgumentException("Bad packetlossPercentage [0-100] allowed, was "+packetlossPercentageIn);
         }
