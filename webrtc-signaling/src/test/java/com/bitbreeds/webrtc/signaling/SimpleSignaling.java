@@ -9,7 +9,6 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.websocket.WebsocketComponent;
 import org.apache.camel.component.websocket.WebsocketConstants;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.JndiRegistry;
 import org.apache.camel.support.jndi.JndiBeanRepository;
 import org.apache.camel.support.jndi.JndiContext;
 import org.apache.camel.support.jsse.KeyManagersParameters;
@@ -25,7 +24,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.HashSet;
-import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 /*
