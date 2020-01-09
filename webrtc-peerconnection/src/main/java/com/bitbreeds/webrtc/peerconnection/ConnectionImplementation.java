@@ -11,9 +11,9 @@ import com.bitbreeds.webrtc.sctp.impl.*;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.stun.BindingService;
 import org.apache.commons.codec.binary.Hex;
-import org.bouncycastle.crypto.tls.DTLSServerProtocol;
-import org.bouncycastle.crypto.tls.DatagramTransport;
-import org.bouncycastle.crypto.tls.TlsServer;
+import org.bouncycastle.tls.DTLSServerProtocol;
+import org.bouncycastle.tls.DatagramTransport;
+import org.bouncycastle.tls.TlsServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -162,7 +162,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             this.socket.setReceiveBufferSize(200000);
             this.socket.setSendBufferSize(200000);
             this.port = socket.getLocalPort();
-            this.serverProtocol = new DTLSServerProtocol(new SecureRandom());
+            this.serverProtocol = new DTLSServerProtocol();
             this.mode = ConnectionMode.STUN_BINDING;
             this.peerConnection = new PeerConnection(this);
             this.dtlsServer = new WebrtcDtlsServer(this,keyStoreInfo,remoteDescription);

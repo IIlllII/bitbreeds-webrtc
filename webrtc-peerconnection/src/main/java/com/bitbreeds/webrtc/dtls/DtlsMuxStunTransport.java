@@ -5,9 +5,9 @@ import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.peerconnection.UserData;
 import com.bitbreeds.webrtc.stun.BindingService;
 import org.apache.commons.codec.binary.Hex;
-import org.bouncycastle.crypto.tls.AlertDescription;
-import org.bouncycastle.crypto.tls.DatagramTransport;
-import org.bouncycastle.crypto.tls.TlsFatalAlert;
+import org.bouncycastle.tls.AlertDescription;
+import org.bouncycastle.tls.DatagramTransport;
+import org.bouncycastle.tls.TlsFatalAlert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -19,11 +19,15 @@ package com.bitbreeds.webrtc.dtls;
 import com.bitbreeds.webrtc.model.webrtc.ConnectionInternalApi;
 import com.bitbreeds.webrtc.peerconnection.PeerDescription;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
-import org.bouncycastle.crypto.params.RSAKeyParameters;
-import org.bouncycastle.crypto.tls.*;
-import org.bouncycastle.tls.ProtocolName;
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.tls.*;
+import org.bouncycastle.tls.crypto.TlsCertificate;
+import org.bouncycastle.tls.crypto.TlsCryptoParameters;
+import org.bouncycastle.tls.crypto.impl.bc.BcDefaultTlsCredentialedDecryptor;
+import org.bouncycastle.tls.crypto.impl.bc.BcDefaultTlsCredentialedSigner;
+import org.bouncycastle.tls.crypto.impl.bc.BcTlsCertificate;
+import org.bouncycastle.tls.crypto.impl.bc.BcTlsCrypto;
 import org.bouncycastle.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +35,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateCrtKey;
-import java.util.Hashtable;
 import java.util.Vector;
 
 import static com.bitbreeds.webrtc.dtls.CertUtil.createFingerprintString;
@@ -44,7 +48,7 @@ import static com.bitbreeds.webrtc.dtls.CertUtil.createFingerprintString;
 public class WebrtcDtlsServer
         extends DefaultTlsServer {
 
-    private org.bouncycastle.crypto.tls.Certificate cert;
+    private org.bouncycastle.asn1.x509.Certificate certLoaded;
 
     private CertKeyPair pair;
 
@@ -54,12 +58,12 @@ public class WebrtcDtlsServer
     private final ConnectionInternalApi peerConnection;
 
     public WebrtcDtlsServer(ConnectionInternalApi peerConnection, KeyStoreInfo keyStoreInfo, PeerDescription remote) throws IOException {
-        super();
+        super(new BcTlsCrypto(new SecureRandom()));
 
         this.peerConnection = peerConnection;
         this.remote = remote;
 
-        cert = DTLSUtils.loadCert(keyStoreInfo.getFilePath(),
+        certLoaded = DTLSUtils.loadCert(keyStoreInfo.getFilePath(),
                 keyStoreInfo.getAlias(),
                 keyStoreInfo.getPassword());
 
@@ -67,16 +71,14 @@ public class WebrtcDtlsServer
                 keyStoreInfo.getAlias(),
                 keyStoreInfo.getPassword());
 
-
     }
 
     @Override
-    public Hashtable getServerExtensions() throws IOException {
-        Hashtable ext = super.getServerExtensions();
-        //Only supported by firefox
-        //org.bouncycastle.tls.TlsExtensionsUtils.addALPNExtensionServer(ext, ProtocolName.WEBRTC_CONFIDENTIAL);
-        return ext;
+    public ProtocolVersion[] getProtocolVersions()
+    {
+        return new ProtocolVersion[]{ProtocolVersion.DTLSv12};
     }
+
 
     @Override
     public void notifyAlertRaised(short alertLevel, short alertDescription, String message, Throwable cause) {
@@ -100,47 +102,47 @@ public class WebrtcDtlsServer
     public void notifyAlertReceived(short alertLevel, short alertDescription) {
         logger.warn("DTLS server received alert: " + AlertLevel.getText(alertLevel)
                 + ", " + AlertDescription.getText(alertDescription));
-
         //Close connection, no point in continuing
         peerConnection.closeConnection();
     }
 
-    protected int[] getCipherSuites() {
+    @Override
+    public int[] getCipherSuites() {
         return Arrays.concatenate(super.getCipherSuites(),
                 new int[]
                         {
-                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-                                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+                                CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
                         });
     }
 
+    @Override
     public CertificateRequest getCertificateRequest() {
         short[] certificateTypes = new short[]{ClientCertificateType.rsa_sign,
                 ClientCertificateType.dss_sign, ClientCertificateType.ecdsa_sign};
 
         Vector serverSigAlgs = null;
-        if (TlsUtils.isSignatureAlgorithmsExtensionAllowed(serverVersion)) {
-            serverSigAlgs = TlsUtils.getDefaultSupportedSignatureAlgorithms();
+        if (TlsUtils.isSignatureAlgorithmsExtensionAllowed(ProtocolVersion.DTLSv12)) {
+            serverSigAlgs = TlsUtils.getDefaultSupportedSignatureAlgorithms(this.context);
         }
 
         Vector<X500Name> certificateAuthorities = new Vector<>();
         certificateAuthorities.addElement(
-                cert.getCertificateAt(0).getSubject()
+                certLoaded.getSubject()
         );
 
         return new CertificateRequest(certificateTypes, serverSigAlgs, certificateAuthorities);
     }
 
-    public void notifyClientCertificate(org.bouncycastle.crypto.tls.Certificate clientCertificate)
+    @Override
+    public void notifyClientCertificate(org.bouncycastle.tls.Certificate clientCertificate)
             throws IOException {
-        Certificate[] chain = clientCertificate.getCertificateList();
+        TlsCertificate[] chain = clientCertificate.getCertificateList();
         logger.info("DTLS server received client certificate chain of length: " + chain.length);
 
         boolean hasHit = false;
 
         for (int i = 0; i != chain.length; i++) {
-            Certificate entry = chain[i];
+            TlsCertificate entry = chain[i];
 
             MessageDigest md;
             try {
@@ -164,29 +166,34 @@ public class WebrtcDtlsServer
         }
     }
 
-    protected ProtocolVersion getMaximumVersion() {
-        return ProtocolVersion.DTLSv12;
-    }
+    @Override
+    protected TlsCredentialedDecryptor getRSAEncryptionCredentials() throws IOException {
 
-    protected ProtocolVersion getMinimumVersion() {
-        return ProtocolVersion.DTLSv10;
-    }
+        BcTlsCertificate cnv = new BcTlsCertificate((BcTlsCrypto) this.context.getCrypto(),certLoaded.getEncoded());
+        Certificate cert = new Certificate(new BcTlsCertificate[]{cnv});
 
-
-    protected TlsEncryptionCredentials getRSAEncryptionCredentials() {
-
-        return new DefaultTlsEncryptionCredentials(context,
+        return new BcDefaultTlsCredentialedDecryptor(
+                (BcTlsCrypto)this.context.getCrypto(),
                 cert,
                 new AsymmetricKeyParameter(true));
     }
 
+    @Override
+    protected TlsCredentialedSigner getRSASignerCredentials() throws IOException {
 
-    protected TlsSignerCredentials getRSASignerCredentials() {
+        BcTlsCertificate cnv = new BcTlsCertificate((BcTlsCrypto) this.context.getCrypto(),certLoaded.getEncoded());
+        Certificate cert = new Certificate(new BcTlsCertificate[]{cnv});
 
-        RSAPrivateCrtKey key = (RSAPrivateCrtKey)(pair.getKeyPair().getPrivate());
-        return new DefaultTlsSignerCredentials(context,
+        RSAPrivateCrtKey rsa = (RSAPrivateCrtKey) pair.getKeyPair().getPrivate();
+        AsymmetricKeyParameter keyParam = new RSAPrivateCrtKeyParameters(rsa.getModulus(), rsa.getPublicExponent(),
+                rsa.getPrivateExponent(), rsa.getPrimeP(), rsa.getPrimeQ(), rsa.getPrimeExponentP(),
+                rsa.getPrimeExponentQ(), rsa.getCrtCoefficient());
+
+        return new BcDefaultTlsCredentialedSigner(
+                new TlsCryptoParameters(context),
+                (BcTlsCrypto)context.getCrypto(),
+                keyParam,
                 cert,
-                new RSAKeyParameters(true,key.getModulus(),key.getPrivateExponent()),
                 new SignatureAndHashAlgorithm(HashAlgorithm.sha256,SignatureAlgorithm.rsa));
     }
 

@@ -1,7 +1,7 @@
 package com.bitbreeds.webrtc.dtls;
 
 import org.apache.commons.codec.binary.Hex;
-import org.bouncycastle.crypto.tls.Certificate;
+import org.bouncycastle.asn1.x509.Certificate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +39,7 @@ public class CertUtil {
                     alias,
                     pass);
 
-            byte[] der = cert.getCertificateAt(0).getEncoded();
+            byte[] der = cert.getEncoded();
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] dat = md.digest(der);
 

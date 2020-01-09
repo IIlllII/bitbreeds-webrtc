@@ -16,17 +16,19 @@ package com.bitbreeds.webrtc.dtls;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import org.bouncycastle.crypto.RuntimeCryptoException;
+import org.bouncycastle.asn1.x509.Certificate;
+import org.bouncycastle.tls.*;
+import org.bouncycastle.tls.crypto.impl.bc.BcTlsCertificate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.cert.Certificate;
 
 
 /**
@@ -36,14 +38,13 @@ public class DTLSUtils {
 
     private final static Logger logger = LoggerFactory.getLogger(DTLSUtils.class);
 
-    public static org.bouncycastle.crypto.tls.Certificate loadCert(String keystore,String alias,String password) {
+    public static Certificate loadCert(String keystore, String alias, String password) {
         try {
             byte[] data = getCert(keystore,alias,password).getCert().getEncoded();
-            org.bouncycastle.asn1.x509.Certificate[] cert = {org.bouncycastle.asn1.x509.Certificate.getInstance(data)};
-            return new org.bouncycastle.crypto.tls.Certificate(cert);
+            return BcTlsCertificate.parseCertificate(data);
         } catch (Exception e) {
             logger.error("Error loading certificate: ",e);
-            throw new RuntimeCryptoException("Problem loading certificate");
+            throw new RuntimeException("Problem loading certificate",e);
         }
     }
 
@@ -56,12 +57,12 @@ public class DTLSUtils {
             FileInputStream stream = new FileInputStream(fl);
             ks.load(stream, password.toCharArray());
             final Key key = ks.getKey(alias, password.toCharArray());
-            Certificate cert = ks.getCertificate(alias);
+            java.security.cert.Certificate cert = ks.getCertificate(alias);
             KeyPair kp = new KeyPair(cert.getPublicKey(), (PrivateKey) key);
             return new CertKeyPair(ks.getCertificate(alias), kp);
         } catch (Exception e) {
             logger.error("Error loading certificate: ",e);
-            throw new RuntimeCryptoException("Problem loading certificate");
+            throw new RuntimeException("Problem loading certificate",e);
         }
     }
 
