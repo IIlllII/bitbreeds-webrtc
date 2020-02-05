@@ -6,6 +6,7 @@ import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -147,4 +148,8 @@ public interface SCTP {
      */
     int sendBufferCapacity();
 
+
+    Instant timeOfLastHeartBeatAck();
+
+    Instant timeOfLastSCTPPacket();
 }

@@ -21,7 +21,6 @@ import org.apache.camel.CamelContext;
 public class TestMain {
 
     public static void main(String[] args) throws Exception {
-        System.setProperty("com.bitbreeds.experiment.nocongestion","true");
         CamelContext ctx = SimpleSignaling.camelContextLossy(5, 5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
     }

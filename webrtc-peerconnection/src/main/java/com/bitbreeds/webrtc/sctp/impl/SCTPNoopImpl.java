@@ -6,6 +6,7 @@ import com.bitbreeds.webrtc.sctp.impl.buffer.SackData;
 import com.bitbreeds.webrtc.sctp.impl.buffer.WireRepresentation;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -134,5 +135,15 @@ public class SCTPNoopImpl implements SCTP {
     @Override
     public int sendBufferCapacity() {
         return 0;
+    }
+
+    @Override
+    public Instant timeOfLastHeartBeatAck() {
+        return Instant.now();
+    }
+
+    @Override
+    public Instant timeOfLastSCTPPacket() {
+        return Instant.now();
     }
 }

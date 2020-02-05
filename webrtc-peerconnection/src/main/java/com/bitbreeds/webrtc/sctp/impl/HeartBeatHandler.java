@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
+/*
  * Copyright (c) 12/06/16, Jonas Waage
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
@@ -62,6 +62,5 @@ public class HeartBeatHandler implements MessageHandler {
         SCTPMessage out = new SCTPMessage(hdr, Collections.singletonList(chunk));
         return Optional.of(out);
     }
-
 
 }

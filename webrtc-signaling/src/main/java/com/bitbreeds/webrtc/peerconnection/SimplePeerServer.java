@@ -8,11 +8,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.sdp.MediaDescription;
 import javax.sdp.SessionDescription;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -45,6 +46,16 @@ public class SimplePeerServer {
     private final String address;
 
     /**
+     * Pool for recurring monitoring and keep alive tasks
+     */
+    private final ScheduledExecutorService monitiringAndReaping = Executors.newScheduledThreadPool(2);
+
+    /**
+     * Pool for periodic SCTP tasks
+     */
+    private final ScheduledExecutorService sctpTasksPool = Executors.newScheduledThreadPool(2);
+
+    /**
      * Function that allows interception of connection methods
      */
     private final Function<PeerDescription,ConnectionImplementation> connectionWrapper;
@@ -61,6 +72,54 @@ public class SimplePeerServer {
         this.keyStoreInfo = keyStoreInfo;
         this.connectionWrapper = null;
         address = AddressUtils.findAddress();
+
+        //Run periodic tasks
+        sctpTasksPool.scheduleAtFixedRate(() ->
+                        connections.values().forEach(ConnectionImplementation::runPeriodicSctpTasks),
+                100, 100, TimeUnit.MILLISECONDS
+        );
+
+        //Schedule sending of heartbeat
+        monitiringAndReaping.scheduleAtFixedRate(() -> {
+            connections.values().forEach(ConnectionImplementation::sendSCTPHeartBeat);
+        },3000,3000, TimeUnit.MILLISECONDS);
+
+        //Schedule logging
+        monitiringAndReaping.scheduleAtFixedRate(() -> {
+            connections.values().forEach(ConnectionImplementation::runConnectionStateLogging);
+        }, 3000, 3000, TimeUnit.MILLISECONDS);
+
+        //Schedule reaping of unresponsive connections
+        monitiringAndReaping.scheduleAtFixedRate(() -> {
+            List<Map.Entry<Integer,ConnectionImplementation>> toClose = connections.entrySet().stream()
+                    .filter(i -> Instant.now().minusSeconds(30).isAfter(i.getValue().timeOfLastHeartBeatAck()))
+                    .collect(Collectors.toList());
+
+            if(!toClose.isEmpty()) {
+                logger.info("Reaping connections {} due to missing heartbeats",
+                        toClose.stream().map(i->i.getValue().getPeerConnection().getId()));
+                toClose.forEach(i -> {
+                    try {
+                        connections.remove(i.getKey());
+                        i.getValue().close();
+                    } catch (Exception e) {
+                        logger.error("Reaping failed due to", e);
+                    }
+                });
+            }
+
+            List<Map.Entry<Integer,ConnectionImplementation>> toRemove = connections.entrySet().stream()
+                    .filter(i->i.getValue().isSocketClosed())
+                    .collect(Collectors.toList());
+
+            if(!toRemove.isEmpty()) {
+                logger.info("Removing from connection list due to closed socket {}",
+                        toRemove.stream().map(i->i.getValue().getPeerConnection().getId()));
+
+                toRemove.stream().map(Map.Entry::getKey).forEach(i -> connections.remove(i));
+            }
+
+        }, 10000, 10000, TimeUnit.MILLISECONDS);
     }
 
 

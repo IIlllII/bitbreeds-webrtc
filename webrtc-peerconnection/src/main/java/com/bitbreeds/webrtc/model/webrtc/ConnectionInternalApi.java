@@ -44,12 +44,6 @@ public interface ConnectionInternalApi {
 
     /**
      *
-     * @param data send data over UDP in another thread
-     */
-    void putDataOnWireAsync(byte[] data);
-
-    /**
-     *
      * @param data send data over UDP in same thread
      */
     void putDataOnWire(byte[] data);

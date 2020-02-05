@@ -58,6 +58,10 @@ public class SCTPImpl implements SCTP  {
 
     private final AtomicReference<SCTPState> state = new AtomicReference<>(SCTPState.CLOSED);
 
+    private AtomicReference<Instant> lastSctpMessage = new AtomicReference<>(Instant.now());
+    private AtomicReference<Instant> lastHeartBeatAck = new AtomicReference<>(Instant.now());;
+
+
     private final Object sackLock = new Object();
     private int packetCountSinceSack = 0;
     private boolean hasNonAcknowledgedData = false;
@@ -115,13 +119,14 @@ public class SCTPImpl implements SCTP  {
         return map;
     }
 
-    /**
-     * Convert millis tp seconds
-     * @param heartBeatAck to associate with sent heartbeat
-     */
-    public void receiveHeartBeatAck(byte[] heartBeatAck) {
-        long rttMillis = heartBeatService.receiveHeartBeatAck(heartBeatAck);
+
+    @Override
+    public void receiveHeartBeatAck(byte[] data) {
+        long rttMillis = heartBeatService.receiveHeartBeatAck(data);
         retransmissionCalculator.updateAndGet((i)->i.addMeasure(rttMillis/1000.0));
+        logger.debug("Received hearthBeatAck with data");
+        lastHeartBeatAck.set(Instant.now());
+        heartBeatService.receiveHeartBeatAck(data);
     }
 
     public void establish() {
@@ -148,7 +153,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWireAsync(withChecksum.toBytes());
+            getConnection().putDataOnWire(withChecksum.toBytes());
 
             retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", toSend.getFwdAckPoint());
@@ -156,7 +161,7 @@ public class SCTPImpl implements SCTP  {
 
         toSend.getBuffered().forEach(i -> {
                     logger.info("Retransmit {}", i);
-                    getConnection().putDataOnWireAsync(i.getData().getSctpPayload());
+                    getConnection().putDataOnWire(i.getData().getSctpPayload());
                 }
         );
     }
@@ -194,7 +199,7 @@ public class SCTPImpl implements SCTP  {
             SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
             SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWireAsync(withChecksum.toBytes());
+            getConnection().putDataOnWire(withChecksum.toBytes());
 
             retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
             logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
@@ -202,14 +207,14 @@ public class SCTPImpl implements SCTP  {
 
         result.getFastRetransmits().forEach(i -> {
                     logger.info("Fast retransmit {}",i);
-                    getConnection().putDataOnWireAsync(i.getData().getSctpPayload());
+                    getConnection().putDataOnWire(i.getData().getSctpPayload());
                 }
         );
 
         List<BufferedSent> toSend = sendBuffer.getDataToSend();
 
         toSend.forEach(i ->
-                getConnection().putDataOnWireAsync(i.getData().getSctpPayload())
+                getConnection().putDataOnWire(i.getData().getSctpPayload())
         );
     }
 
@@ -264,7 +269,7 @@ public class SCTPImpl implements SCTP  {
                 sackImmediately = false;
                 packetCountSinceSack = 0;
                 SackData sackData = receiveBuffer.getSackDataToSend();
-                getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
+                getConnection().putDataOnWire(createSackMessage(sackData).getPayload());
             }
         }
 
@@ -330,6 +335,8 @@ public class SCTPImpl implements SCTP  {
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
 
+        lastSctpMessage.set(Instant.now());
+
         List<WireRepresentation> result = inChunks.stream()
                 .map(i->handleChunk(i,inHdr))
                 .flatMap(i->i)
@@ -347,7 +354,7 @@ public class SCTPImpl implements SCTP  {
                 sackImmediately = false;
                 hasNonAcknowledgedData = false;
                 SackData sackData = receiveBuffer.getSackDataToSend();
-                getConnection().putDataOnWireAsync(createSackMessage(sackData).getPayload());
+                getConnection().putDataOnWire(createSackMessage(sackData).getPayload());
             }
         }
 
@@ -512,5 +519,15 @@ public class SCTPImpl implements SCTP  {
     @Override
     public ConnectionInternalApi getConnection() {
         return connection;
+    }
+
+    @Override
+    public Instant timeOfLastHeartBeatAck() {
+        return lastHeartBeatAck.get();
+    }
+
+    @Override
+    public Instant timeOfLastSCTPPacket() {
+        return lastSctpMessage.get();
     }
 }

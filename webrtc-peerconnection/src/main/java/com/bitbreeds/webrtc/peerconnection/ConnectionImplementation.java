@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -101,33 +102,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
     private final ConcurrentHashMap<Integer,DataChannel> dataChannels = new ConcurrentHashMap<>();
 
-    /**
-     * Pool for doing SCTP processing of received messages
-     */
-    private final ExecutorService processPool = Executors.newFixedThreadPool(1);
-
-    /**
-     * Pool sending messages over socket
-     */
-    private final ExecutorService normPrioPool = Executors.newFixedThreadPool(1);
-
-    /**
-     * Pool for processing messages sendt by used
-     */
-    private final ExecutorService sendPool = Executors.newFixedThreadPool(1);
-
-
     private final AtomicBoolean isRunningOnBufferedAmount = new AtomicBoolean(false);
-
-    /**
-     * Pool for recurring tasks
-     */
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
-    /**
-     * Pool for running user actions
-     */
-    private final ExecutorService workPool = Executors.newFixedThreadPool(1);
 
     private final IceCandidate iceCandidate;
 
@@ -169,6 +144,18 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         }
     }
 
+    /**
+     *
+     */
+    public void sendSCTPHeartBeat() {
+        if (running && socket.isBound()) {
+            sctp.createHeartBeat().ifPresent(beat -> {
+                        logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
+                        putDataOnWire(beat.getPayload());
+                    }
+            );
+        }
+    }
 
 
     @Override
@@ -228,41 +215,10 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                             transport = serverProtocol.accept(dtlsServer,muxStunTransport);
                         }
 
-                        boolean useSpecialUdpImpl = Boolean.parseBoolean(System.getProperty("com.bitbreeds.experiment.nocongestion","false"));
-                        sctp = useSpecialUdpImpl ? new TotallyUnreliableSCTP(this) : new SCTPImpl(this);
+                        sctp  = new SCTPImpl(this);
                         mode = ConnectionMode.SCTP;
                         logger.info("-> SCTP mode");
 
-                        logger.debug("Schedule send polling");
-                        scheduler.scheduleAtFixedRate(
-                                this::getPayloadsAndSend,
-                                50,
-                                100,
-                                TimeUnit.MILLISECONDS);
-
-                        logger.debug("Schedule heartbeat");
-                        scheduler.scheduleAtFixedRate(()->{
-                            try {
-                                sctp.createHeartBeat().ifPresent(beat -> {
-                                    logger.debug("Sending heartbeat: " + Hex.encodeHexString(beat.getPayload()));
-                                    normPrioPool.submit(() ->
-                                            putDataOnWire(beat.getPayload())
-                                    );
-                                });
-                            } catch (RuntimeException e) {
-                                logger.error("Heartheat failed due to:",e);
-                            }
-                        },5000,5000,TimeUnit.MILLISECONDS);
-
-                        logger.debug("Schedule monitoring sample");
-                        scheduler.scheduleAtFixedRate(() -> {
-                                    try {
-                                        sctp.runMonitoring();
-                                    } catch (RuntimeException e) {
-                                        logger.error("Error monitoring logging", e);
-                                    }
-                                },
-                                1000, 1000, TimeUnit.MILLISECONDS);
                     }
                     else if(mode == ConnectionMode.SCTP) {
                         logger.debug("In SCTP mode");
@@ -289,14 +245,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 }
         }
 
-        /*
-         * Shut down thread pools in a controlled manner
-         */
-        shutDownPoolControlled(scheduler,"scheduler");
-        shutDownPoolControlled(processPool,"processpool");
-        shutDownPoolControlled(workPool,"workpool");
-        shutDownPoolControlled(sendPool,"sendpool");
-        shutDownPoolControlled(normPrioPool,"normPrioPool");
     }
 
     private void getPayloadsAndSend() {
@@ -309,29 +257,10 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         }
     }
 
-    private void shutDownPoolControlled(ExecutorService threadPoolExecutor,String name) {
-        logger.info("Shutting down pool {} ",name);
-        try {
-            threadPoolExecutor.shutdown();
-            threadPoolExecutor.awaitTermination(3,TimeUnit.SECONDS);
-            logger.info("Controlled shutdown of pool {} finished",name);
-        }
-        catch (Exception e) {
-            logger.info("Controlled shutdown of pool {} failed, due to: ",name,e);
-            threadPoolExecutor.shutdownNow();
-        }
-    }
-
     @Override
     public void processReceivedMessage(byte[] buf) {
-        processPool.submit(() -> {
-            try {
-                List<WireRepresentation> data = sctp.handleRequest(buf);
-                data.forEach(i->putDataOnWire(i.getPayload()));
-            } catch (Exception e) {
-                logger.error("Failed handling message: ", e);
-            }
-        });
+        List<WireRepresentation> data = sctp.handleRequest(buf);
+        data.forEach(i->putDataOnWire(i.getPayload()));
         logger.debug("Input: " + Hex.encodeHexString(buf));
     }
 
@@ -343,9 +272,13 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         if(this.running) {
             this.setRunning(false);
             //Give DCs a chance to notify user
-            dataChannels.values().forEach(i ->
-                    workPool.submit(() -> i.onClose.accept(new CloseEvent()))
-            );
+            dataChannels.values().forEach(i -> {
+                try {
+                    i.onClose.accept(new CloseEvent());
+                } catch (RuntimeException e) {
+                    logger.error("Close event failed due to: ", e);
+                }
+            });
             sctp.abort();
             socket.close();
         }
@@ -369,16 +302,37 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     public void send(byte[] data, SCTPPayloadProtocolId ppid, int streamId, SCTPReliability partialReliability) {
         if (mode == ConnectionMode.SCTP && running) {
              sctp.bufferForSending(data, ppid, streamId, partialReliability); //Buffer messages
-             sendPool.submit(this::getPayloadsAndSend); //There must be data to send now, so run immediately
+             getPayloadsAndSend(); //There must be data to send now, so run immediately
         } else {
             logger.error("Data {} not sent, socket not open", String.valueOf(Hex.encodeHex(data)));
         }
     }
 
-    @Override
-    public void putDataOnWireAsync(byte[] out) {
-        normPrioPool.submit(() -> putDataOnWire(out));
+
+    /**
+     * Perform periodic tasks (like resend packets missing in a SACK)
+     * This has to be maintained from the outside.
+     */
+    public void runPeriodicSctpTasks() {
+        sctp.runPeriodicSCTPTasks();
     }
+
+    public boolean isSocketClosed() {
+        return socket.isClosed();
+    }
+
+    public void runConnectionStateLogging() {
+        sctp.runMonitoring();
+    }
+
+    public Instant timeOfLastHeartBeatAck() {
+        return sctp.timeOfLastHeartBeatAck();
+    }
+
+    public Instant timeOfLastSCTPpacket() {
+        return sctp.timeOfLastSCTPPacket();
+    }
+
 
 
     /**
@@ -463,15 +417,11 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
             }
         } else {
             if(definition != null) {
-                //FIXME this should ideally not buffer a lot of work, maybe use some kind of poll instead
-                //can cause massive backpressure problems
-                workPool.submit(() -> {
-                    try {
-                        definition.onMessage.accept(new MessageEvent(deliverable.getData(),sender));
-                    } catch (Exception e) {
-                        logger.error("OnMessage failed",e);
-                    }
-                });
+                try {
+                definition.onMessage.accept(new MessageEvent(deliverable.getData(),sender));
+                } catch (RuntimeException e) {
+                    logger.error("OnMessage failed",e);
+                }
             }
             else {
                 throw new IllegalStateException("DataChannel is not open");
