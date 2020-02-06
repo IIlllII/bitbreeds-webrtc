@@ -300,6 +300,7 @@ public class SimpleSignaling {
         @Override
         public void configure() throws Exception {
             from("websocket:0.0.0.0:8443/incoming")
+                    .routePolicy(new ShutdownPolicy(peerConnection))
                     .log("InputBody: ${body}")
                     .process(new ProcessSignals())
                     .bean(peerConnection)

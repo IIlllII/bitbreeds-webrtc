@@ -194,6 +194,12 @@ public class SimplePeerServer {
     }
 
 
+    public void shutDown() {
+        connections.values().forEach(ConnectionImplementation::close);
+        monitiringAndReaping.shutdownNow();
+        sctpTasksPool.shutdownNow();
+    }
+
 
 }
 
