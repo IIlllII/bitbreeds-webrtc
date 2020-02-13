@@ -139,7 +139,7 @@ public class ReceiveBuffer {
             if(data.getTSN() <= cumulativeTSN) {
                 mustSack = true;
                 duplicates.add(data.getTSN());
-                logger.info("{} was a duplicate, ignore",data.getTSN());
+                logger.info("{} is lower then cumulativeTSN {}, ignore {}",data.getTSN(),cumulativeTSN,data);
             }
             else if(old == null || old.canBeOverwritten()) {
                 buffer[position] = new BufferedReceived(data, ReceiveBufferedState.RECEIVED,DeliveredState.READY);

@@ -31,6 +31,8 @@ import java.io.File;
 public class BrowserChromeIntegrationTest {
 
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     @Before
     public void setupDriver() {
@@ -41,13 +43,14 @@ public class BrowserChromeIntegrationTest {
     public void tearDown() {
         driver.close();
         driver.quit();
+        ctx.stop();
     }
 
 
     @Test
     public void testOpen() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheckNoThrow);
+        ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheckNoThrow);
         ctx.start();
 
         File fl = new File(".././web/index.html");
@@ -69,7 +72,7 @@ public class BrowserChromeIntegrationTest {
     @Test
     public void testAllMessages() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
+        ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

@@ -35,6 +35,8 @@ import java.io.File;
 public class BrowserFirefoxLossyIntegrationTest {
 
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -46,6 +48,7 @@ public class BrowserFirefoxLossyIntegrationTest {
     @After
     public void tearDown() {
         driver.quit();
+        ctx.stop();
     }
 
 
@@ -55,7 +58,7 @@ public class BrowserFirefoxLossyIntegrationTest {
         System.setProperty("com.bitbreeds.keystore.alias", "websocket");
         System.setProperty("com.bitbreeds.keystore.pass", "websocket");
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
+        ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");
@@ -64,7 +67,7 @@ public class BrowserFirefoxLossyIntegrationTest {
         System.out.println(url);
         driver.get(url);
 
-        (new WebDriverWait(driver, 60)).until(
+        (new WebDriverWait(driver, 400)).until(
                 (ExpectedCondition<Boolean>) d -> {
                     assert d != null;
                     return d.findElement(By.id("all-received")).getText().equalsIgnoreCase("ALL RECEIVED");

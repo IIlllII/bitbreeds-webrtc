@@ -44,6 +44,8 @@ import static org.junit.Assert.assertTrue;
 public class ChromePartialReliabilityLongTest {
 
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -56,6 +58,7 @@ public class ChromePartialReliabilityLongTest {
     public void tearDown() {
         driver.close();
         driver.quit();
+        ctx.stop();
     }
 
     @Test
@@ -69,7 +72,7 @@ public class ChromePartialReliabilityLongTest {
         AtomicLong max = new AtomicLong(0);
 
         try {
-            CamelContext ctx = SimpleSignaling.camelContextLossy(5, 5,
+            ctx = SimpleSignaling.camelContextLossy(5, 5,
                     peerServer -> {
 
                         peerServer.onConnection = connection  -> {

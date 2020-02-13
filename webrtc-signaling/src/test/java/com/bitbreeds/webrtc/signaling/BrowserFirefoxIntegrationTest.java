@@ -33,6 +33,8 @@ import java.io.File;
 public class BrowserFirefoxIntegrationTest {
 
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     @Before
     public void setup() {
@@ -42,12 +44,13 @@ public class BrowserFirefoxIntegrationTest {
     @After
     public void tearDown() {
         driver.quit();
+        ctx.stop();
     }
 
     @Test
     public void testOpen() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheckNoThrow);
+        ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheckNoThrow);
         ctx.start();
 
         File fl = new File(".././web/index.html");
@@ -70,7 +73,7 @@ public class BrowserFirefoxIntegrationTest {
     @Test
     public void testAllMessages() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
+        ctx = SimpleSignaling.initContext(SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");

@@ -42,6 +42,8 @@ public class BrowserChromeShutDownIntegrationTest {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     @Before
     public void setupDriver() {
@@ -52,6 +54,7 @@ public class BrowserChromeShutDownIntegrationTest {
     public void tearDown() {
         driver.close();
         driver.quit();
+        ctx.stop();
     }
 
 
@@ -82,7 +85,7 @@ public class BrowserChromeShutDownIntegrationTest {
             };
         };
 
-        CamelContext ctx = new DefaultCamelContext(reg);
+        ctx = new DefaultCamelContext(reg);
         WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
         component.setMinThreads(1);
         component.setMaxThreads(15);
@@ -157,7 +160,7 @@ public class BrowserChromeShutDownIntegrationTest {
             };
         };
 
-        CamelContext ctx = new DefaultCamelContext(reg);
+        ctx = new DefaultCamelContext(reg);
         WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
         component.setMinThreads(1);
         component.setMaxThreads(15);

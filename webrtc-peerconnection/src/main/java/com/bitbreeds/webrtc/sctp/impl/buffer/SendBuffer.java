@@ -161,7 +161,7 @@ public class SendBuffer {
      */
     public SackResult receiveSack(SackData sack) {
         synchronized (lock) {
-            logger.debug("Handling sack {} with inflight {} and cumTSN {}", sack,inFlight,remoteCumulativeTSN);
+            logger.info("Handling sack {} with inflight {} and cumTSN {}", sack,inFlight,remoteCumulativeTSN);
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
 
@@ -241,7 +241,7 @@ public class SendBuffer {
                         new FwdAckPoint(advancedAckPoint,Collections.emptyList()));
             }
             else {
-                logger.info("Out of order sack" + sack);
+                logger.info("Out of order sack {}", sack);
             }
             return new SackResult(Collections.emptyList(),
                     false,
@@ -293,7 +293,7 @@ public class SendBuffer {
     private boolean inGapAck(Long cumulativeTSN,List<GapAck> acks,long inflightTSN) {
         return acks.stream()
                 .reduce(false,
-                        (a,b) -> b.inRange(inflightTSN-cumulativeTSN),
+                        (a,b) -> b.inRange(inflightTSN - cumulativeTSN),
                         (a,b) -> a || b);
     }
 

@@ -176,20 +176,47 @@ reader.onloadend = function () {
 dataChannel.onmessage = function (e) {
     if(e.data != null) {
         console.log(e.data);
-        msgReceived.push(e.data);
+        if(msgReceived.includes(e.data)) {
+            console.log("DUPLICATE!!! "+e.data)
+        }
+
+        if(e.data.toString().startsWith("echo-msg")) {
+            msgReceived.push(e.data);
+        }
         received = received + e.data.length;
     }
 
-    console.log("" + msgReceived.length);
+    console.log("Received " + msgReceived.length + " of " + messages + " messages sent");
 
     if(msgReceived.length >= messages) {
+        console.log("Running finished calc")
         var allRec = true;
+        var missing = [];
         for (var i = 0; i < messages; i++) {
-            allRec = allRec && msgReceived.includes("echo-msg-"+i);
+            var expected = "echo-msg-"+i;
+            var isRec = msgReceived.includes(expected);
+            allRec = allRec && isRec;
+            if(!isRec) {
+                missing.push(expected)
+            }
         }
         if(allRec) {
             var allReceived = document.getElementById("all-received");
             allReceived.innerHTML = "ALL RECEIVED";
+        }
+        else {
+            console.log("Missing: " + missing);
+            console.log("Received: " + msgReceived);
+        }
+    }
+    else if (msgReceived.length >= messages - 10) {
+        console.log("Missing calculation")
+        for (var i = 0; i < messages; i++) {
+            var inReceived = msgReceived.includes("echo-msg-"+i);
+            allRec = allRec && inReceived;
+            if(!inReceived) {
+               console.log("Missing: echo-msg-"+i)
+            }
         }
     }
 

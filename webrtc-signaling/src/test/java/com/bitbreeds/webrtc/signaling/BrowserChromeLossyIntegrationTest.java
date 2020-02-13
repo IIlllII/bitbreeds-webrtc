@@ -33,6 +33,8 @@ import java.io.File;
 public class BrowserChromeLossyIntegrationTest {
 
     private WebDriver driver;
+    private CamelContext ctx;
+
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -45,12 +47,13 @@ public class BrowserChromeLossyIntegrationTest {
     public void tearDown() {
         driver.close();
         driver.quit();
+        ctx.stop();
     }
 
     @Test
     public void testAllMessagesFinished() throws Exception {
 
-        CamelContext ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
+        ctx = SimpleSignaling.camelContextLossy(5,5,SimpleSignaling::setupPeerConnectionDuplicateCheck);
         ctx.start();
 
         File fl = new File(".././web/transfer.html");
