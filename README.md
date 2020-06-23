@@ -15,16 +15,15 @@ it is not something I am interested in writing, since I do not need it at this m
 bitbreeds webrtc is __experimental__ and not even close to complete and __not__ ready for
 any kind serious use.
 
-
 ### How to run
 #### Run locally.
 
 Main class `com.bitbreeds.webrtc.example.DatachannelServer` will start a server on port 8443 accepting websocket connections.
 
 Then run `./web/index.html` in firefox to connect to the server, share candicates and 
-using WebRTC. If it works it should say _ONMESSAGE_
+start using WebRTC. If it works it should say _ONMESSAGE_
 
-#### Run on a server
+#### Run a server
 If you build webrtc-example, you can start the _webrtc-example-<version-with-deps>-.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
 
 Using the default keystore in src/resources. ONLY FOR TESTING.
@@ -79,32 +78,21 @@ peerConnectionServer.onConnection = (connection) -> {
 };
 ```
 
-
 #### Run a complete selenium test
 class `Browser<Chrome/Firefox>*Test` runs a full test against a browser.
 It will start the server, open the browser and connect. Then end
 once it has opened the WebRTC connection, or sent a bunch of messages over the 
-peerconnection.
+peer connection.
 
 
 ### Debug
-To start firefox with logging (this might be outdated), take a look in ./firefox_osx_webrtc_logging.sh: 
-```
-#!/bin/bash
-dat=`echo ~`
-path="$dat/webrtc_firefox.log"
-trace="$dat/webrtc_trace.log"
-echo $path
-export WEBRTC_TRACE_FILE=$trace
-export MOZ_LOG_FILE=$path
-export MOZ_LOG='timestamp,sync,jsep:5,rtplogger:5,SCTP:5,signaling:5,mtransport:5,MediaManager:5,webrtc_trace:5'
-export R_LOG_LEVEL=9
-export R_LOG_VERBOSE=1
-open /Applications/Firefox.app/
-```
-That log will contain a lot of information needed to debug eventual issues.
-On the server side setting levels in logback-test.xml control logging.
+Chrome has ```chrome://webrtc-internals```, which is great for debugging.
 
-Chrome also has chrome://webrtc-internals, which is great for debugging.
+Firefox has ```about:webrtc``` and tab in devtools.
 
 
+### TODO
+- Fix SCTP to something sane (right now it is my own hack of a thing)
+- Figure out why I trigger bad congestion/flow control response in browsers
+- Look into async DTLS some more
+- Scale down the excessive (but very practical) amount copying.
