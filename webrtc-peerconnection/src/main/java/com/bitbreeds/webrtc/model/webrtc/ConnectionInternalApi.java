@@ -22,6 +22,8 @@ import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.peerconnection.PeerConnection;
 import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 
+import java.util.Optional;
+
 /**
  * The Connection interface that SCTP use internally
  */
@@ -78,9 +80,16 @@ public interface ConnectionInternalApi {
     PeerConnection getPeerConnection();
 
     /**
-     *
+     * @return capacity in buffer in bytes
      */
     int getBufferCapacity();
+
+
+    /**
+     * @param stream the stream to get information for
+     * @return Reliability parameters for the stream
+     */
+    Optional<ReliabilityParameters> getStreamInfo(int stream);
 
     /**
      *

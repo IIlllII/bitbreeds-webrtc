@@ -14,6 +14,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Copyright (c) 25/05/16, Jonas Waage
@@ -32,7 +33,9 @@ import java.util.List;
  */
 public class SCTPServiceTest {
 
-    private SCTPImpl srv = new SCTPImpl(Mockito.mock(ConnectionImplementation.class));
+
+    ConnectionImplementation connectionImplementation = Mockito.mock(ConnectionImplementation.class);
+    private SCTPImpl srv = new SCTPImpl(connectionImplementation);
 
     long check = 0x83f086a0;
 
@@ -41,6 +44,7 @@ public class SCTPServiceTest {
 
     @Before
     public void setContext() {
+        Mockito.when(connectionImplementation.getStreamInfo(Mockito.anyInt())).thenReturn(Optional.empty());
         srv.setContext(new SCTPContext(new byte[] {0x4,0x1,0x3,0x4},5000,5000));
     }
 

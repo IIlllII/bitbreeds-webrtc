@@ -26,7 +26,6 @@ import java.time.Instant;
  *
  * This is meant to be used in an AtomicRef for thread safety.
  *
- *
  */
 public class RetransmissionTimer {
 
@@ -60,7 +59,7 @@ public class RetransmissionTimer {
     }
 
     /**
-     *
+     * @param time time to use for check
      * @return true if a timeout occurred
      */
     public boolean checkForTimeout(Instant time) {
@@ -78,6 +77,8 @@ public class RetransmissionTimer {
 
     /**
      * Stop current timeout and reschedule
+     * @param time time to use for restart
+     * @return restarted timer
      */
     public RetransmissionTimer restart(Instant time) {
         return stop().start(time);
@@ -85,6 +86,8 @@ public class RetransmissionTimer {
 
     /**
      * Will schedule a retransmission if none is running.
+     * @param time time to start
+     * @return new timer
      */
     public RetransmissionTimer start(Instant time) {
         if(!hasInflight) {

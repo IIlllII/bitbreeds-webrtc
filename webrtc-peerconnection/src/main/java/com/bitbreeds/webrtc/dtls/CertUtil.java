@@ -31,6 +31,9 @@ public class CertUtil {
     private final static Logger logger = LoggerFactory.getLogger(CertUtil.class);
 
     /**
+     * @param alias alias
+     * @param pass password
+     * @param storePath path to keystore
      * @return sha-256 string based on cert in keystore
      */
     public static String getCertFingerPrint(String storePath, String alias,String pass) {

@@ -27,9 +27,29 @@ import java.util.Arrays;
  */
 public class SCTPTest {
 
+
     String data = "1388138800000000a630caa40100005633c89cf5000200000100080037429a54c000000480080009c00fc1808200000080020024e9eac84358178100ae0c280e0598ed4bf2071c7314acc154aa20de77ec40026780040006000100008003000680c10000";
 
     String data2 = "1388 1388 00000000 a630caa4 01 00 0056 33c89cf5 00020000 0100 0800 37429a54 c000 0004 8008 0009 c00fc18082000000 8002 0024 e9eac84358178100ae0c280e0598ed4bf2071c7314acc154aa20de77ec400267 8004 0006 00010000 8003 0006 80c10000";
+
+    String chunks = "1388138889f51731bf0cd891030000100000005200020000000000000007001d98a4e2c50000000000000033434c49454e542d4d53472d3439000000";
+
+    @Test
+    public void testChunkedMsg() throws DecoderException {
+
+        String msg = chunks;
+
+        byte[] bt = Hex.decodeHex(msg.toCharArray());
+
+        SCTPMessage parsed = SCTPMessage.fromBytes(bt);
+
+        System.out.println(parsed.getChunks().size());
+
+        System.out.println("Message: " + parsed);
+
+
+    }
+
 
     @Test
     public void testSCTPHeader() throws DecoderException {

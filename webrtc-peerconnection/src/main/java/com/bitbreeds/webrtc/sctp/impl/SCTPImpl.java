@@ -61,6 +61,8 @@ public class SCTPImpl implements SCTP  {
     private AtomicReference<Instant> lastSctpMessage = new AtomicReference<>(Instant.now());
     private AtomicReference<Instant> lastHeartBeatAck = new AtomicReference<>(Instant.now());;
 
+    private AtomicReference<Instant> lastFwdAckPtReport = new AtomicReference<>(Instant.now());
+
 
     private final Object sackLock = new Object();
     private int packetCountSinceSack = 0;
@@ -195,14 +197,25 @@ public class SCTPImpl implements SCTP  {
         }
 
         if(result.getAdvancedAckPoint().getAckPoint() > result.getRemoteCumulativeTSN()) {
-            SCTPChunk chunk = SackCreator.creatForwardTsnChunk(result.getAdvancedAckPoint());
-            SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
 
-            SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
-            getConnection().putDataOnWire(withChecksum.toBytes());
+            Instant time = Instant.now();
+            Instant old = lastFwdAckPtReport.getAndUpdate(i->{
+                if(time.minusMillis(50).isAfter(i)) {
+                    return time;
+                }
+                return i;
+            });
 
-            retransmissionCalculator.updateAndGet((i)->i.start(Instant.now()));
-            logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
+            if(time.minusMillis(50).isAfter(old)) {
+                SCTPChunk chunk = SackCreator.creatForwardTsnChunk(result.getAdvancedAckPoint());
+                SCTPMessage msg = new SCTPMessage(SCTPUtil.baseHeader(context), Collections.singletonList(chunk));
+
+                SCTPMessage withChecksum = SCTPUtil.addChecksum(msg);
+                getConnection().putDataOnWire(withChecksum.toBytes());
+
+                retransmissionCalculator.updateAndGet((i) -> i.start(Instant.now()));
+                logger.info("Sending advanced ack point {}", result.getAdvancedAckPoint());
+            }
         }
 
         result.getFastRetransmits().forEach(i -> {
@@ -263,8 +276,9 @@ public class SCTPImpl implements SCTP  {
      * @return payloads moved to inflight and ready to be sent
      */
     public List<WireRepresentation> runPeriodicSCTPTasks() {
+
         synchronized (sackLock) {
-            if(hasNonAcknowledgedData || sackImmediately) {
+            if((hasNonAcknowledgedData && packetCountSinceSack >= 2) || sackImmediately) {
                 hasNonAcknowledgedData = false;
                 sackImmediately = false;
                 packetCountSinceSack = 0;
@@ -327,34 +341,47 @@ public class SCTPImpl implements SCTP  {
      * @return responses
      */
     public List<WireRepresentation> handleRequest(byte[] input) {
-        logger.debug(Hex.encodeHexString(input));
+        logger.trace(Hex.encodeHexString(input));
         SCTPMessage inFullMessage = SCTPMessage.fromBytes(input);
 
-        logger.debug("Input Parsed: " + inFullMessage);
+        logger.debug("Input Parsed: {}", inFullMessage);
 
         SCTPHeader inHdr = inFullMessage.getHeader();
         List<SCTPChunk> inChunks = inFullMessage.getChunks();
 
         lastSctpMessage.set(Instant.now());
 
+        logger.info("Chunks received {} {} {} {}",
+                inChunks.size(),
+                inChunks.stream().map(SCTPChunk::getType).collect(Collectors.toList()),
+                inFullMessage.getChunks().stream().map(i -> i.toBytes().length).collect(Collectors.toList()),
+                input.length);
+
         List<WireRepresentation> result = inChunks.stream()
-                .map(i->handleChunk(i,inHdr))
-                .flatMap(i->i)
-                .map(i->new WireRepresentation(SCTPUtil.addChecksum(i).toBytes()))
+                .map(i -> handleChunk(i,inHdr))
+                .flatMap(i -> i)
+                .map(i -> new WireRepresentation(SCTPUtil.addChecksum(i).toBytes()))
                 .collect(Collectors.toList());
+
+        List<SCTPMessageType> types = inChunks.stream().map(SCTPChunk::getType).collect(Collectors.toList());
+        boolean hasData = types.contains(SCTPMessageType.DATA) || types.contains(SCTPMessageType.FORWARD_TSN);
 
         /*
          * https://tools.ietf.org/html/rfc4960#section-6.2
          * Send sack if packet count with no sack is 2 or more
+         *
+         * TODO do simplest possible SACK
          */
-        synchronized (sackLock) {
-            packetCountSinceSack++;
-            if(packetCountSinceSack >= 2 || sackImmediately) {
-                packetCountSinceSack = 0;
-                sackImmediately = false;
-                hasNonAcknowledgedData = false;
-                SackData sackData = receiveBuffer.getSackDataToSend();
-                getConnection().putDataOnWire(createSackMessage(sackData).getPayload());
+        if(hasData) {
+            synchronized (sackLock) {
+                packetCountSinceSack++;
+                if (packetCountSinceSack >= 2 || sackImmediately) {
+                    packetCountSinceSack = 0;
+                    sackImmediately = false;
+                    hasNonAcknowledgedData = false;
+                    SackData sackData = receiveBuffer.getSackDataToSend();
+                    getConnection().putDataOnWire(createSackMessage(sackData).getPayload());
+                }
             }
         }
 
@@ -392,7 +419,6 @@ public class SCTPImpl implements SCTP  {
      * @param data payload representation
      */
     public void handleSctpPayload(ReceivedData data) {
-
         Objects.requireNonNull(data);
 
         logger.trace("Flags: " + data.getFlag() + " Stream: " + data.getStreamId() + " Stream seq: " + data.getStreamSequence());
@@ -400,17 +426,15 @@ public class SCTPImpl implements SCTP  {
         logger.trace("Data as string: " + new String(data.getPayload()) + ":");
 
         StoreResult result = receiveBuffer.store(data);
-
-        //TODO, this later part should run in own thread, but be kicked of by this event
-        List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
-        if(result.isMustSackImmediately()) {
-            sackImmediately = true;
-        }
-        else {
-            synchronized (sackLock) {
+        synchronized (sackLock) {
+            if (result.isMustSackImmediately()) {
+                sackImmediately = true;
+            } else {
                 hasNonAcknowledgedData = true;
             }
         }
+
+        List<Deliverable> deliverables = receiveBuffer.getMessagesForDelivery();
         deliverables.forEach(
                 i -> getConnection().presentToUser(i)
         );

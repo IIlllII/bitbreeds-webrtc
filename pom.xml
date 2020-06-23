@@ -9,6 +9,10 @@
     <packaging>pom</packaging>
     <version>0.2.5-SNAPSHOT</version>
 
+    <name>bitbreeds-webrtc</name>
+    <description>Java webrtc datachannel implementation</description>
+    <url>https://github.com/IIlllII/bitbreeds-webrtc</url>
+
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
@@ -20,10 +24,11 @@
 
     <build>
         <plugins>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.0.1</version>
+                <version>3.1.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -34,18 +39,50 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M4</version>
+                <configuration>
+                    <excludedGroups>com.bitbreeds.webrtc.test.categories.LongRunning</excludedGroups>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
-    <contributors>
-        <contributor>
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
             <name>Jonas Waage</name>
-            <email>jonaswaage@mac.com</email>
-            <roles>
-                <role>maintainer</role>
-            </roles>
-        </contributor>
-    </contributors>
+            <email>jonas.waage@bitbreeds.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/IIlllII/bitbreeds-webrtc.git</connection>
+        <developerConnection>scm:git:ssh://github.com/IIlllII/bitbreeds-webrtc.git</developerConnection>
+        <url>https://github.com/IIlllII/bitbreeds-webrtc/tree/master</url>
+    </scm>
 
     <modules>
         <module>webrtc-peerconnection</module>

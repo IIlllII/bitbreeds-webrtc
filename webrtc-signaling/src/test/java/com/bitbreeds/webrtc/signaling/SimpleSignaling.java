@@ -23,7 +23,12 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /*
@@ -95,6 +100,37 @@ public class SimpleSignaling {
         ctx.setTracing(true);
         ctx.start();
     }
+
+
+    /**
+     *
+     * @return context with a route containing a server which can create lossy connections
+     * @throws Exception
+     */
+    public static CamelContext camelContextDelayJitterLoss(int lossIn, int lossOut, int delay, int jitter, Consumer<SimplePeerServer> consumer) throws Exception {
+        JndiContext jndiCtx = new JndiContext();
+        JndiBeanRepository reg = new JndiBeanRepository(jndiCtx);
+        jndiCtx.bind("sslContextParameters",sslParameters());
+
+        SimplePeerServer peerConnectionServer = new SimplePeerServer(
+                keyStoreInfo,
+                (i) -> new LossyDelayedJitteryConnection(keyStoreInfo,i,lossIn,lossOut,delay,jitter,AddressUtils.findAddress(),5)
+        );
+
+        consumer.accept(peerConnectionServer);
+
+        CamelContext ctx = new DefaultCamelContext(reg);
+        WebsocketComponent component = (WebsocketComponent)ctx.getComponent("websocket");
+        component.setMinThreads(1);
+        component.setMaxThreads(15);
+        ctx.addRoutes(new SimpleSignaling.WebsocketRouteNoSSL(peerConnectionServer));
+        ctx.addRoutes(new SimpleSignaling.OutRoute());
+        ctx.addRoutes(new SimpleSignaling.DelayRoute());
+        ctx.setUseMDCLogging(true);
+        ctx.setTracing(true);
+        return ctx;
+    }
+
 
     /**
      *
@@ -188,7 +224,7 @@ public class SimpleSignaling {
                 };
 
                 dataChannel.onError = (ev) -> {
-                    logger.info("Received error: {}", ev.getError());
+                    logger.info("Received error: ", ev.getError());
                 };
 
             };
@@ -236,6 +272,65 @@ public class SimpleSignaling {
                         sent += strToSend.length();
                         dataChannel.send(strToSend);
                     }
+                };
+
+            };
+
+        };
+    }
+
+
+    static class ReceivedRecord {
+        public final String data;
+        public final long time;
+        public ReceivedRecord(String data,long time) {
+            this.data = data;
+            this.time = time;
+        }
+
+        @Override
+        public String toString() {
+            return "ReceivedRecord{" +
+                    "data='" + data + '\'' +
+                    ", time=" + time +
+                    '}';
+        }
+    }
+
+    public static void gameServerEquivalent(SimplePeerServer peerConnectionServer, ArrayList<ReceivedRecord> storeReceived) {
+
+        peerConnectionServer.onConnection = (connection) -> {
+
+            connection.onDataChannel = (dataChannel) -> {
+
+                AtomicInteger sendNum = new AtomicInteger(0);
+                ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+
+                dataChannel.onOpen = (ev) -> {
+                    dataChannel.send("OPEN!");
+                    executorService.scheduleAtFixedRate(() -> {
+                        dataChannel.send("SERVER-MSG-"+sendNum.getAndIncrement());
+                    },25,25, TimeUnit.MILLISECONDS);
+                    logger.debug("Running onOpen");
+                };
+
+                dataChannel.onMessage = (ev) -> {
+                    String in = new String(ev.getData());
+                    logger.debug("Running onMessage: " + in);
+                    storeReceived.add(new ReceivedRecord(in,System.currentTimeMillis()));
+
+                };
+
+                dataChannel.onClose = (ev) -> {
+                    logger.debug("Received close: {}", ev);
+                    executorService.shutdownNow();
+                    connection.close();
+                };
+
+                dataChannel.onError = (ev) -> {
+                    logger.debug("Received error: ", ev.getError());
+                    executorService.shutdownNow();
+                    connection.close();
                 };
 
             };

@@ -61,7 +61,7 @@ public class SelectiveAckHandler implements MessageHandler {
 
         List<GapAck> gapAcks = new ArrayList<>(gaps);
         ByteRange rng = new ByteRange(0,2);
-        for(int i = 0; i<gaps; i++) {
+        for(int i = 0; i < gaps; i++) {
             int a = SignalUtil.intFromTwoBytes(SignalUtil.copyRange(data.getRest(),rng));
             rng = rng.plus(2);
             int b = SignalUtil.intFromTwoBytes(SignalUtil.copyRange(data.getRest(),rng));

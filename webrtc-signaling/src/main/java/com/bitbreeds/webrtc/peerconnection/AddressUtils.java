@@ -38,7 +38,7 @@ public class AddressUtils {
                 .filter(i -> i instanceof Inet4Address)
                 .collect(Collectors.toList());
 
-        InetAddress selected = nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException(""));
+        InetAddress selected = nonLoopback.stream().findFirst().orElseThrow(() -> new IllegalStateException("Could not find address"));
 
         logger.info("Picking {} from {}",selected,nonLoopback);
         return selected;

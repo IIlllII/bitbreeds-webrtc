@@ -6,20 +6,8 @@ import org.apache.commons.codec.binary.Hex;
 import java.util.*;
 import java.util.zip.CRC32;
 
-/**
+/*
  * Copyright (c) 11/05/16, Jonas Waage
- * <p>
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
- * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * <p>
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * <p>
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 /**
@@ -45,7 +33,11 @@ public class StunMessage {
      * @param type          {@link StunRequestTypeEnum}
      * @param cookie        see rfc5389
      * @param transactionId see rfc5389
-     * @param attr          {@Link StunAttributeTypeEnum}
+     * @param withIntegrity integrity
+     * @param withFingerprint fingerprint
+     * @param password password
+     * @param username the name
+     * @param attr          StunAttributeTypeEnum
      * @return StunMessage to operate on.
      */
     public static StunMessage fromData(
@@ -116,7 +108,7 @@ public class StunMessage {
         String finger = new String(fingerprint.getData());
         byte[] fingerprintData = Arrays.copyOfRange(data,0,data.length-fingerprint.getLength()-4);
         final CRC32 crc = new CRC32();
-        crc.update(fingerprintData);
+        crc.update(fingerprintData,0,fingerprintData.length);
         String comp = new String(SignalUtil.xor(SignalUtil.fourBytesFromInt((int) crc.getValue()),
                 new byte[]{0x53, 0x54, 0x55, 0x4e}));
 
@@ -193,8 +185,8 @@ public class StunMessage {
         if (withFingerprint) {
             //Generate fingerprint
             final CRC32 crc = new CRC32();
-            crc.update(hd2.toBytes());
-            bt.forEach(crc::update);
+            byte[] crcBytes = SignalUtil.joinBytesArrays(hd2.toBytes(),SignalUtil.joinBytesArrays(bt));
+            crc.update(crcBytes,0,crcBytes.length);
             byte[] xorCRC32 =
                     SignalUtil.xor(SignalUtil.fourBytesFromInt((int) crc.getValue()),
                             new byte[]{0x53, 0x54, 0x55, 0x4e});

@@ -12,18 +12,6 @@ import java.util.zip.CRC32;
 
 /*
  * Copyright (c) 11/05/16, Jonas Waage
- * <p>
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
- * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * <p>
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * <p>
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 /**
@@ -32,7 +20,6 @@ import java.util.zip.CRC32;
 public class SignalUtil {
 
     /**
-     *
      * @param bytes bytes to convert to int
      * @return integer represented by bytes
      */
@@ -154,7 +141,12 @@ public class SignalUtil {
         }
     }
 
-
+    /**
+     *
+     * @param a first array
+     * @param b second array
+     * @return xor of a and b
+     */
     public static byte[] xor(byte[] a, byte[] b) {
         if(a.length != b.length) {
             throw new IllegalArgumentException(
@@ -171,19 +163,21 @@ public class SignalUtil {
 
     /**
      *
-     * @param bytes
+     * @param bytes bytes to calculate CRC32 for
+     * @return computed CRC32
      */
     public static long computeCRC32(byte[] bytes) {
         CRC32 crc = new CRC32();
         crc.reset();
-        crc.update(bytes);
+        crc.update(bytes,0,bytes.length);
         return crc.getValue();
     }
 
 
     /**
      *
-     * @param bytes
+     * @param bytes bytes to calculate CRC32c for
+     * @return computed CRC32c
      */
     public static long computeCRC32c(byte[] bytes) {
         CRC32c crc = new CRC32c();
@@ -194,8 +188,8 @@ public class SignalUtil {
 
     /**
      *
-     * @param bytes
-     * @return
+     * @param bytes bytes in
+     * @return flipped
      */
     public static byte[] flipBytes(byte[] bytes) {
         byte[] bt = new byte[bytes.length];
@@ -207,8 +201,8 @@ public class SignalUtil {
 
     /**
      *
-     * @param l
-     * @return
+     * @param l long
+     * @return bytes
      */
     public static byte[] longToFourBytes(long l) {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -306,6 +300,12 @@ public class SignalUtil {
         return new ByteRange(a,b);
     };
 
+    /**
+     *
+     * @param bytes input
+     * @param range range to copy
+     * @return copied array
+     */
     public static byte[] copyRange(byte[] bytes,ByteRange range) {
         if(range.a < 0) {
             throw new ArrayIndexOutOfBoundsException("Range.a must be 0 or higher, was: " + range.a);
@@ -316,6 +316,12 @@ public class SignalUtil {
         return Arrays.copyOfRange(bytes,range.a,range.b);
     }
 
+    /**
+     *
+     * @param data array to split
+     * @param chunkSize size of each chunk
+     * @return split in chunks
+     */
     public static List<byte[]> split(byte[] data,int chunkSize) {
         if(chunkSize < 1) {
             throw new IllegalArgumentException("Bad chunkzize " + chunkSize);
@@ -330,7 +336,6 @@ public class SignalUtil {
 
 
     /**
-     *
      * @param lgt length wanted
      * @return secure random bytes of length lgt
      */

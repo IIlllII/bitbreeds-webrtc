@@ -3,7 +3,9 @@ package com.bitbreeds.webrtc.signaling;
 import com.bitbreeds.webrtc.dtls.KeyStoreInfo;
 import com.bitbreeds.webrtc.peerconnection.ConnectionImplementation;
 import com.bitbreeds.webrtc.peerconnection.PeerDescription;
+import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
 import com.bitbreeds.webrtc.sctp.model.SCTPMessage;
+import com.bitbreeds.webrtc.sctp.model.SCTPMessageType;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,17 +163,22 @@ public class LossyDelayedJitteryConnection extends ConnectionImplementation {
     public void putDataOnWire(byte[] out) {
         int cnt = outCount.incrementAndGet();
 
+        SCTPMessage msg = SCTPMessage.fromBytes(out);
+        List<SCTPMessageType> types = msg.getChunks()
+                .stream()
+                .map(SCTPChunk::getType)
+                .collect(Collectors.toList());
+
         int rd = random.nextInt(100);
         if(rd > packetlossPercentageOut || cnt < 5) {
             int jitter = random.nextInt(maxJitter);
             synchronized (toSend) {
+                logger.info("Sending packet with type {}",types);
                 toSend.add(new DatedBytes(out, System.currentTimeMillis(), fixedDelay + jitter));
             }
         }
         else {
-            SCTPMessage msg = SCTPMessage.fromBytes(out);
-            logger.debug("Parsed: {}",msg);
-            logger.debug("Dropped out message with rd {} and data {}",rd, Hex.encodeHexString(out));
+            logger.info("Dropped OUTGOING packet with type {}",types);
         }
     }
 
@@ -190,17 +197,21 @@ public class LossyDelayedJitteryConnection extends ConnectionImplementation {
     public void processReceivedMessage(byte[] buf) {
         int cnt = inCount.incrementAndGet();
 
+        SCTPMessage msg = SCTPMessage.fromBytes(buf);
+        List<SCTPMessageType> types = msg.getChunks()
+                .stream()
+                .map(SCTPChunk::getType)
+                .collect(Collectors.toList());
         int rd = random.nextInt(100);
         if(rd > packetlossPercentageIn || cnt < 5) {
             int jitter = random.nextInt(maxJitter);
             synchronized (received) {
+                logger.info("Received packet with type {}",types);
                 received.add(new DatedBytes(buf, System.currentTimeMillis(), fixedDelay + jitter));
             }
         }
         else {
-            SCTPMessage msg = SCTPMessage.fromBytes(buf);
-            logger.debug("Parsed: {}",msg);
-            logger.debug("Dropped received message with rd {} and data {}",rd, Hex.encodeHexString(buf));
+            logger.info("Dropped INCOMING packet with type {}",types);
         }
     }
 

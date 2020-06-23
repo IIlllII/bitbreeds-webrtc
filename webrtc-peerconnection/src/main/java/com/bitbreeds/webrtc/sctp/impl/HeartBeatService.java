@@ -10,35 +10,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.bitbreeds.webrtc.common.SignalUtil.bytesToLong;
 import static com.bitbreeds.webrtc.common.SignalUtil.copyRange;
 
-/**
+/*
  * Copyright (c) 21/07/16, Jonas Waage
- * <p>
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
- * to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * <p>
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * <p>
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 /**
  * Responsible for creating a heartbeat.
  * Responsible for handling heartbeat ack data.
  * Responsible for holding data derived from heartbeats.
- * <p>
+ *
  * TODO implement shutdown if lots of missing heartbeats.
  */
 public class HeartBeatService {
@@ -59,6 +45,7 @@ public class HeartBeatService {
      * Resets shutdown timers
      *
      * @param heartBeatInfo from ack
+     * @return millis of rtt
      */
     public long receiveHeartBeatAck(byte[] heartBeatInfo) {
 
@@ -68,13 +55,24 @@ public class HeartBeatService {
 
         Instant time = rttMap.get(uuid);
         if (time == null) {
-            throw new IllegalArgumentException("Ack with unkown uuid: " + uuid + " map contains: " + rttMap);
+            logger.debug("Ack with unknown uuid {}",uuid);
+            //TODO figure out why this happens: throw new IllegalArgumentException("Ack with unkown uuid: " + uuid + " map contains: " + rttMap);
         } else {
             rttMillis = Instant.now().toEpochMilli() - time.toEpochMilli();
             synchronized (mutex) {
                 rttMap = rttMap.minus(uuid);
             }
         }
+
+        List<UUID> old = rttMap.entrySet().stream()
+                .filter(a-> a.getValue().isBefore(Instant.now().minusSeconds(10)))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        synchronized (mutex) {
+            rttMap = rttMap.minus(old);
+        }
+
         return rttMillis;
     }
 
@@ -87,6 +85,7 @@ public class HeartBeatService {
     }
 
     /**
+     * @param header header
      * @return heartbeat message
      */
     public SCTPMessage createHeartBeat(SCTPHeader header) {

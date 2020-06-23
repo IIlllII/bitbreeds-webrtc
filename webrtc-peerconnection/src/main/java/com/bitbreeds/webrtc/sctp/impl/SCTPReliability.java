@@ -2,6 +2,9 @@ package com.bitbreeds.webrtc.sctp.impl;
 
 import java.util.Optional;
 
+import static com.bitbreeds.webrtc.sctp.impl.SCTPReliability.Type.RETRANSMITNUMBER;
+import static com.bitbreeds.webrtc.sctp.impl.SCTPReliability.Type.TIME;
+
 /**
  * Copyright (c) 11/06/2018, Jonas Waage
  * <p>
@@ -39,7 +42,7 @@ public class SCTPReliability {
     }
 
     public static SCTPReliability createMaxRetransmits(int param, boolean ordered) {
-        return new SCTPReliability(param,Type.RETRANSMITNUMBER,ordered);
+        return new SCTPReliability(param, RETRANSMITNUMBER,ordered);
     }
 
     private SCTPReliability(int param, Type type, boolean ordered) {
@@ -60,8 +63,16 @@ public class SCTPReliability {
         return Optional.ofNullable(type);
     }
 
+    public boolean useMaxRetransmits() {
+        return getType().map(RETRANSMITNUMBER::equals).orElse(false);
+    }
+
+    public boolean useTime() {
+        return getType().map(TIME::equals).orElse(false);
+    }
+
     public boolean shouldAbandon(int number) {
-        return number >= param;
+        return type != null && param >= 0 && number >= param;
     }
 
 

@@ -1,6 +1,7 @@
 package com.bitbreeds.webrtc.sctp.impl;
 
 import com.bitbreeds.webrtc.common.SignalUtil;
+import com.bitbreeds.webrtc.model.webrtc.ReliabilityParameters;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPChunk;
 import com.bitbreeds.webrtc.sctp.model.SCTPHeader;
@@ -53,7 +54,14 @@ public class PayloadHandler implements MessageHandler {
         int proto = SignalUtil.intFromFourBytes(data.getFixed().get(PROTOCOL_IDENTIFIER).getData());
         SCTPPayloadProtocolId ppid = SCTPPayloadProtocolId.fromValue(proto);
 
-        ReceivedData storage = new ReceivedData(tsn,streamId,sequence,data.getFlags(),ppid,data.getRest());
+        /*
+         * Get stream settings from datachannel
+         */
+        SCTPReliability parameters = handler.getConnection().getStreamInfo(streamId)
+                .map(ReliabilityParameters::getSctpReliability)
+                .orElse(SCTPReliability.createOrdered());
+
+        ReceivedData storage = new ReceivedData(tsn,streamId,sequence,data.getFlags(),ppid,parameters,data.getRest());
 
         handler.handleSctpPayload(storage);
 

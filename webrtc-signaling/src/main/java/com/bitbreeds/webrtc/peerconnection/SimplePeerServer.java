@@ -48,12 +48,12 @@ public class SimplePeerServer {
     /**
      * Pool for recurring monitoring and keep alive tasks
      */
-    private final ScheduledExecutorService monitiringAndReaping = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService monitoring = Executors.newScheduledThreadPool(4);
 
     /**
      * Pool for periodic SCTP tasks
      */
-    private final ScheduledExecutorService sctpTasksPool = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService sctpTasksPool = Executors.newScheduledThreadPool(3);
 
     /**
      * Function that allows interception of connection methods
@@ -66,12 +66,6 @@ public class SimplePeerServer {
         this.connectionWrapper = connectionWrapper;
         this.keyStoreInfo = keyStoreInfo;
         address = AddressUtils.findAddress();
-    }
-
-    public SimplePeerServer(KeyStoreInfo keyStoreInfo) {
-        this.keyStoreInfo = keyStoreInfo;
-        this.connectionWrapper = null;
-        address = AddressUtils.findAddress();
 
         //Run periodic tasks
         sctpTasksPool.scheduleAtFixedRate(() ->
@@ -80,24 +74,26 @@ public class SimplePeerServer {
         );
 
         //Schedule sending of heartbeat
-        monitiringAndReaping.scheduleAtFixedRate(() -> {
+        monitoring.scheduleAtFixedRate(() -> {
             connections.values().forEach(ConnectionImplementation::sendSCTPHeartBeat);
         },3000,3000, TimeUnit.MILLISECONDS);
 
         //Schedule logging
-        monitiringAndReaping.scheduleAtFixedRate(() -> {
+        monitoring.scheduleAtFixedRate(() -> {
             connections.values().forEach(ConnectionImplementation::runConnectionStateLogging);
         }, 3000, 3000, TimeUnit.MILLISECONDS);
 
         //Schedule reaping of unresponsive connections
-        monitiringAndReaping.scheduleAtFixedRate(() -> {
+        monitoring.scheduleAtFixedRate(() -> {
             List<Map.Entry<Integer,ConnectionImplementation>> toClose = connections.entrySet().stream()
                     .filter(i -> Instant.now().minusSeconds(30).isAfter(i.getValue().timeOfLastHeartBeatAck()))
                     .collect(Collectors.toList());
 
             if(!toClose.isEmpty()) {
                 logger.info("Reaping connections {} due to missing heartbeats",
-                        toClose.stream().map(i->i.getValue().getPeerConnection().getId()));
+                        toClose.stream()
+                                .map(i->i.getValue().getPeerConnection().getId().toString())
+                                .collect(Collectors.toList()));
                 toClose.forEach(i -> {
                     try {
                         connections.remove(i.getKey());
@@ -120,6 +116,10 @@ public class SimplePeerServer {
             }
 
         }, 10000, 10000, TimeUnit.MILLISECONDS);
+    }
+
+    public SimplePeerServer(KeyStoreInfo keyStoreInfo) {
+        this(keyStoreInfo,null);
     }
 
 
@@ -196,7 +196,7 @@ public class SimplePeerServer {
 
     public void shutDown() {
         connections.values().forEach(ConnectionImplementation::close);
-        monitiringAndReaping.shutdownNow();
+        monitoring.shutdownNow();
         sctpTasksPool.shutdownNow();
     }
 

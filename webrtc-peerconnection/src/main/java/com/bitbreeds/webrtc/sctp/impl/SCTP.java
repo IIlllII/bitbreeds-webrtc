@@ -48,6 +48,7 @@ public interface SCTP {
     /**
      * @param data the rawdata to create a message
      * @param id protocol
+     * @param partialReliability reliability parameters
      * @param stream if set, this message is sent ordered on this stream
      *
      */
@@ -119,13 +120,13 @@ public interface SCTP {
 
     /**
      *
-     * @param storage
+     * @param storage data received
      */
     void handleSctpPayload(ReceivedData storage);
 
     /**
      *
-     * @param sack
+     * @param sack sack data
      */
     void updateAcknowledgedTSNS(SackData sack);
 
@@ -152,4 +153,6 @@ public interface SCTP {
     Instant timeOfLastHeartBeatAck();
 
     Instant timeOfLastSCTPPacket();
+
+    
 }

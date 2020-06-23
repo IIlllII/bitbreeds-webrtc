@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -260,7 +261,7 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
     @Override
     public void processReceivedMessage(byte[] buf) {
         List<WireRepresentation> data = sctp.handleRequest(buf);
-        data.forEach(i->putDataOnWire(i.getPayload()));
+        data.forEach(i -> putDataOnWire(i.getPayload()));
         logger.debug("Input: " + Hex.encodeHexString(buf));
     }
 
@@ -398,6 +399,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
 
                 DataChannel nuDef = new DataChannel(this,deliverable.getStreamId(), parameters);
 
+
+
                 /*
                  * Allow user to hook in behavior when datachannel is created
                  */
@@ -406,6 +409,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
                 dataChannels.put(nuDef.getStreamId(), nuDef);
 
                 logger.info("Opening datachannel with is {} and params {}", nuDef.getStreamId(), nuDef.getReliabilityParameters());
+
+
 
                 /*
                  * Run user callback
@@ -459,7 +464,6 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         return sctp.sendBufferCapacity();
     }
 
-
     /**
      * @return A local user with randomly generated username and password.
      */
@@ -467,6 +471,11 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
         String myUser = Hex.encodeHexString(SignalUtil.randomBytes(4));
         String myPass = Hex.encodeHexString(SignalUtil.randomBytes(16));
         return new UserData(myUser,myPass);
+    }
+
+    @Override
+    public Optional<ReliabilityParameters> getStreamInfo(int stream) {
+        return Optional.ofNullable(dataChannels.get(stream)).map(DataChannel::getReliabilityParameters);
     }
 
 }

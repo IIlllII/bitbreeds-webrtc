@@ -92,6 +92,10 @@ public class SendBuffer {
         }
     }
 
+    public void initializeWebRTCOptions(int maxRetransmits,boolean ordered) {
+
+    }
+
     public int getInitialBufferCapacity() {
         return initialBufferCapacity;
     }
@@ -161,7 +165,7 @@ public class SendBuffer {
      */
     public SackResult receiveSack(SackData sack) {
         synchronized (lock) {
-            logger.info("Handling sack {} with inflight {} and cumTSN {}", sack,inFlight,remoteCumulativeTSN);
+            logger.info("Handling sack {} with inflight {} and cumTSN {} ackpt {}", sack, inFlight , remoteCumulativeTSN, advancedAckPoint);
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
 
@@ -224,6 +228,7 @@ public class SendBuffer {
                     resendList.forEach(
                             i->inFlight.put(i.getTsn(),i)
                     );
+                    logger.info("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
                     return new SackResult(resendList,updatedCumTSN,remoteCumulativeTSN,fwdAckPoint);
                 }
 
@@ -234,7 +239,8 @@ public class SendBuffer {
                     congestionWindow.updateAndGet(i -> i.increase(belowCumTsnSize, size));
                 }
 
-                logger.debug("After Sack inflight:" + inFlight + " queue: " + queue.size());
+                logger.debug("After Sack inflight: {} queue: {}",inFlight,queue.size());
+                logger.info("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
                 return new SackResult(
                         Collections.emptyList(),
                         updatedCumTSN,remoteCumulativeTSN,
@@ -243,11 +249,13 @@ public class SendBuffer {
             else {
                 logger.info("Out of order sack {}", sack);
             }
+
             return new SackResult(Collections.emptyList(),
                     false,
                     remoteCumulativeTSN,
                     new FwdAckPoint(advancedAckPoint,Collections.emptyList()));
         }
+
     }
 
     private FwdAckPoint abandonExpiredPackets(List<GapAck> gapAcks) {
@@ -279,7 +287,7 @@ public class SendBuffer {
                 .map(BufferedSent::getTsn)
                 .collect(Collectors.toList()),advancedAckPoint,remoteCumulativeTSN);
 
-        //inFlight.keySet().removeAll(ids); Hmm, why does not chrome update based on chunk
+        inFlight.keySet().removeAll(ids); //Hmm, why does not chrome update based on chunk
 
         return new FwdAckPoint(advancedAckPoint,streams);
     }
@@ -347,6 +355,7 @@ public class SendBuffer {
 
             FwdAckPoint fwdAckPoint = abandonExpiredPackets(Collections.emptyList());
 
+            //FIXME, for maxRetransmit:0 this should NEVER be hit
             List<BufferedSent> bufferedSents = inFlight.values().stream()
                     .filter(BufferedSent::canResend)
                     .min(BufferedSent::compareTo)

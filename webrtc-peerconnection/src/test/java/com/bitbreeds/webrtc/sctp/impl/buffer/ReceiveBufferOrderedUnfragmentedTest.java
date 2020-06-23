@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Test;
@@ -37,7 +38,9 @@ public class ReceiveBufferOrderedUnfragmentedTest {
                 1,
                 ssn,
                 SCTPOrderFlag.ORDERED_UNFRAGMENTED,
-                SCTPPayloadProtocolId.WEBRTC_BINARY,data);
+                SCTPPayloadProtocolId.WEBRTC_BINARY,
+                SCTPReliability.createOrdered(),
+                data);
     }
 
     private ReceivedData makeDsStream2(long tsn, int ssn, byte[] data) {
@@ -45,7 +48,9 @@ public class ReceiveBufferOrderedUnfragmentedTest {
                 2,
                 ssn,
                 SCTPOrderFlag.ORDERED_UNFRAGMENTED,
-                SCTPPayloadProtocolId.WEBRTC_BINARY,data);
+                SCTPPayloadProtocolId.WEBRTC_BINARY,
+                SCTPReliability.createOrdered(),
+                data);
     }
 
     @Test

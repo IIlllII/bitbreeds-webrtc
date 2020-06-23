@@ -16,10 +16,12 @@ package com.bitbreeds.webrtc.sctp.impl.model;
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.util.TSNUtil;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -34,6 +36,7 @@ public class ReceivedData implements Comparable<ReceivedData> {
     private final int streamSequence;
     private final SCTPOrderFlag flags;
     private final SCTPPayloadProtocolId protocolId;
+    private final SCTPReliability streamReliability;
     private final byte[] payload;
 
     public ReceivedData(long TSN,
@@ -41,12 +44,14 @@ public class ReceivedData implements Comparable<ReceivedData> {
                         int streamSequence,
                         SCTPOrderFlag flags,
                         SCTPPayloadProtocolId protocolId,
+                        SCTPReliability streamReliability,
                         byte[] payload) {
         this.TSN = TSN;
         this.streamId = streamId;
         this.streamSequence = streamSequence;
         this.flags = flags;
         this.protocolId = protocolId;
+        this.streamReliability = streamReliability;
         this.payload = payload;
     }
 
@@ -72,6 +77,10 @@ public class ReceivedData implements Comparable<ReceivedData> {
 
     public byte[] getPayload() {
         return payload;
+    }
+
+    public SCTPReliability getStreamReliability() {
+        return streamReliability;
     }
 
     @Override
@@ -108,7 +117,8 @@ public class ReceivedData implements Comparable<ReceivedData> {
                 ", streamSequence=" + streamSequence +
                 ", flags=" + flags +
                 ", protocolId=" + protocolId +
-                ", payloadSize=" + payload.length +
+                ", streamReliability=" + streamReliability +
+                ", payload=" + Arrays.toString(payload) +
                 '}';
     }
 }

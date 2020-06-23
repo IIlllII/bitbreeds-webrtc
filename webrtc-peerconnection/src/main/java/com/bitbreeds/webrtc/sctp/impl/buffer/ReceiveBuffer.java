@@ -4,6 +4,7 @@ import com.bitbreeds.webrtc.model.sctp.SackUtil;
 import com.bitbreeds.webrtc.common.SignalUtil;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
 import com.bitbreeds.webrtc.sctp.error.DroppedDataException;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,6 +81,7 @@ public class ReceiveBuffer {
      *
      * These getters are for monitoring, and can not be fully trusted
      * since they are not synchronized
+     * @return number of received bytes
      */
     public long getReceivedBytes() {
         return receivedBytes;
@@ -115,6 +117,7 @@ public class ReceiveBuffer {
      * Store received message at TSN % size;
      *
      * @param data data to store
+     * @return result of storing received ata
      */
     public StoreResult store(ReceivedData data) {
         boolean mustSack = false;

@@ -3,6 +3,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.SendData;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -26,18 +27,28 @@ public class BufferedSent implements Comparable<BufferedSent> {
 
     private final SendData data;
     private final SendBufferedState bufferState;
-    private final LocalDateTime firstSendTime;
-    private final LocalDateTime lastSendTime;
+    private final Instant firstSendTime;
+    private final Instant lastSendTime;
     private final long tsn;
     private final int resends;
     private final int fastResendNum;
 
     public boolean canFastResend() {
-        return bufferState.isCanResend() && !fastResent && fastResendNum >= 3;
+        return canResend() && bufferState.isCanResend() && !fastResent && fastResendNum >= 3;
     }
 
     public boolean canResend() {
-        return bufferState.isCanResend();
+        if(data.getReliability().useMaxRetransmits()) {
+            return !data.getReliability().shouldAbandon(resends) && bufferState.isCanResend();
+        }
+        else if(data.getReliability().useTime()) {
+            int diff = (int)(Instant.now().toEpochMilli() - lastSendTime.toEpochMilli());
+            return !data.getReliability().shouldAbandon(diff) && bufferState.isCanResend();
+
+        }
+        else {
+            return bufferState.isCanResend();
+        }
     }
 
     private final boolean fastResent;
@@ -45,8 +56,8 @@ public class BufferedSent implements Comparable<BufferedSent> {
     public BufferedSent(
             SendData data,
             SendBufferedState bufferState,
-            LocalDateTime firstSendTime,
-            LocalDateTime lastSendTime,
+            Instant firstSendTime,
+            Instant lastSendTime,
             long tsn,
             int resends,
             int fastResendNum,
@@ -84,7 +95,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
                             return false;
                         }
 
-                        long a = firstSendTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+                        long a = firstSendTime.toEpochMilli();
                         long b = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
                         return data.getReliability().shouldAbandon((int) (b - a));
                     } else {
@@ -99,11 +110,11 @@ public class BufferedSent implements Comparable<BufferedSent> {
     }
 
     public BufferedSent resend() {
-        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,LocalDateTime.now(),tsn,resends+1,fastResendNum,fastResent);
+        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,Instant.now(),tsn,resends+1,fastResendNum,fastResent);
     }
 
     public BufferedSent fastResend() {
-        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,LocalDateTime.now(),tsn,resends,fastResendNum,true);
+        return new BufferedSent(data, SendBufferedState.SENT,firstSendTime,Instant.now(),tsn,resends,fastResendNum,true);
     }
 
     public BufferedSent markFast() {
@@ -111,7 +122,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
     }
 
     public BufferedSent send() {
-        return new BufferedSent(data, SendBufferedState.SENT,LocalDateTime.now(),LocalDateTime.now(),tsn,resends,fastResendNum,fastResent);
+        return new BufferedSent(data, SendBufferedState.SENT,Instant.now(),Instant.now(),tsn,resends,fastResendNum,fastResent);
     }
 
     public SendData getData() {
@@ -122,7 +133,7 @@ public class BufferedSent implements Comparable<BufferedSent> {
         return tsn;
     }
 
-    public LocalDateTime getLastSendTime() {
+    public Instant getLastSendTime() {
         return lastSendTime;
     }
 

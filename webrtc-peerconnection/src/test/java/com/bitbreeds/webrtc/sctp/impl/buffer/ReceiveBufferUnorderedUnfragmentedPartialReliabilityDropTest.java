@@ -2,6 +2,7 @@ package com.bitbreeds.webrtc.sctp.impl.buffer;
 
 import com.bitbreeds.webrtc.model.sctp.SCTPPayloadProtocolId;
 import com.bitbreeds.webrtc.model.webrtc.Deliverable;
+import com.bitbreeds.webrtc.sctp.impl.SCTPReliability;
 import com.bitbreeds.webrtc.sctp.impl.model.ReceivedData;
 import com.bitbreeds.webrtc.sctp.model.SCTPOrderFlag;
 import org.junit.Ignore;
@@ -34,7 +35,9 @@ public class ReceiveBufferUnorderedUnfragmentedPartialReliabilityDropTest {
                 0,
                 0,
                 SCTPOrderFlag.UNORDERED_UNFRAGMENTED,
-                SCTPPayloadProtocolId.WEBRTC_BINARY,data);
+                SCTPPayloadProtocolId.WEBRTC_BINARY,
+                SCTPReliability.createUnordered(),
+                data);
     }
 
     @Test
