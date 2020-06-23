@@ -4,7 +4,7 @@ package com.bitbreeds.webrtc.dtls;
  *
  */
 
-import org.bouncycastle.crypto.tls.DatagramTransport;
+import org.bouncycastle.tls.DatagramTransport;
 import org.bouncycastle.util.Strings;
 
 import java.io.IOException;
