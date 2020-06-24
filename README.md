@@ -13,7 +13,7 @@ it is not something I am interested in writing, since I do not need it at this m
 
 ### Maturity
 bitbreeds webrtc is __experimental__ and not even close to complete and __not__ ready for
-any kind serious use.
+any kind of serious use.
 
 ### How to run
 #### Run locally.
@@ -49,6 +49,23 @@ The keystore parameters are pretty self explanatory:
 -Dcom.bitbreeds.keystore.alias=websocket
 -Dcom.bitbreeds.keystore.pass=websocket
 ```
+
+#### Dependencies
+
+```
+<dependency>
+    <groupId>com.bitbreeds.webrtc</groupId>
+    <artifactId>webrtc-signaling</artifactId>
+    <version>${bitbreeds.webrtc.version}</version>
+</dependency>
+
+<dependency>
+    <groupId>com.bitbreeds.webrtc</groupId>
+    <artifactId>webrtc-peerconnection</artifactId>
+    <version>${bitbreeds.webrtc.version}</version>
+</dependency>
+```
+
 
 #### Setting up a webrtc datachannel echoing input
 Remember to provide your own keystore, the keystores provided here are for testing
@@ -93,6 +110,6 @@ Firefox has ```about:webrtc``` and tab in devtools.
 
 ### TODO
 - Fix SCTP to something sane (right now it is my own hack of a thing)
-- Figure out why I trigger bad congestion/flow control response in browsers
+- Figure out why I trigger bad congestion/flow control response in browsers (see SCTP issue above)
 - Look into async DTLS some more
 - Scale down the excessive (but very practical) amount copying.
