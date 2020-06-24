@@ -11,26 +11,31 @@
 
     <artifactId>webrtc-example</artifactId>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>com.github.chrisdchristo</groupId>
-                <artifactId>capsule-maven-plugin</artifactId>
-                <version>1.5.1</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                        </goals>
-                        <configuration>
-                            <appClass>com.bitbreeds.webrtc.example.DatachannelServer</appClass>
-                            <type>fat</type>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+    <profiles>
+        <profile>
+           <id>build-example</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.chrisdchristo</groupId>
+                        <artifactId>capsule-maven-plugin</artifactId>
+                        <version>1.5.1</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>build</goal>
+                                </goals>
+                                <configuration>
+                                    <appClass>com.bitbreeds.webrtc.example.DatachannelServer</appClass>
+                                    <type>fat</type>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <dependencies>
 
