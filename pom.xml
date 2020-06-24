@@ -10,7 +10,7 @@
     <version>0.2.5-SNAPSHOT</version>
 
     <name>bitbreeds-webrtc</name>
-    <description>Java webrtc datachannel implementation</description>
+    <description>Experimetal java webrtc datachannel implementation</description>
     <url>https://github.com/IIlllII/bitbreeds-webrtc</url>
 
     <properties>
@@ -65,6 +65,8 @@
 
     <profiles>
         <profile>
+            <id>release</id>
+
             <distributionManagement>
                 <snapshotRepository>
                     <id>ossrh</id>
@@ -76,8 +78,6 @@
                 </repository>
             </distributionManagement>
 
-
-            <id>release</id>
             <build>
                 <plugins>
 
@@ -123,6 +123,18 @@
                                 </goals>
                             </execution>
                         </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>1.6.7</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        </configuration>
                     </plugin>
                 </plugins>
 
