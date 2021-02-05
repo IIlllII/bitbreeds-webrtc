@@ -165,7 +165,7 @@ public class SendBuffer {
      */
     public SackResult receiveSack(SackData sack) {
         synchronized (lock) {
-            logger.info("Handling sack {} with inflight {} and cumTSN {} ackpt {}", sack, inFlight , remoteCumulativeTSN, advancedAckPoint);
+            logger.debug("Handling sack {} with inflight {} and cumTSN {} ackpt {}", sack, inFlight , remoteCumulativeTSN, advancedAckPoint);
             if(sack.getCumulativeTSN() >= remoteCumulativeTSN) {
                 boolean updatedCumTSN = sack.getCumulativeTSN() >= remoteCumulativeTSN;
 
@@ -228,7 +228,7 @@ public class SendBuffer {
                     resendList.forEach(
                             i->inFlight.put(i.getTsn(),i)
                     );
-                    logger.info("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
+                    logger.debug("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
                     return new SackResult(resendList,updatedCumTSN,remoteCumulativeTSN,fwdAckPoint);
                 }
 
@@ -240,7 +240,7 @@ public class SendBuffer {
                 }
 
                 logger.debug("After Sack inflight: {} queue: {}",inFlight,queue.size());
-                logger.info("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
+                logger.debug("Handled sack new inflight {} cum tsn {} ackpt {} ", inFlight,remoteCumulativeTSN,advancedAckPoint);
                 return new SackResult(
                         Collections.emptyList(),
                         updatedCumTSN,remoteCumulativeTSN,
@@ -283,9 +283,11 @@ public class SendBuffer {
                 }
         );*/
 
-        logger.info("Abandoning {} {} {}",toAbandon.stream()
-                .map(BufferedSent::getTsn)
-                .collect(Collectors.toList()),advancedAckPoint,remoteCumulativeTSN);
+        if(toAbandon.size()>0) {
+            logger.info("Abandoning {} {} {}", toAbandon.stream()
+                    .map(BufferedSent::getTsn)
+                    .collect(Collectors.toList()), advancedAckPoint, remoteCumulativeTSN);
+        }
 
         inFlight.keySet().removeAll(ids); //Hmm, why does not chrome update based on chunk
 

@@ -54,6 +54,7 @@ public class BrowserFirefoxLossyPartialRelIntegrationTest {
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
         driver.get(url);
+        driver.get(url);
 
         (new WebDriverWait(driver, 60)).until(
                 (ExpectedCondition<Boolean>) d -> {

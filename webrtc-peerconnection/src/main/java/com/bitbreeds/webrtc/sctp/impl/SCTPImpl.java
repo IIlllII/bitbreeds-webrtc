@@ -351,7 +351,7 @@ public class SCTPImpl implements SCTP  {
 
         lastSctpMessage.set(Instant.now());
 
-        logger.info("Chunks received {} {} {} {}",
+        logger.debug("Chunks received {} {} {} {}",
                 inChunks.size(),
                 inChunks.stream().map(SCTPChunk::getType).collect(Collectors.toList()),
                 inFullMessage.getChunks().stream().map(i -> i.toBytes().length).collect(Collectors.toList()),

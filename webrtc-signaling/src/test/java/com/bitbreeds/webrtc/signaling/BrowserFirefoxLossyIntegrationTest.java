@@ -53,6 +53,7 @@ public class BrowserFirefoxLossyIntegrationTest {
         String url = "file://" + fl.getAbsolutePath();
         System.out.println(url);
         driver.get(url);
+        driver.get(url);
 
         (new WebDriverWait(driver, 30)).until(
                 (ExpectedCondition<Boolean>) d -> {

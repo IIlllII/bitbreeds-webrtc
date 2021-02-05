@@ -68,7 +68,7 @@ public class BrowserChromeShutDownIntegrationTest {
                     logger.info("Received close: {}", ev);
                 };
                 dataChannel.onError = (ev) -> {
-                    logger.info("Received error: {}", ev.getError());
+                    logger.info("Received error: ", ev.getError());
                 };
             };
         };
@@ -143,7 +143,7 @@ public class BrowserChromeShutDownIntegrationTest {
                     logger.info("DC close: {}", ev);
                 };
                 dataChannel.onError = (ev) -> {
-                    logger.info("Received error: {}", ev.getError());
+                    logger.info("Received error: ", ev.getError());
                 };
             };
         };

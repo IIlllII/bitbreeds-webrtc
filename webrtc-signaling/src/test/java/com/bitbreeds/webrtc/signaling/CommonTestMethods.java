@@ -17,7 +17,7 @@ public class CommonTestMethods {
         FirefoxOptions options = new FirefoxOptions();
         options.setHeadless(headless);
         WebDriverManager.firefoxdriver().setup();
-        return new  FirefoxDriver(options);
+        return new FirefoxDriver(options);
     }
 
     public static WebDriver firefoxDriver() {

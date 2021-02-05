@@ -25,6 +25,8 @@ import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -268,26 +270,37 @@ public class SimpleSignaling {
     }
 
 
-    static class ReceivedRecord {
+    static class ReceivedRecord implements Comparable<ReceivedRecord> {
+        public final String connId;
         public final String data;
         public final long time;
-        public ReceivedRecord(String data,long time) {
+        public ReceivedRecord(String connId,String data,long time) {
             this.data = data;
             this.time = time;
+            this.connId = connId;
         }
 
         @Override
         public String toString() {
             return "ReceivedRecord{" +
-                    "data='" + data + '\'' +
+                    "connId='" + connId + '\'' +
+                    ", data='" + data + '\'' +
                     ", time=" + time +
                     '}';
         }
+
+        @Override
+        public int compareTo(ReceivedRecord o) {
+            return Long.compare(time,o.time);
+        }
     }
 
-    public static void gameServerEquivalent(SimplePeerServer peerConnectionServer, ArrayList<ReceivedRecord> storeReceived) {
+    public static void gameServerEquivalent(SimplePeerServer peerConnectionServer, List<ReceivedRecord> storeReceived) {
+        AtomicInteger num = new AtomicInteger(0);
 
         peerConnectionServer.onConnection = (connection) -> {
+
+            String connectionId = "con-"+num.incrementAndGet();
 
             connection.onDataChannel = (dataChannel) -> {
 
@@ -305,7 +318,7 @@ public class SimpleSignaling {
                 dataChannel.onMessage = (ev) -> {
                     String in = new String(ev.getData());
                     logger.debug("Running onMessage: " + in);
-                    storeReceived.add(new ReceivedRecord(in,System.currentTimeMillis()));
+                    storeReceived.add(new ReceivedRecord(connectionId,in,System.currentTimeMillis()));
 
                 };
 
@@ -326,6 +339,61 @@ public class SimpleSignaling {
         };
     }
 
+
+    public static void gameServerEquivalent(SimplePeerServer peerConnectionServer, ConcurrentHashMap<String,List<ReceivedRecord>> storeReceived) {
+        AtomicInteger num = new AtomicInteger(0);
+
+        peerConnectionServer.onConnection = (connection) -> {
+
+            String connectionId = "con-"+num.incrementAndGet();
+
+            connection.onDataChannel = (dataChannel) -> {
+
+                AtomicInteger sendNum = new AtomicInteger(0);
+                ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+
+                dataChannel.onOpen = (ev) -> {
+                    dataChannel.send("OPEN!");
+                    executorService.scheduleAtFixedRate(() -> {
+                        dataChannel.send("SERVER-MSG-"+sendNum.getAndIncrement());
+                    },25,25, TimeUnit.MILLISECONDS);
+                    logger.debug("Running onOpen");
+                };
+
+                dataChannel.onMessage = (ev) -> {
+                    String in = new String(ev.getData());
+                    logger.debug("Running onMessage: " + in);
+
+                    storeReceived.compute(connectionId,(a, b) -> {
+                        if(b!=null) {
+                            b.add(new ReceivedRecord(connectionId,in,System.currentTimeMillis()));
+                            return b;
+                        }
+                        else {
+                            ArrayList<ReceivedRecord> nu = new ArrayList<>();
+                            nu.add(new ReceivedRecord(connectionId,in,System.currentTimeMillis()));
+                            return nu;
+                        }
+                    });
+
+                };
+
+                dataChannel.onClose = (ev) -> {
+                    logger.debug("Received close: {}", ev);
+                    executorService.shutdownNow();
+                    connection.close();
+                };
+
+                dataChannel.onError = (ev) -> {
+                    logger.debug("Received error: ", ev.getError());
+                    executorService.shutdownNow();
+                    connection.close();
+                };
+
+            };
+
+        };
+    }
 
     private static class MDCStart implements Processor {
 
