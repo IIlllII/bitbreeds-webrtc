@@ -2,6 +2,8 @@ package com.bitbreeds.webrtc.signaling;
 
 import com.bitbreeds.webrtc.peerconnection.IceCandidate;
 import gov.nist.javax.sdp.MediaDescriptionImpl;
+import gov.nist.javax.sdp.SessionDescriptionImpl;
+import gov.nist.javax.sdp.TimeDescriptionImpl;
 import gov.nist.javax.sdp.fields.*;
 
 import javax.sdp.*;
@@ -36,8 +38,7 @@ public class SDPUtil {
             boolean isIceLite) {
 
         try {
-            SdpFactory factory = SdpFactory.getInstance();
-            SessionDescription sdp = factory.createSessionDescription();
+            SessionDescription sdp = baseSessionDescription();
             ProtoVersionField v = new ProtoVersionField();
             v.setProtoVersion(0);
             sdp.setVersion(v);
@@ -81,6 +82,28 @@ public class SDPUtil {
         } catch (SdpException e) {
             throw new RuntimeException("SDP creation failed: ",e);
         }
+    }
+
+    /*
+     * Same as SDPFactory.createSessionDescription(), but it does not do a local ip lookup
+     */
+    private static SessionDescriptionImpl baseSessionDescription() throws SdpException {
+        SessionDescriptionImpl sdp = new SessionDescriptionImpl();
+        ProtoVersionField ProtoVersionField = new ProtoVersionField();
+        ProtoVersionField.setVersion(0);
+        sdp.setVersion(ProtoVersionField);
+
+        SessionNameField sessionNameImpl = new SessionNameField();
+        sessionNameImpl.setValue("-");
+        sdp.setSessionName(sessionNameImpl);
+        TimeDescriptionImpl timeDescriptionImpl = new TimeDescriptionImpl();
+        TimeField timeImpl = new TimeField();
+        timeImpl.setZero();
+        timeDescriptionImpl.setTime(timeImpl);
+        Vector times = new Vector();
+        times.addElement(timeDescriptionImpl);
+        sdp.setTimeDescriptions(times);
+        return sdp;
     }
 
     private static AttributeField createAttribute(String key, String value) {
