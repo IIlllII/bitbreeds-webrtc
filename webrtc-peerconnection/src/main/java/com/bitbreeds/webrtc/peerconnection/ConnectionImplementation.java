@@ -305,7 +305,8 @@ public class ConnectionImplementation implements Runnable,ConnectionInternalApi 
              sctp.bufferForSending(data, ppid, streamId, partialReliability); //Buffer messages
              getPayloadsAndSend(); //There must be data to send now, so run immediately
         } else {
-            logger.error("Data {} not sent, socket not open", String.valueOf(Hex.encodeHex(data)));
+            logger.error("Data {} not sent, connection not open", String.valueOf(Hex.encodeHex(data)));
+            throw new IllegalStateException("Connection not open");
         }
     }
 
