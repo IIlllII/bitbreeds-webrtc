@@ -23,16 +23,21 @@ Main class `com.bitbreeds.webrtc.example.DatachannelServer` will start a server 
 Then run `./web/index.html` in firefox to connect to the server, share candicates and 
 start using WebRTC. If it works it should say _ONMESSAGE_
 
-#### Run a server
-If you build webrtc-example, you can start the _webrtc-example-<version-with-deps>-.jar_ like this (make sure you point _-Dcom.bitbreeds.keystore_ to a keystore that exists):
-
-Using the default keystore in src/resources. ONLY FOR TESTING.
+### Run an example echo server
+First, build webrtc-example like so:
 ```
-java -jar -Dcom.bitbreeds.keystore="../src/main/resources/ws2.jks" webrtc-example-1.0-SNAPSHOT-capsule.jar
+mvn clean package -Pbuild-example
 ```
 
+Then you can start the _webrtc-example-<version-with-deps>-.jar_ from the project root like this:
+This will use the default keystore in src/resources. __ONLY FOR TESTING!__.
 ```
-java -Dcom.bitbreeds.keystore=path-to-your-keystore -Dcom.bitbreeds.keystore.alias=your-key-alias -Dcom.bitbreeds.keystore.pass=your-key-pass -Dcom.bitbreeds.ip="192.168.1.5" -jar webrtc-example-1.0-SNAPSHOT-capsule.jar
+java -jar webrtc-example/target/webrtc-example-0.2.6-SNAPSHOT-jar-with-dependencies.jar```
+```
+
+To supply the keystore do:
+```
+java -Dcom.bitbreeds.keystore=path-to-your-keystore -Dcom.bitbreeds.keystore.alias=your-key-alias -Dcom.bitbreeds.keystore.pass=your-key-pass -jar webrtc-example-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 
 If the server has problems finding its own public IP address, you can supply the
@@ -42,7 +47,6 @@ IP address like this.
 ```
 This might be needed since you must send a candidate to the other peer.
 
-
 The keystore parameters are pretty self explanatory:
 ```
 -Dcom.bitbreeds.keystore=./ws2.jks
@@ -50,25 +54,9 @@ The keystore parameters are pretty self explanatory:
 -Dcom.bitbreeds.keystore.pass=websocket
 ```
 
-#### Dependencies
 
-```
-<dependency>
-    <groupId>com.bitbreeds.webrtc</groupId>
-    <artifactId>webrtc-signaling</artifactId>
-    <version>${bitbreeds.webrtc.version}</version>
-</dependency>
-
-<dependency>
-    <groupId>com.bitbreeds.webrtc</groupId>
-    <artifactId>webrtc-peerconnection</artifactId>
-    <version>${bitbreeds.webrtc.version}</version>
-</dependency>
-```
-
-
-#### Setting up a webrtc datachannel echoing input
-Remember to provide your own keystore, the keystores provided here are for testing
+### Setting up a simple webrtc datachannel echoing input
+Remember to provide your own keystore, the keystores provided are only for testing
 ```
 SimplePeerServer peerConnectionServer = new SimplePeerServer(new KeystoreInfo("path","alias","password"));
 
@@ -112,4 +100,4 @@ Firefox has ```about:webrtc``` and tab in devtools.
 - Fix SCTP to something sane (right now it is my own hack of a thing)
 - Figure out why I trigger bad congestion/flow control response in browsers (see SCTP issue above)
 - Look into async DTLS some more
-- Scale down the excessive (but very practical) amount copying.
+- Scale down the excessive (but very practical) amount of copying.

@@ -72,7 +72,7 @@ public class DatachannelServer {
         }
     }
 
-    private static KeyStoreInfo keyStoreInfo = new KeyStoreInfo(
+    private static final KeyStoreInfo keyStoreInfo = new KeyStoreInfo(
             System.getProperty(ServerProperties.KEYSTORE,findKeystore()),
             System.getProperty(ServerProperties.ALIAS,"websocket"),
             System.getProperty(ServerProperties.PASS,"websocket"));
@@ -127,14 +127,18 @@ public class DatachannelServer {
                 dataChannel.onMessage = (ev) -> {
                     String in = new String(ev.getData());
 
-                    receiveLogTime.getAndUpdate((i)-> {
-                        long diff = System.currentTimeMillis()-i;
+                    long time = System.currentTimeMillis();
+                    long result = receiveLogTime.updateAndGet((i)-> {
+                        long diff = time - i;
                         if(diff > 3000) {
-                            logger.info("Got message {} with queue space {}",in,toEcho.size());
-                            return System.currentTimeMillis();
+                            return time;
                         }
                         return i;
                     });
+
+                    if(time == result) {
+                        logger.info("Got messages {} with queue space {}",in,toEcho.size());
+                    }
 
                     try {
                         toEcho.offer("echo-"+in,30, TimeUnit.SECONDS);
@@ -165,14 +169,18 @@ public class DatachannelServer {
 
                     final int lol = sent;
 
-                    sendLogTime.getAndUpdate((i)-> {
-                        long diff = System.currentTimeMillis()-i;
+                    long time = System.currentTimeMillis();
+                    long result = sendLogTime.updateAndGet((i)-> {
+                        long diff = time-i;
                         if(diff > 3000) {
-                            logger.info("Send messages of size {} in queue {}",lol,toEcho.size());
-                            return System.currentTimeMillis();
+                            return time;
                         }
                         return i;
                     });
+
+                    if(time == result) {
+                        logger.info("Sending messages of size {} in queue {}",lol,toEcho.size());
+                    }
                 };
 
             };
