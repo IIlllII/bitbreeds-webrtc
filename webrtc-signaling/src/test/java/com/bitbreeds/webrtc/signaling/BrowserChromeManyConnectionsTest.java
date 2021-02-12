@@ -39,7 +39,7 @@ public class BrowserChromeManyConnectionsTest {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private List<WebDriver> drivers;
     private CamelContext ctx;
-    File chartFile = new File("./target/charts/");
+    private File chartFile = new File("./target/charts/");
 
     @Before
     public void setup() {
